@@ -1,22 +1,18 @@
 # =============================================================================
 # gateway.py — runs ON the "gateway" micro:bit that stays plugged into the Mac.
 # =============================================================================
-# Flash it with the micro:bit Python editor (https://python.microbit.org) or
-# Mu: paste this file, click Send to micro:bit.
+# A transparent pipe between the radio and USB — it does not interpret anything.
+#   Radio  -> Mac : every radio packet is printed as one line
+#   Mac -> Radio  : every line from the Mac is sent out as a radio packet
+# The lines follow docs/PROTOCOL.md (p:name,value / s:name / m:name,value).
 #
-#   Radio  -> Mac : every radio packet is printed as   rx,<packet text>
-#   Mac -> Radio  : a line   tx,<text>   is sent out over the radio
-#
-# Student micro:bits just use normal radio code, set to the SAME group number:
-#     import radio; radio.config(group=GROUP); radio.on()
-#     radio.send("temp,23.5")
-# Packets shaped "name,number" also become ROS topics (see the README).
+# Flash it with the micro:bit Python editor (https://python.microbit.org) or Mu.
 # Not yet run on real hardware (as of writing).
 # =============================================================================
-from microbit import uart, display, Image
+from microbit import uart, display, Image, sleep
 import radio
 
-GROUP = 1          # <-- change to your team's group (0-255); students must match
+GROUP = 1          # <-- your team's group (0-255); student micro:bits must match
 
 radio.config(group=GROUP)   # default length (32 bytes) keeps both sides compatible
 radio.on()
@@ -28,7 +24,7 @@ while True:
     # 1) radio -> USB
     packet = radio.receive()
     if packet:
-        print("rx," + packet.replace("\n", " ").replace("\r", " "))
+        print(packet.replace("\n", " ").replace("\r", " "))
 
     # 2) USB -> radio
     data = uart.read()
@@ -37,5 +33,6 @@ while True:
         while b"\n" in buf:
             line, buf = buf.split(b"\n", 1)
             line = line.decode().strip()
-            if line.startswith("tx,"):
-                radio.send(line[3:])
+            if line and len(line) <= 32:     # radio packets are 32 bytes by default
+                radio.send(line)
+    sleep(5)

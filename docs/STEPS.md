@@ -17,14 +17,12 @@
   watch for it when running Python nodes from slvrov_nodes_python.
 - Use it: `source ws/install/setup.bash` after `source scripts/env.sh`.
 
-## Step 4 — Pico 2 bridge  (nodes/pico_bridge/install.sh)
-- Installs `pyserial` into ros_jazzy (and pip+mpremote only if no `mpremote`
-  is already on PATH; yours is at /opt/homebrew/bin/mpremote).
-- Verified on the Mac with a fake Pico (virtual serial port): /pico/temp arrives,
-  /pico/led reaches the "Pico". The MicroPython program is untested on hardware.
-
-## Step 5 — micro:bit gateway  (nodes/microbit_gateway/install.sh)
-- Ensures `pyserial` is in ros_jazzy (already added in step 4). Nothing else changed.
-- Verified with a fake gateway: /microbit/rx, /microbit/temp (Float32),
-  name sanitising, and /microbit/tx -> gateway all PASS. The micro:bit program
-  is untested on hardware.
+## Step 4 — Pico 2 and micro:bit via one generic bridge  (nodes/serial_bridge, pico, microbit)
+- Text protocol `p:` publish / `s:` subscribe / `m:` message (docs/PROTOCOL.md);
+  numbers and strings only; no libraries on the devices.
+- `nodes/serial_bridge/install.sh` adds `pyserial` to ros_jazzy if missing.
+  `nodes/pico/install.sh` additionally makes sure `mpremote` exists (yours is at
+  /opt/homebrew/bin/mpremote; otherwise it adds pip + mpremote to the env).
+- Verified on the Mac with a fake device (5 PASS checks: Float32 and String
+  publish, name cleaning, subscribe -> topic, ROS -> device). The Pico and
+  micro:bit programs are untested on hardware.
