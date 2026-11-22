@@ -1,0 +1,7 @@
+# Build output and local state — never commit these
+build/
+install/
+log/
+.DS_Store
+# The conda environment lives in ~/micromamba, not here, but just in case:
+envs/
