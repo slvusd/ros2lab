@@ -5,3 +5,6 @@ log/
 .DS_Store
 # The conda environment lives in ~/micromamba, not here, but just in case:
 envs/
+
+# Colcon workspace created by nodes/*/install.sh (cloned + built, not our code)
+ws/
