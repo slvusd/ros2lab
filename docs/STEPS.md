@@ -16,3 +16,9 @@
 - Note: the Mac env has Python 3.14; the Pi has 3.12. Fine for messages, but
   watch for it when running Python nodes from slvrov_nodes_python.
 - Use it: `source ws/install/setup.bash` after `source scripts/env.sh`.
+
+## Step 4 — Pico 2 bridge  (nodes/pico_bridge/install.sh)
+- Installs `pyserial` into ros_jazzy (and pip+mpremote only if no `mpremote`
+  is already on PATH; yours is at /opt/homebrew/bin/mpremote).
+- Verified on the Mac with a fake Pico (virtual serial port): /pico/temp arrives,
+  /pico/led reaches the "Pico". The MicroPython program is untested on hardware.
