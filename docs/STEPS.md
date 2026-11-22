@@ -22,3 +22,9 @@
   is already on PATH; yours is at /opt/homebrew/bin/mpremote).
 - Verified on the Mac with a fake Pico (virtual serial port): /pico/temp arrives,
   /pico/led reaches the "Pico". The MicroPython program is untested on hardware.
+
+## Step 5 — micro:bit gateway  (nodes/microbit_gateway/install.sh)
+- Ensures `pyserial` is in ros_jazzy (already added in step 4). Nothing else changed.
+- Verified with a fake gateway: /microbit/rx, /microbit/temp (Float32),
+  name sanitising, and /microbit/tx -> gateway all PASS. The micro:bit program
+  is untested on hardware.

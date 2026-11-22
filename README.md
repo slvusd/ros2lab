@@ -16,6 +16,7 @@ instead of a Raspberry Pi, so more students can learn ROS 2.
 | `config/` | DDS (discovery) configuration. |
 | `launch/` | Launch files. |
 | `docs/STEPS.md` | Plain-English log of exactly what each step changes on your Mac. |
+| `nodes/pico_bridge/`, `nodes/microbit_gateway/` | USB-serial bridges for Pico 2 and micro:bit (radio) boards. |
 | `docs/NETWORKING.md` | Ports, VLAN/VPN options and SSH-tunnel notes (research, untested). |
 
 ## Quick start
