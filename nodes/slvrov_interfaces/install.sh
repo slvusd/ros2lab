@@ -47,11 +47,13 @@ git -C "$SRC" checkout --quiet "$REF"
 echo "Using slvrov_ros at $(git -C "$SRC" log -1 --format='%h %ad %s' --date=short)"
 
 cd "$ROOT/ws"
-colcon build --packages-select slvrov_interfaces --base-paths src/slvrov_ros/src
+# (The long "install_name_tool ... code signature" warnings are normal on macOS.)
+colcon build --packages-select slvrov_interfaces --base-paths src/slvrov_ros/src 2>&1 | grep -v -e install_name_tool -e cctools-port
 
 # Verify: ask ROS to describe one of the messages.
 # shellcheck disable=SC1091
-source install/setup.bash
+# colcon's setup.bash uses unset variables, so relax `set -u` just for it.
+set +u; source install/setup.bash; set -u
 ros2 interface show slvrov_interfaces/msg/PCA9685Command
 echo
 echo "PASS: slvrov_interfaces built. In each new terminal also run: source ws/install/setup.bash"
