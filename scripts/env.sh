@@ -12,3 +12,9 @@ export MAMBA_ROOT_PREFIX="${MAMBA_ROOT_PREFIX:-$HOME/micromamba}"
 eval "$(micromamba shell hook -s "$(basename "${SHELL:-zsh}")")"
 micromamba activate ros_jazzy
 echo "ROS 2 env active: ROS_DISTRO=${ROS_DISTRO:-<unset>}"
+
+# macOS + joysticks: SDL (used by ROS's joy_node) otherwise hands gamepads to
+# Apple's GameController driver and sees NO devices from a terminal app.
+# Turning that driver off makes SDL read the gamepad directly over USB HID.
+# (Found by testing a Logitech F310 set to "D" mode. Affects only this shell.)
+export SDL_JOYSTICK_MFI=0

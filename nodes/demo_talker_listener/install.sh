@@ -20,7 +20,9 @@ set -euo pipefail
 [ "${ROS_DISTRO:-}" = "jazzy" ] || { echo "Run 'source scripts/env.sh' first." >&2; exit 1; }
 
 OUT="$(mktemp)"
-trap 'kill $TPID $LPID 2>/dev/null; wait $TPID $LPID 2>/dev/null; rm -f "$OUT"' EXIT
+# `ros2 run` is a wrapper: killing it alone leaves the real node running forever.
+# So stop each wrapper's child process first, then the wrapper.
+trap 'pkill -P $TPID 2>/dev/null; pkill -P $LPID 2>/dev/null; kill $TPID $LPID 2>/dev/null; wait $TPID $LPID 2>/dev/null; rm -f "$OUT"' EXIT
 
 ros2 run demo_nodes_cpp talker >/dev/null 2>&1 & TPID=$!
 ros2 run demo_nodes_cpp listener >"$OUT" 2>&1 & LPID=$!

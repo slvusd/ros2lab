@@ -26,3 +26,17 @@
 - Verified on the Mac with a fake device (5 PASS checks: Float32 and String
   publish, name cleaning, subscribe -> topic, ROS -> device). The Pico and
   micro:bit programs are untested on hardware.
+
+## Step 5 — Joystick on the Mac + turtle  (scripts/env.sh, launch/turtle_joy.launch.py)
+- Logitech F310 must be set to **D** (back switch). In X mode macOS sees only a
+  vendor-specific USB device and SDL/joy_node cannot read it.
+- `scripts/env.sh` now exports `SDL_JOYSTICK_MFI=0`; without it SDL lists no
+  joysticks from a terminal on macOS. Verified: `joy_enumerate_devices` lists
+  "Logitech Dual Action"; `joy_node` published 264 `/joy` messages.
+- `launch/turtle_joy.launch.py` starts turtlesim + joy_node + teleop_twist_joy
+  (left stick drives). All three nodes start and the joystick opens; driving the
+  turtle by hand was not yet confirmed at commit time.
+- Fixed `nodes/demo_talker_listener/install.sh`: `ros2 run` wrappers were killed
+  but the real nodes kept running. Now stops the children too (verified: 0 left).
+- Tip: if `ros2 node list` shows a node name twice, a stray process is running
+  (`ps -axo pid,command | grep -E "joy_node|turtlesim"`).
