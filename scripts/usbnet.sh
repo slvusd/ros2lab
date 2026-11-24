@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# usbnet.sh - find a USB ethernet adapter on macOS and give it a static IP.
+# usbnet.sh - find a USB ethernet adapter and give it a static IP.
+# macOS ONLY (uses networksetup/ifconfig); exits with an error elsewhere.
 #
 #   scripts/usbnet.sh                      interactive: pick adapter, enter IP
 #   scripts/usbnet.sh list                 show candidate adapters
@@ -18,6 +19,12 @@
 # Only the ethernet adapter's own service is touched; Wi-Fi is never changed.
 # Changing settings needs admin rights: the script calls sudo for you.
 set -euo pipefail
+
+if [ "$(uname -s)" != "Darwin" ] || ! command -v networksetup >/dev/null 2>&1; then
+  echo "usbnet.sh only works on macOS (needs 'networksetup'); detected $(uname -s)." >&2
+  echo "On Linux use nmcli/netplan instead." >&2
+  exit 1
+fi
 
 SERVICE=""; MASK="255.255.255.0"; ROUTER=""; DNS=""
 
