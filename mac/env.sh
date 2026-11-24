@@ -1,11 +1,11 @@
 # =============================================================================
 # env.sh — activate the ROS 2 Jazzy environment in the CURRENT terminal
 # =============================================================================
-# USE:   source scripts/env.sh        (do NOT run it; it must be sourced)
+# USE:   source mac/env.sh        (do NOT run it; it must be sourced)
 # Needed once per new terminal window. Changes only this terminal session.
 # =============================================================================
 if ! command -v micromamba >/dev/null 2>&1; then
-  echo "micromamba not found - run scripts/00_install_micromamba.sh" >&2
+  echo "micromamba not found - run mac/00_install_micromamba.sh" >&2
   return 1 2>/dev/null || exit 1
 fi
 export MAMBA_ROOT_PREFIX="${MAMBA_ROOT_PREFIX:-$HOME/micromamba}"

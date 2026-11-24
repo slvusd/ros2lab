@@ -15,11 +15,11 @@
 # WHAT IT CHANGES
 #   Possibly adds pyserial to the ros_jazzy env (undo: micromamba remove -n ros_jazzy pyserial).
 #
-# PREREQUISITE:  source scripts/env.sh
+# PREREQUISITE:  source mac/env.sh
 # SAFE TO RE-RUN: yes.
 # =============================================================================
 set -euo pipefail
-[ "${ROS_DISTRO:-}" = "jazzy" ] || { echo "Run 'source scripts/env.sh' first." >&2; exit 1; }
+[ "${ROS_DISTRO:-}" = "jazzy" ] || { echo "Run 'source mac/env.sh' first." >&2; exit 1; }
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 python -c "import serial" 2>/dev/null || \

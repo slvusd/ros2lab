@@ -8,7 +8,7 @@
 #   s:led            ->  creates subscriber /<ns>/in/led (String); anything
 #                        published there is sent back as  m:led,<text>
 #
-# Run (after `source scripts/env.sh`):
+# Run (after `source mac/env.sh`):
 #   python nodes/serial_bridge/serial_bridge.py --ros-args -p ns:=pico
 #   python nodes/serial_bridge/serial_bridge.py --ros-args -p ns:=microbit -p max_len:=32
 # Parameters: ns (topic prefix, default "pico"), port (default: first

@@ -8,3 +8,9 @@ envs/
 
 # Colcon workspace created by nodes/*/install.sh (cloned + built, not our code)
 ws/
+
+# SD-card boot files can contain Wi-Fi keys and password hashes. NEVER commit.
+network-config
+user-data
+meta-data
+*.psk

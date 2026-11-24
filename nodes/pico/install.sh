@@ -12,11 +12,11 @@
 # WHAT IT CHANGES
 #   Possibly: pyserial in the ros_jazzy env, and pip + mpremote if you have no mpremote.
 #
-# PREREQUISITE:  source scripts/env.sh
+# PREREQUISITE:  source mac/env.sh
 # SAFE TO RE-RUN: yes.  Flashing the Pico itself: see README.md in this folder.
 # =============================================================================
 set -euo pipefail
-[ "${ROS_DISTRO:-}" = "jazzy" ] || { echo "Run 'source scripts/env.sh' first." >&2; exit 1; }
+[ "${ROS_DISTRO:-}" = "jazzy" ] || { echo "Run 'source mac/env.sh' first." >&2; exit 1; }
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 "$HERE/../serial_bridge/install.sh"

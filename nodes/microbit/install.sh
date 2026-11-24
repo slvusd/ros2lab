@@ -11,10 +11,10 @@
 # WHAT IT CHANGES
 #   Possibly pyserial in the ros_jazzy env. Nothing else.
 #
-# PREREQUISITE:  source scripts/env.sh
+# PREREQUISITE:  source mac/env.sh
 # SAFE TO RE-RUN: yes.  Flashing the micro:bits: see README.md in this folder.
 # =============================================================================
 set -euo pipefail
-[ "${ROS_DISTRO:-}" = "jazzy" ] || { echo "Run 'source scripts/env.sh' first." >&2; exit 1; }
+[ "${ROS_DISTRO:-}" = "jazzy" ] || { echo "Run 'source mac/env.sh' first." >&2; exit 1; }
 "$(cd "$(dirname "$0")" && pwd)/../serial_bridge/install.sh"
 echo "Next: flash the gateway — see nodes/microbit/README.md"

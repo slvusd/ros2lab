@@ -29,7 +29,7 @@ ENV_NAME="ros_jazzy"
 # Keep all environments in ~/micromamba (same value used by env.sh).
 export MAMBA_ROOT_PREFIX="${MAMBA_ROOT_PREFIX:-$HOME/micromamba}"
 
-command -v micromamba >/dev/null 2>&1 || { echo "Run scripts/00_install_micromamba.sh first." >&2; exit 1; }
+command -v micromamba >/dev/null 2>&1 || { echo "Run mac/00_install_micromamba.sh first." >&2; exit 1; }
 
 if micromamba env list | awk '{print $1}' | grep -qx "$ENV_NAME"; then
   echo "Environment '$ENV_NAME' already exists. Nothing to do."
@@ -50,4 +50,4 @@ micromamba create -y -n "$ENV_NAME" \
 
 echo
 echo "Environment created. Activate it in a terminal with:"
-echo "    source scripts/env.sh"
+echo "    source mac/env.sh"

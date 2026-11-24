@@ -1,7 +1,7 @@
 # =============================================================================
 # turtle_joy.launch.py — drive the turtlesim turtle with a joystick
 # =============================================================================
-# Run (after `source scripts/env.sh`):   ros2 launch launch/turtle_joy.launch.py
+# Run (after `source mac/env.sh`):   ros2 launch launch/turtle_joy.launch.py
 #
 # Three nodes:
 #   turtlesim_node  the little window with the turtle

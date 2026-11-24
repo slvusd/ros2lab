@@ -2,13 +2,13 @@
 # usbnet.sh - find a USB ethernet adapter and give it a static IP.
 # macOS ONLY (uses networksetup/ifconfig); exits with an error elsewhere.
 #
-#   scripts/usbnet.sh                      interactive: pick adapter, enter IP
-#   scripts/usbnet.sh list                 show candidate adapters
-#   scripts/usbnet.sh set 10.0.3.50        static IP, /24, no router
-#   scripts/usbnet.sh set 10.0.3.50 -s "AX88179B" -m 255.255.255.0 -r 10.0.3.1 -d 10.0.3.1
-#   scripts/usbnet.sh dhcp [-s SERVICE]    switch adapter back to DHCP
-#   scripts/usbnet.sh show [-s SERVICE]    show current settings
-#   scripts/usbnet.sh help | --help | -h   this text
+#   mac/usbnet.sh                      interactive: pick adapter, enter IP
+#   mac/usbnet.sh list                 show candidate adapters
+#   mac/usbnet.sh set 10.0.3.50        static IP, /24, no router
+#   mac/usbnet.sh set 10.0.3.50 -s "AX88179B" -m 255.255.255.0 -r 10.0.3.1 -d 10.0.3.1
+#   mac/usbnet.sh dhcp [-s SERVICE]    switch adapter back to DHCP
+#   mac/usbnet.sh show [-s SERVICE]    show current settings
+#   mac/usbnet.sh help | --help | -h   this text
 #
 # Options (after the command):
 #   -s, --service NAME   network service to change (default: auto-detect/ask)

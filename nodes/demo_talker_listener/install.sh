@@ -13,11 +13,11 @@
 # WHAT IT CHANGES
 #   Nothing on disk. Starts two short-lived processes, then stops them.
 #
-# PREREQUISITE:  source scripts/env.sh
+# PREREQUISITE:  source mac/env.sh
 # =============================================================================
 set -euo pipefail
 
-[ "${ROS_DISTRO:-}" = "jazzy" ] || { echo "Run 'source scripts/env.sh' first." >&2; exit 1; }
+[ "${ROS_DISTRO:-}" = "jazzy" ] || { echo "Run 'source mac/env.sh' first." >&2; exit 1; }
 
 OUT="$(mktemp)"
 # `ros2 run` is a wrapper: killing it alone leaves the real node running forever.

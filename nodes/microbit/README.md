@@ -20,7 +20,7 @@ student micro:bit ~~radio~~> gateway --USB--> serial_bridge.py
 
 ## 1. Mac setup and self-test (no micro:bit needed)
 ```bash
-source scripts/env.sh
+source mac/env.sh
 ./nodes/microbit/install.sh
 ```
 

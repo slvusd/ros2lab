@@ -23,13 +23,13 @@
 #                     SLVROV_ROS_REPO=~/src/slvrov_ros ./nodes/slvrov_interfaces/install.sh
 #   SLVROV_ROS_REF    commit/branch to use. Default: d8f8746
 #
-# PREREQUISITE:  source scripts/env.sh
+# PREREQUISITE:  source mac/env.sh
 # AFTER IT RUNS: source ws/install/setup.bash   (makes the messages visible)
 # SAFE TO RE-RUN: yes.
 # =============================================================================
 set -euo pipefail
 
-[ "${ROS_DISTRO:-}" = "jazzy" ] || { echo "Run 'source scripts/env.sh' first." >&2; exit 1; }
+[ "${ROS_DISTRO:-}" = "jazzy" ] || { echo "Run 'source mac/env.sh' first." >&2; exit 1; }
 
 REPO="${SLVROV_ROS_REPO:-git@github.com:slvusd/slvrov_ros.git}"
 REF="${SLVROV_ROS_REF:-d8f8746}"

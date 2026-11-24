@@ -16,7 +16,7 @@ Pico 2  <--"m:led,1"------  serial_bridge.py  <--  /pico/in/led    (String)
 
 ## 1. Mac setup and self-test (no Pico needed)
 ```bash
-source scripts/env.sh
+source mac/env.sh
 ./nodes/pico/install.sh
 ```
 
