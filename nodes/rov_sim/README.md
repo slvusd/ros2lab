@@ -38,10 +38,13 @@ ROV camera window to 4 pictures a second and renders at a lower pixel ratio, Low
 `?selftest` makes the page drive itself for 7 seconds and write `PASS ...` or `FAIL: ...` into the page title (used for headless checks).
 
 **The switch box** (top right, where the joysticks are in the ROS version) imitates the usual scout controller: three momentary
-DPDT switches that give full reverse, off, or full forward (no in-between, like an H-bridge). Top row, lying down: the **red** switch (thruster t1, the left one; keys `1` reverse, `2` forward)
-and the **green** switch (t2, the right one; `-` reverse, `=` forward); left end of the slot = reverse, right end = forward. Below, upright: both vertical
-thrusters (`;` down, `.` up). Hold a switch with the mouse (right half / top half = forward / up, left half / bottom half = reverse / down) or press the keys; it springs back to off. A pushed switch overrides the keyboard for its own thrusters only.
-The rule for the keys is "left key = minus, right key = plus"; to change them edit `SWITCHES` in `web/controls.js` (and the key help in `index.html`).
+DPDT switches that give full reverse, off, or full forward (no in-between, like an H-bridge). Top row, lying down: the **red** switch
+(thruster t1, the left one; keys `1` reverse, `2` forward) and the **green** switch (t2, the right one; left / right arrow keys). Left end of a slot =
+reverse, right end = forward. Below, upright: both vertical thrusters (down / up arrow keys). Hold a switch with the mouse (right half / top half =
+forward / up, left half / bottom half = reverse / down) or press the keys; it springs back to off. A pushed switch overrides everything else for its own
+thrusters only. **H** (or the badge under the switches) toggles **H-bridge only**: the badge turns amber and only the three switches work, like the real
+controller. With it off, the extra keys (W A S D, R F, Z C, I K) work too. The setting is remembered in the browser.
+To change a key, edit `SWITCHES` in `web/controls.js` (and the key help in `index.html`).
 
 **Drive it from a micro:bit or Pico (browser version, Chrome / Edge / Chromebook):** plug the board in with USB, click
 *Connect micro:bit / Pico*, choose the board. The board then just `print()`s lines like `p:t1,0.5` (the protocol is in
@@ -168,8 +171,10 @@ the water you look up at the rippling surface. `?view=follow`, `?cam=x,y,z`, `?t
 
 **Keyboard** (click the page once first). It's for playing by hand; it works alongside your ROS code, and per thruster **the last new value wins**
 (a key you aren't touching never overwrites what your code sent; releasing a key sets that thruster to 0). `-p keys:=false` turns it off.
-W/S forward/reverse, A/D turn, R/Space both vertical thrusters up, F/Shift down, I/K tilt nose up/down, Z/C left/right thruster only,
-H claw open/close, `[` `]` close/open the claw gradually, T claw/nose, B buoyancy, V reset the view, X stop. (These keys mix `t1`..`t4` for you.
+The **switch box** (see below) is driven by `1` `2` (red), the left and right arrow keys (green) and the up and down arrow keys. The extra keys
+W/S forward/reverse, A/D turn, R/Space both vertical thrusters up, F/Shift down, I/K tilt nose up/down, Z/C left/right thruster only
+work too unless you press H (H-bridge only: just the switch box). `[` `]` close/open the claw gradually, T claw/nose, B buoyancy, V reset the view, X stop.
+(These keys mix `t1`..`t4` for you.
 Your ROS code only has the individual thrusters, by design.)
 
 ## The pool

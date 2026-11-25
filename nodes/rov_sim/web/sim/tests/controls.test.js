@@ -3,42 +3,65 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { computeCommand, switchValues, SWITCHES, GAME_KEYS } from "../../controls.js";
 
-const cmd = (keys = [], pointer = [0, 0, 0], claw = 0) => computeCommand(new Set(keys), pointer, claw);
+const cmd = (keys = [], pointer = [0, 0, 0], claw = 0, opts = {}) => computeCommand(new Set(keys), pointer, claw, opts);
+const T = (t1, t2, t3, t4, claw = 0) => ({ t1, t2, t3, t4, claw });
 
-test("the keyboard behaves as before", () => {
-  assert.deepEqual(cmd(), { t1: 0, t2: 0, t3: 0, t4: 0, claw: 0 });
-  assert.deepEqual(cmd(["KeyW"]), { t1: 0.8, t2: 0.8, t3: 0, t4: 0, claw: 0 });
-  assert.deepEqual(cmd(["KeyD"]), { t1: 0.8, t2: -0.8, t3: 0, t4: 0, claw: 0 }, "D turns right: left thruster forward");
-  assert.deepEqual(cmd(["KeyR"]), { t1: 0, t2: 0, t3: 0.8, t4: 0.8, claw: 0 });
-  assert.deepEqual(cmd(["KeyI"]), { t1: 0, t2: 0, t3: 0.8, t4: -0.8, claw: 0 }, "I trims the nose up");
+test("the extra keyboard keys (non-H mode) mix the thrusters at 80%", () => {
+  assert.deepEqual(cmd(), T(0, 0, 0, 0));
+  assert.deepEqual(cmd(["KeyW"]), T(0.8, 0.8, 0, 0));
+  assert.deepEqual(cmd(["KeyS"]), T(-0.8, -0.8, 0, 0));
+  assert.deepEqual(cmd(["KeyD"]), T(0.8, -0.8, 0, 0), "D turns right: left thruster forward");
+  assert.deepEqual(cmd(["KeyA"]), T(-0.8, 0.8, 0, 0));
+  assert.deepEqual(cmd(["KeyR"]), T(0, 0, 0.8, 0.8));
+  assert.deepEqual(cmd(["Space"]), T(0, 0, 0.8, 0.8));
+  assert.deepEqual(cmd(["ShiftLeft"]), T(0, 0, -0.8, -0.8));
+  assert.deepEqual(cmd(["KeyI"]), T(0, 0, 0.8, -0.8), "I trims the nose up");
+  assert.deepEqual(cmd(["KeyZ"]), T(0.8, 0, 0, 0));
+  assert.deepEqual(cmd(["KeyC"]), T(0, 0.8, 0, 0));
   assert.equal(cmd([], [0, 0, 0], 0.5).claw, 0.5);
 });
 
-test("each switch drives its own thruster(s) at FULL power, like an H-bridge", () => {
-  assert.deepEqual(cmd(["Digit2"]), { t1: 1, t2: 0, t3: 0, t4: 0, claw: 0 });          // 2 = left forward
-  assert.deepEqual(cmd(["Digit1"]), { t1: -1, t2: 0, t3: 0, t4: 0, claw: 0 });         // 1 = left reverse
-  assert.deepEqual(cmd(["Equal"]), { t1: 0, t2: 1, t3: 0, t4: 0, claw: 0 });           // = right forward
-  assert.deepEqual(cmd(["Minus"]), { t1: 0, t2: -1, t3: 0, t4: 0, claw: 0 });          // - right reverse
-  assert.deepEqual(cmd(["Period"]), { t1: 0, t2: 0, t3: 1, t4: 1, claw: 0 });          // . up
-  assert.deepEqual(cmd(["Semicolon"]), { t1: 0, t2: 0, t3: -1, t4: -1, claw: 0 });     // ; down
+test("red: keys 1 (reverse) and 2 (forward), green: arrows left / right, up/down: arrows down / up, all at FULL power", () => {
+  assert.deepEqual(cmd(["Digit2"]), T(1, 0, 0, 0));
+  assert.deepEqual(cmd(["Digit1"]), T(-1, 0, 0, 0));
+  assert.deepEqual(cmd(["ArrowRight"]), T(0, 1, 0, 0));
+  assert.deepEqual(cmd(["ArrowLeft"]), T(0, -1, 0, 0));
+  assert.deepEqual(cmd(["ArrowUp"]), T(0, 0, 1, 1));
+  assert.deepEqual(cmd(["ArrowDown"]), T(0, 0, -1, -1));
+});
+
+test("the arrow keys no longer drive forward / turn", () => {
+  for (const k of ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]) {
+    const c = cmd([k]);
+    assert.ok(c.t1 === 0 || c.t2 === 0, `${k} must move one switch only, got ${JSON.stringify(c)}`);
+  }
+  assert.deepEqual(cmd(["ArrowUp"]), T(0, 0, 1, 1), "up is only the up/down switch, not 'forward'");
+});
+
+test("H-bridge only mode: the extra keys do nothing, the switches still work", () => {
+  const h = { hOnly: true };
+  for (const k of ["KeyW", "KeyS", "KeyA", "KeyD", "KeyR", "KeyF", "KeyZ", "KeyC", "KeyI", "KeyK", "Space", "ShiftLeft"]) assert.deepEqual(cmd([k], [0, 0, 0], 0, h), T(0, 0, 0, 0), k);
+  assert.deepEqual(cmd(["Digit2", "ArrowLeft", "ArrowUp", "KeyW"], [0, 0, 0], 0, h), T(1, -1, 1, 1));
+  assert.equal(cmd([], [0, 0, 0], 0.5, h).claw, 0.5, "the claw is not an H-bridge: it still works");
 });
 
 test("both keys of a pair cancel; the three switches are independent", () => {
   assert.deepEqual(switchValues(new Set(["Digit1", "Digit2"])), [0, 0, 0]);
-  assert.deepEqual(switchValues(new Set(["Digit2", "Minus", "Period"])), [1, -1, 1]);
-  assert.deepEqual(cmd(["Digit2", "Minus", "Period"]), { t1: 1, t2: -1, t3: 1, t4: 1, claw: 0 });
+  assert.deepEqual(switchValues(new Set(["ArrowLeft", "ArrowRight"])), [0, 0, 0]);
+  assert.deepEqual(switchValues(new Set(["Digit2", "ArrowLeft", "ArrowUp"])), [1, -1, 1]);
+  assert.deepEqual(cmd(["Digit2", "ArrowLeft", "ArrowUp"]), T(1, -1, 1, 1));
 });
 
 test("the mouse switch wins over keys, and a switch only overrides its own thrusters", () => {
-  assert.deepEqual(cmd(["KeyW"], [0, 0, 0]), { t1: 0.8, t2: 0.8, t3: 0, t4: 0, claw: 0 });
-  assert.deepEqual(cmd(["KeyW"], [-1, 0, 0]), { t1: -1, t2: 0.8, t3: 0, t4: 0, claw: 0 }, "left switch reverse, W still drives the right thruster");
-  assert.deepEqual(cmd(["Digit2"], [-1, 0, 0]).t1, -1, "the mouse beats the key");
-  assert.deepEqual(cmd(["KeyI"], [0, 0, 1]), { t1: 0, t2: 0, t3: 1, t4: 1, claw: 0 }, "up switch overrides the trim keys");
+  assert.deepEqual(cmd(["KeyW"], [-1, 0, 0]), T(-1, 0.8, 0, 0), "red switch reverse, W still drives the green thruster");
+  assert.equal(cmd(["Digit2"], [-1, 0, 0]).t1, -1, "the mouse beats the key");
+  assert.deepEqual(cmd(["KeyI"], [0, 0, 1]), T(0, 0, 1, 1), "the up switch overrides the trim keys");
 });
 
 test("every switch key is a game key (so the page grabs it) and none clashes with another control", () => {
   const keys = SWITCHES.flatMap((s) => [s.minus, s.plus]);
   assert.equal(new Set(keys).size, 6);
   for (const k of keys) assert.ok(GAME_KEYS.has(k), k);
-  for (const k of keys) assert.ok(!["KeyV", "KeyB", "KeyT", "KeyH", "KeyX"].includes(k), `${k} clashes`);
+  for (const k of keys) assert.ok(!["KeyV", "KeyB", "KeyT", "KeyH", "KeyX", "BracketLeft", "BracketRight"].includes(k), `${k} clashes`);
+  assert.ok(GAME_KEYS.has("BracketLeft") && GAME_KEYS.has("BracketRight"), "[ ] still move the claw");
 });

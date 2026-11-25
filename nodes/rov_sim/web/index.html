@@ -57,6 +57,10 @@
   .swslot.h .swend.l { left: 5px; right: auto; text-align: left; } .swslot.h .swend.r { right: 5px; left: auto; text-align: right; }
   .sw.red .swname { color: #ff8a80; } .sw.green .swname { color: #7dffa8; }
   .sw.red .swslot { border-color: #ff8a80aa; } .sw.green .swslot { border-color: #7dffa8aa; }
+  #keyhelp.honly .nonh { opacity: .35; text-decoration: line-through; }
+  .hmode { margin: 6px auto 2px; width: max-content; padding: 2px 10px; border-radius: 10px; cursor: pointer; font: 11px ui-monospace, Menlo, monospace;
+           background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.35); opacity: .85; }
+  .hmode.on { background: #f2b705; color: #111; border-color: #f2b705; opacity: 1; }
   .swkeys { font: 11px ui-monospace, Menlo, monospace; opacity: .85; margin-top: 3px; white-space: pre; }
   .joycap { font: 11px ui-monospace, Menlo, monospace; opacity: .85; margin-top: 3px; }
   @media (max-width: 640px) {
@@ -106,14 +110,15 @@
   </div>
 </div>
 <div id="rightcol">
-<div id="switchbox" class="panel" title="Three momentary switches, like a scout ROV controller: red and green = the two side thrusters (left end reverse, right end forward), bottom = up/down. Click and hold, or use the keys.">
+<div id="switchbox" class="panel" title="Three momentary switches, like a scout ROV controller. Red = the left thruster (keys 1 and 2), green = the right thruster (arrow keys left / right), bottom = both up/down thrusters (arrow keys up / down). Click and hold with the mouse, or use the keys.">
   <div class="swrow">
-    <div class="sw red" data-i="0"><div class="swname">red</div><div class="swslot h"><span class="swend l">&#9664;1</span><div class="swlever"></div><span class="swend r">2&#9654;</span></div></div>
-    <div class="sw green" data-i="1"><div class="swname">green</div><div class="swslot h"><span class="swend l">&#9664;-</span><div class="swlever"></div><span class="swend r">=&#9654;</span></div></div>
+    <div class="sw red" data-i="0"><div class="swname">red</div><div class="swslot h"><span class="swend l">1</span><div class="swlever"></div><span class="swend r">2</span></div></div>
+    <div class="sw green" data-i="1"><div class="swname">green</div><div class="swslot h"><div class="swlever"></div></div></div>
   </div>
   <div class="swrow">
-    <div class="sw" data-i="2"><div class="swname">up / down</div><div class="swslot"><span class="swend top">.&#9650;</span><div class="swlever"></div><span class="swend bot">;&#9660;</span></div></div>
+    <div class="sw" data-i="2"><div class="swname">up / down</div><div class="swslot"><div class="swlever"></div></div></div>
   </div>
+  <div id="hmode" class="hmode" role="button" title="H key. On: only these three switches work, like the real controller (full power, no mixing). Off: the extra keys (W A S D, R F, Z C, I K) work too.">all keys</div>
 </div>
 <div id="joys">
   <div class="panel joy" title="joy1: drag with the mouse. Publishes sensor_msgs/Joy on /sim/joy1 (axes[0] left +, axes[1] up +)">
@@ -141,12 +146,13 @@
 <pre id="seriallog" class="panel" style="display:none; right: 8px; bottom: 8px; margin: 0; font: 11px/1.4 ui-monospace, Menlo, monospace; max-width: 300px; white-space: pre-wrap;"></pre>
 <div id="keyhelp" class="panel" style="display:none; bottom: 8px; left: 8px; font: 12px/1.5 ui-monospace, Menlo, monospace;">
   <div style="font: 600 12px -apple-system, system-ui, sans-serif">Keyboard (click the page first)</div>
-  <div>W/S &nbsp;forward / reverse &nbsp;&nbsp;A/D turn left / right</div>
-  <div>R/Space up &nbsp;&nbsp;F/Shift down &nbsp;&nbsp;I/K nose up/down</div>
-  <div>Z / C &nbsp;left / right thruster only</div>
-  <div>1/2 red &nbsp;-/= green &nbsp;;/. down/up &nbsp;(switch box: first key reverse, second forward)</div>
-  <div id="help-claw">H claw open/close &nbsp;&nbsp;[ ] claw closer/wider &nbsp;&nbsp;X stop all</div>
+  <div>Switch box: &nbsp;1 / 2 red &nbsp;&nbsp;&larr; / &rarr; green &nbsp;&nbsp;&darr; / &uarr; down / up</div>
+  <div class="nonh">W/S forward / reverse &nbsp;&nbsp;A/D turn &nbsp;&nbsp;R/Space up &nbsp;&nbsp;F/Shift down</div>
+  <div class="nonh">I/K nose up/down &nbsp;&nbsp;Z / C one thruster only</div>
+  <div>H: H-bridge only (just the switch box) &nbsp;&nbsp;X stop all</div>
+  <div id="help-claw">[ ] claw closer / wider</div>
   <div id="help-tool">T claw/nose &nbsp;&nbsp;B buoyancy &nbsp;&nbsp;V reset view (or double-click)</div>
+</div>
 </div>
 <div id="topics" class="panel">
   <div class="h">Send commands to:</div>

@@ -7,12 +7,15 @@
 # Options:  --port 8000  --max-thrust 12  --mass 8  --buoyancy 1.5  --imu-noise 0  --hard-limits  --rings 3  --fish 1  --tool claw|nose
 #
 # Click the page once so it has keyboard focus, then:
-#   W / Up      both thrusters forward         S / Down    both reverse
-#   A / Left    turn left                      D / Right   turn right
-#   R / Space   both vertical thrusters up     F / Shift   both down
-#   I / K       tilt nose up / down (front thruster up + rear down, or the reverse)
-#   Z / C       left / right thruster ONLY (hold)
-#   H           open / close the claw      [ / ]  close / open it gradually (a servo)
+#   Switch box (top right of the page, like a scout controller, full power):
+#     1 / 2  red switch (left thruster) reverse / forward      Left / Right arrows  green switch (right thruster) reverse / forward
+#     Down / Up arrows  both vertical thrusters down / up
+#   Extra keys (80% power; turn them all off with H = "H-bridge only", just the switch box):
+#     W / S       both horizontal thrusters forward / reverse    A / D   turn left / right
+#     R / Space   both vertical thrusters up     F / Shift   both down
+#     I / K       tilt nose up / down (front thruster up + rear down, or the reverse)
+#     Z / C       left / right thruster ONLY (hold)
+#   [ / ]       close / open the claw gradually (a servo)
 #   T           claw <-> nose tool         V  reset the camera view          X           stop everything
 #   B           buoyancy: floats -> neutral (hovers) -> sinks   (a setting of the pool, not a ROS topic)
 # Same physics as the ROS version (rov_physics.py), so tuning carries over.

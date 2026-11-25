@@ -627,7 +627,7 @@ let lastMsg = 0;
   const f = backend.features, hide = (sel) => document.querySelectorAll(sel).forEach((e) => { e.style.display = "none"; });
   if (!f.joys) { hide("#joys"); hide("#joyval1, #joyval2"); document.querySelectorAll("#joyval1, #joyval2").forEach((e) => { e.parentElement.style.display = "none"; }); }
   if (!f.imu) hide(".imu");
-  if (!f.claw) { const h = $("help-claw"); if (h) h.textContent = "X stop all"; const t = $("help-tool"); if (t) t.textContent = "B buoyancy   V reset view (or double-click)"; }
+  if (!f.claw) { hide("#help-claw"); const t = $("help-tool"); if (t) t.textContent = "B buoyancy   V reset view (or double-click)"; }
   if (!f.claw) { hide("#tool"); const c = $("claw"); if (c && !f.rings) c.parentElement.style.display = "none"; }
 }
 backend.connect(handleState);
@@ -708,9 +708,20 @@ function updateHud() {
 // ---------- keyboard (only when the server is keyboard_sim.py: state.keys) ----------
 const held = new Set();
 let clawCmd = 0, lastSent = "";
+let hOnly = false;                                            // "H-bridge only": only the three switches work (H key / the badge on the box)
+try { hOnly = localStorage.getItem("rovHOnly") === "on"; } catch (e) { /* no storage: keep default */ }
+function setHOnly(on, send = true) {
+  hOnly = on;
+  try { localStorage.setItem("rovHOnly", on ? "on" : "off"); } catch (e) { /* ignore */ }
+  const b = $("hmode");
+  b.classList.toggle("on", on);
+  b.textContent = on ? "H-bridge only" : "all keys";
+  $("keyhelp").classList.toggle("honly", on);
+  if (send) sendCommand();                                    // thrusters held by an extra key stop at once
+}
 const pointerSw = [0, 0, 0];                                  // the on-screen switch box: -1 / 0 / +1 per switch while the mouse holds it
 function sendCommand() {
-  const body = JSON.stringify(computeCommand(held, pointerSw, clawCmd));
+  const body = JSON.stringify(computeCommand(held, pointerSw, clawCmd, { hOnly }));
   if (body === lastSent) return;
   lastSent = body;
   backend.cmd(JSON.parse(body));
@@ -722,7 +733,7 @@ window.addEventListener("keydown", (e) => {
   if (e.code === "KeyT" && !e.repeat) { if (backend.features.claw) setTool(tool === "claw" ? "nose" : "claw"); return; }
   if (!state.keys) return;
   if (GAME_KEYS.has(e.code)) { held.add(e.code); e.preventDefault(); }
-  else if (e.code === "KeyH" && !e.repeat) { if (backend.features.claw) clawCmd = clawCmd > 0.5 ? 0 : 1; }
+  else if (e.code === "KeyH" && !e.repeat) { setHOnly(!hOnly); return; }
   else if (e.code === "KeyX") held.clear();
   else return;
   sendCommand();
@@ -748,6 +759,8 @@ swEls.forEach((el, i) => {
   slot.addEventListener("pointercancel", release);
   window.addEventListener("blur", release);
 });
+$("hmode").addEventListener("click", () => setHOnly(!hOnly));
+setHOnly(hOnly, false);
 function drawSwitches() {
   switchValues(held, pointerSw).forEach((v, i) => {
     const lever = swEls[i].querySelector(".swlever");
