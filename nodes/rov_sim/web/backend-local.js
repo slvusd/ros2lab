@@ -14,6 +14,6 @@ export function connect(onState) {
 }
 export const cmd = (obj) => world.command(obj);
 export const tool = () => {};                 // fixed nose in the browser version
-export const buoyancy = () => {};             // M1.3
+export const buoyancy = (mode) => world.setBuoyancy(mode);
 export const joy = () => {};
 export const reset = () => world.reset();
