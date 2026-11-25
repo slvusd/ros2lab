@@ -17,7 +17,8 @@ const $ = (id) => document.getElementById(id);
 
 // ---------- renderer / scene ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+let maxPR = 2;                                       // quality tiers lower this (see "quality" at the bottom)
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPR));
 document.body.prepend(renderer.domElement);
 // picture of the scene WITHOUT the water surface; the refraction shader samples it
 // (with its depth, so the water shader knows how deep each thing seen through the surface really is)
@@ -814,10 +815,12 @@ function setView(v) {
   if (v === "orbit") { controls.target.copy(pc); }
 }
 document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
-function setFx(on) {
+let fxUser = fx;                      // what the Water FX button says; a low quality tier can switch it off without changing this
+function setFx(on, byUser = true) {
   fx = on;
+  if (byUser) fxUser = on;
   $("fx").classList.toggle("on", on);
-  try { localStorage.setItem("rovWaterFx", on ? "on" : "off"); } catch (e) { /* ignore */ }
+  if (byUser) try { localStorage.setItem("rovWaterFx", on ? "on" : "off"); } catch (e) { /* ignore */ }
 }
 $("fx").addEventListener("click", () => setFx(!fx));
 setFx(fx);
@@ -846,7 +849,7 @@ function resize() {
 controls.addEventListener("start", () => { userMoved = true; });
 let refit = 0;
 function onResize() {
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));   // zoom changes devicePixelRatio
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPR));   // zoom changes devicePixelRatio
   resize();
   clearTimeout(refit);                     // wait for the panel to stop changing size, then re-fit
   refit = setTimeout(() => { if (!userMoved && view === "orbit") resetView(); }, 150);
@@ -862,6 +865,7 @@ let prev = performance.now(), lastClawSend = 0;
 const off = new THREE.Vector3(), want = new THREE.Vector3();
 function frame(now) {
   requestAnimationFrame(frame);
+  perfSample(now);
   const dt = Math.max(0, Math.min((now - prev) / 1000, 0.1));   // first frame can be negative
   prev = now;
   const t = now / 1000;
@@ -934,7 +938,7 @@ function frame(now) {
 
   updateHud();
   renderScene();
-  if (now - lastCamDraw > 66) { lastCamDraw = now; drawRovCamera(); }       // ~15 pictures a second
+  if (camEvery && now - lastCamDraw > camEvery) { lastCamDraw = now; drawRovCamera(); }       // ~15 pictures a second (fewer on slow machines)
 }
 
 const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0.004);
@@ -1023,4 +1027,71 @@ function drawRovCamera() {
 }
 const UNDER_FOG = new THREE.FogExp2(0x0b5f8a, 0.22);
 const clamp01 =(v) => Math.max(0, Math.min(1, v));
+
+// ---------- quality: stay smooth on slow machines (school Chromebooks) ----------
+// Tier 0 = everything. Each step down drops the most expensive thing: Water FX (a second full render), then the ROV camera
+// window gets slower and the picture coarser, then the camera window goes away. "Auto" starts high (or one down on a weak
+// machine) and only ever steps DOWN, when the frame rate stays low. The Quality button can pin High or Low instead.
+const TIERS = [
+  { name: "High", fx: true, cam: 66, pr: 2 },
+  { name: "Medium", fx: false, cam: 66, pr: 2 },
+  { name: "Low", fx: false, cam: 250, pr: 1.25 },
+  { name: "Lowest", fx: false, cam: 0, pr: 1 },
+];
+const LOW_FPS = Number(new URLSearchParams(location.search).get("lowfps")) || 28;   // (?lowfps=1000 pretends the machine is slow, for testing)
+let qualityMode = "auto", tier = 0, camEvery = 66, graceUntil = 0, winStart = 0, winFrames = 0, lastFrameT = 0, lastFps = 0;
+try { const q = localStorage.getItem("rovQuality"); if (q === "auto" || q === "high" || q === "low") qualityMode = q; } catch (e) { /* ignore */ }
+const weakMachine = (navigator.hardwareConcurrency || 8) <= 4 || (navigator.deviceMemory || 8) <= 4;
+function applyTier(t) {
+  tier = t;
+  const T = TIERS[t];
+  setFx(T.fx ? fxUser : false, false);
+  camEvery = T.cam; maxPR = T.pr;
+  $("cam").style.display = T.cam ? "" : "none";
+  winStart = 0; graceUntil = performance.now() + 1500;          // let shaders compile before measuring again
+  $("quality").textContent = qualityMode === "auto" ? `Quality: Auto (${T.name})` : `Quality: ${T.name}`;
+  onResize();
+}
+function startTier() { return qualityMode === "high" ? 0 : qualityMode === "low" ? 2 : weakMachine ? 1 : 0; }
+function perfSample(now) {
+  const gap = now - lastFrameT; lastFrameT = now;
+  if (document.hidden || gap > 500) { winStart = 0; return; }       // tab was hidden or the machine stalled: not a fair sample
+  if (now < graceUntil) return;
+  if (!winStart) { winStart = now; winFrames = 0; return; }
+  winFrames++;
+  if (now - winStart >= 2000) {
+    lastFps = winFrames * 1000 / (now - winStart);
+    winStart = now; winFrames = 0;
+    if (qualityMode === "auto" && lastFps < LOW_FPS && tier < TIERS.length - 1) applyTier(tier + 1);
+  }
+}
+$("quality").addEventListener("click", () => {
+  qualityMode = qualityMode === "auto" ? "high" : qualityMode === "high" ? "low" : "auto";
+  try { localStorage.setItem("rovQuality", qualityMode); } catch (e) { /* ignore */ }
+  applyTier(startTier());
+});
+applyTier(startTier());
+
+// ---------- ?selftest: drive the ROV by itself and put PASS / FAIL in the page title (for automatic checks) ----------
+if (new URLSearchParams(location.search).has("selftest")) {
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const fail = (m) => { backend.cmd({ t1: 0, t2: 0, t3: 0, t4: 0, claw: 0 }); document.title = "FAIL: " + m; };
+  document.title = "RUNNING";
+  (async () => {
+    await wait(1500);
+    if (!lastMsg) return fail("no state from the sim");
+    const x0 = state.x;
+    backend.cmd({ t1: 0.8, t2: 0.8, t3: 0, t4: 0, claw: 0 });
+    await wait(2500);
+    if (!(state.x > x0 + 0.3)) return fail(`did not drive forward (${x0.toFixed(2)} -> ${state.x.toFixed(2)})`);
+    const d1 = state.depth;
+    backend.cmd({ t1: 0, t2: 0, t3: -0.8, t4: -0.8, claw: 0 });
+    await wait(2500);
+    if (!(state.depth > d1 + 0.2)) return fail(`did not dive (${d1.toFixed(2)} -> ${state.depth.toFixed(2)})`);
+    backend.cmd({ t1: 0, t2: 0, t3: 0, t4: 0, claw: 0 });
+    if (backend.features.fish && !(state.props || []).some((p) => p.type === "fish")) return fail("no fish in the state");
+    document.title = `PASS (${backend.name}, quality ${TIERS[tier].name}, ${lastFps ? lastFps.toFixed(0) + " fps" : "fps not measured"})`;
+  })();
+}
+
 requestAnimationFrame(frame);

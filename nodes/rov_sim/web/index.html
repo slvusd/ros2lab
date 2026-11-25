@@ -46,6 +46,16 @@
   @media (max-width: 640px) {      /* narrow window (VS Code side panel): buttons go under the status box */
     #btns { top: 190px; right: auto; left: 8px; flex-wrap: wrap; max-width: 300px; }
   }
+  /* small laptop screens (1366 x 768 Chromebooks): tighter panels so the pool stays visible */
+  @media (max-height: 800px) {
+    html, body { font-size: 12px; }
+    .panel { padding: 6px 8px; }
+    #hud { min-width: 190px; }
+    #camview { width: 160px; height: 120px; }
+    #rightcol { top: 52px; gap: 6px; }
+    button { padding: 4px 8px; }
+    #keyhelp, #topics { font-size: 11px !important; }
+  }
   button { background: #1d6f9f; color: #fff; border: 0; border-radius: 6px;
            padding: 5px 10px; font: inherit; cursor: pointer; }
   button.on { background: #f2b705; color: #111; }
@@ -95,6 +105,7 @@
   <button id="buoy" title="Pool setting: ROV floats / neutral (hovers) / sinks (B)">Buoyancy: floats</button>
   <button id="tool" title="Front tool: claw or fixed nose (T)">Tool: Claw</button>
   <button id="fx" title="Refraction + water ripples (experimental)">Water FX</button>
+  <button id="quality" title="Auto lowers the graphics if the page runs slowly; click to pin High or Low">Quality: Auto</button>
   <button id="reset">Reset</button>
 </div>
 <div id="keyhelp" class="panel" style="display:none; bottom: 8px; left: 8px; font: 12px/1.5 ui-monospace, Menlo, monospace;">

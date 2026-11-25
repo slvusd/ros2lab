@@ -30,6 +30,12 @@ keyboard. `?mode=local` forces this, `?mode=server` forces the Python server. In
 the coy fish swims (`web/sim/fishbrain.js`, an optional add-on: delete it and the fish is gone), and the claw, rings, IMU readout and joysticks are not there yet.
 The JS fish behaves like the Python one but uses its own random numbers, so it swims different paths; its tests check behaviour, not exact routes.
 
+**Slow machines (Chromebooks):** the Quality button is Auto by default. It starts at High (one step down on machines with 4 or fewer
+cores or 4 GB or less of memory) and steps down only if the frame rate stays under 28 fps: Medium switches Water FX off, Low slows the
+ROV camera window to 4 pictures a second and renders at a lower pixel ratio, Lowest hides the camera window. Click it to pin High or Low
+(remembered in the browser). Small screens (under 800 px tall) get tighter panels.
+`?selftest` makes the page drive itself for 7 seconds and write `PASS ...` or `FAIL: ...` into the page title (used for headless checks).
+
 Python is the reference: `physics.js` is a line-by-line port of `rov_physics.py`. After changing `rov_physics.py`,
 run `python3 tools/export_golden.py` (rewrites `web/sim/tests/golden/physics.json`), port the change to `physics.js`,
 then `node --test web/sim/tests/`. `python3 tools/export_golden.py --check` fails if the committed golden file is stale.
