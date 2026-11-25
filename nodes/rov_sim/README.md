@@ -37,6 +37,14 @@ ROV camera window to 4 pictures a second and renders at a lower pixel ratio, Low
 (remembered in the browser). Small screens (under 800 px tall) get tighter panels.
 `?selftest` makes the page drive itself for 7 seconds and write `PASS ...` or `FAIL: ...` into the page title (used for headless checks).
 
+**Drive it from a micro:bit or Pico (browser version, Chrome / Edge / Chromebook):** plug the board in with USB, click
+*Connect micro:bit / Pico*, choose the board. The board then just `print()`s lines like `p:t1,0.5` (the protocol is in
+`docs/PROTOCOL.md`; examples: `examples/microbit_tilt.py` drives by tilting a micro:bit, `examples/pico_throttle.py` uses a dial).
+The keyboard and the board can both be used: for each thruster the last new value wins. Unplug the board and the thrusters stop.
+Only one program can use a USB port at a time (close MakeCode / Thonny / another tab). Needs `https://` or `http://localhost`;
+a school-managed Chromebook may have Web Serial turned off by policy. The micro:bit radio gateway (`nodes/microbit/gateway.py`) also works:
+it passes the same lines (32 bytes max) between student micro:bits and the page. With the Python/ROS sim, use `nodes/serial_bridge` instead.
+
 Python is the reference: `physics.js` is a line-by-line port of `rov_physics.py`. After changing `rov_physics.py`,
 run `python3 tools/export_golden.py` (rewrites `web/sim/tests/golden/physics.json`), port the change to `physics.js`,
 then `node --test web/sim/tests/`. `python3 tools/export_golden.py --check` fails if the committed golden file is stale.

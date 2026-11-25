@@ -630,6 +630,10 @@ let lastMsg = 0;
   if (!f.claw) { hide("#tool"); const c = $("claw"); if (c && !f.rings) c.parentElement.style.display = "none"; }
 }
 backend.connect(handleState);
+if (backend.features.serial && backend.link) {          // micro:bit / Pico over USB (browser version only; with the Python sim use nodes/serial_bridge)
+  $("serial").style.display = "";
+  import("./serial.js").then((m) => m.setupSerial({ link: backend.link, button: $("serial"), panel: $("seriallog") })).catch(() => { $("serial").style.display = "none"; });
+}
 function handleState(s) {
   if (!s.regions) return;
   const key = JSON.stringify(s.regions);
