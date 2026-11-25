@@ -4,8 +4,9 @@ import { World } from "./sim/world.js";
 import { Rov } from "./sim/physics.js";
 
 export const name = "local sim";
-export const features = { keys: true, joys: false, claw: false, imu: false, rings: false, fish: true };
+export const features = { keys: true, joys: false, claw: false, imu: false, rings: true, fish: true };
 const rov = new Rov({ tool: "nose" });
+try { (await import("./sim/rings.js")).addTo(rov, 3); } catch (e) { /* optional add-on: no rings without rings.js */ }
 try { (await import("./sim/fishbrain.js")).addTo(rov, 1); } catch (e) { /* optional add-on: no fish without fishbrain.js */ }
 const world = new World(rov);
 let timer = null;

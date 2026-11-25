@@ -627,7 +627,7 @@ let lastMsg = 0;
   if (!f.joys) { hide("#joys"); hide("#joyval1, #joyval2"); document.querySelectorAll("#joyval1, #joyval2").forEach((e) => { e.parentElement.style.display = "none"; }); }
   if (!f.imu) hide(".imu");
   if (!f.claw) { const h = $("help-claw"); if (h) h.textContent = "X stop all"; const t = $("help-tool"); if (t) t.textContent = "B buoyancy   V reset view (or double-click)"; }
-  if (!f.claw) { hide("#tool"); const c = $("claw"); if (c) c.parentElement.style.display = "none"; }
+  if (!f.claw) { hide("#tool"); const c = $("claw"); if (c && !f.rings) c.parentElement.style.display = "none"; }
 }
 backend.connect(handleState);
 function handleState(s) {
@@ -1052,7 +1052,10 @@ function applyTier(t) {
   $("quality").textContent = qualityMode === "auto" ? `Quality: Auto (${T.name})` : `Quality: ${T.name}`;
   onResize();
 }
-function startTier() { return qualityMode === "high" ? 0 : qualityMode === "low" ? 2 : weakMachine ? 1 : 0; }
+const qualityParam = new URLSearchParams(location.search).get("quality");       // ?quality=high|low|lowest|auto beats the saved choice
+if (qualityParam === "high" || qualityParam === "low" || qualityParam === "auto") qualityMode = qualityParam;
+if (qualityParam === "lowest") qualityMode = "low";
+function startTier() { return qualityParam === "lowest" ? 3 : qualityMode === "high" ? 0 : qualityMode === "low" ? 2 : weakMachine ? 1 : 0; }
 function perfSample(now) {
   const gap = now - lastFrameT; lastFrameT = now;
   if (document.hidden || gap > 500) { winStart = 0; return; }       // tab was hidden or the machine stalled: not a fair sample

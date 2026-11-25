@@ -11,6 +11,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 import rov_physics as P
+import rov_props
 
 OUT = os.path.join(HERE, "..", "web", "sim", "tests", "golden", "physics.json")
 DT = 1 / 60
@@ -48,9 +49,55 @@ def run(buoy, segs):
     return rows
 
 
+# Ring scenarios: tool, number of rings, the ROV's starting pose, per-ring overrides, and the segments (seconds, commands).
+# Commands may include "claw_target". Recorded: the ROV (x, y, depth, yaw, pitch) and every ring (x, y, depth, yaw, held, hooked, lifting).
+RING_SCENARIOS = {
+    "ring_push": dict(tool="claw", rings=1, rov=dict(x=-0.3, y=0.0, yaw=0.0, depth=1.6), ringset={0: dict(x=0.9, y=0.0, yaw=1.5707963267948966)},
+                      segments=[(3, {"t1": .6, "t2": .6}), (2, {})]),
+    "ring_corner_catch": dict(tool="claw", rings=1, rov=dict(x=-0.3, y=0.0, yaw=0.0, depth=1.55), ringset={0: dict(x=1.0, y=0.36, yaw=1.5707963267948966)},
+                              segments=[(3.5, {"t1": .5, "t2": .5}), (2, {})]),
+    "ring_nose_carry": dict(tool="nose", rings=1, rov=dict(x=0.2, y=0.0, yaw=0.0, depth=1.55), ringset={},
+                            segments=[(0.9, {"t1": .5, "t2": .5}), (0.5, {}), (2, {"t3": .7, "t4": .7}), (1.5, {"t1": .5, "t2": .5}), (1, {}), (1.5, {"t1": -.5, "t2": -.5})]),
+    "ring_claw_grab": dict(tool="claw", rings=1, rov=dict(x=-1.0, y=0.0, yaw=0.0, depth=1.5, claw=1.0, claw_target=1.0), ringset={0: dict(x=-0.5, y=-0.14, depth=1.75)},
+                           segments=[(0.34, {}), (1.0, {"claw_target": 0.0}), (3, {"t3": .6, "t4": .6}), (0.5, {"claw_target": 1.0}), (1, {})]),
+    "ring_shelf_carry": dict(tool="nose", rings=1, rov=dict(x=1.8, y=-0.2, yaw=1.5707963267948966, depth=1.55), ringset={0: dict(x=1.8, y=0.4, yaw=0.0)},
+                             segments=[(0.9, {"t1": .5, "t2": .5}), (0.5, {}), (2.2, {"t3": .7, "t4": .7}), (1, {}), (6, {"t1": .5, "t2": .5}), (1, {}),
+                                       (3, {"t3": -.4, "t4": -.4}), (1.5, {}), (2.5, {"t1": -.6, "t2": -.6})]),
+    # (no two-ring trace on purpose: two rings resting on the floor are at exactly the same depth, so their hoops touch with exact ties
+    #  between "push up" and "push down", which float noise decides differently in Python and JS. The behaviour test covers two rings.)
+}
+
+
+def run_ring(sc):
+    rov = P.Rov(buoyancy=0.0, tool=sc["tool"])
+    rov_props.add_to(rov, sc["rings"])
+    for k, v in sc["rov"].items():
+        setattr(rov, k, v)
+    for i, over in sc["ringset"].items():
+        for k, v in over.items():
+            setattr(rov.props[i], k, v)
+    rows, n = [], 0
+    for secs, cmd in sc["segments"]:
+        for k in ("t1", "t2", "t3", "t4"):
+            rov.set_cmd(k, cmd.get(k, 0.0))
+        if "claw_target" in cmd:
+            rov.claw_target = cmd["claw_target"]
+        for _ in range(int(round(secs / DT))):
+            rov.step(DT)
+            n += 1
+            if n % EVERY == 0:
+                row = [rov.x, rov.y, rov.depth, rov.yaw, rov.pitch]
+                for ring in rov.props:
+                    row += [ring.x, ring.y, ring.depth, ring.yaw, int(ring.held), int(ring.hooked), int(ring.lifting)]
+                rows.append(row)
+    return rows
+
+
 def build():
     return {"dt": DT, "every": EVERY, "columns": ["x", "y", "depth", "yaw", "pitch", "speed", "splash_n", "floor_n", "ax", "ay", "az", "gy", "gz"],
-            "scenarios": {name: {"buoyancy": b, "segments": [[s, c] for s, c in segs], "rows": run(b, segs)} for name, (b, segs) in SCENARIOS.items()}}
+            "scenarios": {name: {"buoyancy": b, "segments": [[s, c] for s, c in segs], "rows": run(b, segs)} for name, (b, segs) in SCENARIOS.items()},
+            "ring_scenarios": {name: {**sc, "ringset": {str(k): v for k, v in sc["ringset"].items()}, "segments": [[s, c] for s, c in sc["segments"]], "rows": run_ring(sc)}
+                               for name, sc in RING_SCENARIOS.items()}}
 
 
 if __name__ == "__main__":
