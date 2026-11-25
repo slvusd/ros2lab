@@ -88,8 +88,7 @@ _CORNER_SIGNS = [(1, 1, 1), (1, -1, 1), (-1, 1, 1), (-1, -1, 1), (1, 1, -1), (1,
 
 def _mix8(f=0, strafe=0, turn=0, up=0, trim=0, roll=0):
     """Commands for the 8 corner thrusters (the same mixing as web/controls.js)."""
-    ua, ub = 2 - math.sqrt(2), math.sqrt(2) - 1
-    return {f"t{i + 1}": f + strafe * sx * sy + turn * sy + up * (ua * sz + ub * sx * sz) + trim * sx * sz + roll * sy * sz for i, (sx, sy, sz) in enumerate(_CORNER_SIGNS)}
+    return {f"t{i + 1}": f * sx + strafe * sy + turn * sx * sy + up * sz + trim * sx * sz + roll * sy * sz for i, (sx, sy, sz) in enumerate(_CORNER_SIGNS)}
 
 
 THRUSTER_SCENARIOS = {

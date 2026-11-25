@@ -61,6 +61,7 @@ def test_six_and_eight_put_the_horizontal_thrusters_on_the_four_posts_and_the_ve
     assert sorted((round(t["x"], 3), round(t["y"], 3), round(t["z"], 3)) for t in c8) == sorted((x, y, z) for x in (-0.25, 0.25) for y in (-0.25, 0.25) for z in (-0.25, 0.25)), "one thruster at each of the 8 corners"
     for t in c8:
         assert abs(abs(t["dx"]) - 0.5) < 1e-12 and abs(abs(t["dy"]) - 0.5) < 1e-12 and abs(abs(t["dz"]) - math.sqrt(0.5)) < 1e-12, "tilted 45 degrees from the horizontal diagonal"
+        assert t["dx"] * t["x"] > 0 and t["dy"] * t["y"] < 0, "fanned out like an X: front ones point forward, rear ones backward, all toward the middle sideways"
         assert t["dz"] * t["z"] > 0, "top corners lean up, bottom ones down"
         assert abs(math.hypot(t["gx"], t["gy"], t["gz"]) - math.hypot(0.30, 0.30, 0.30)) < 1e-9 and t["gx"] * t["x"] > 0, "just outside the corner"
         assert t["color"] == ("red" if t["y"] > 0 else "green")
@@ -104,13 +105,9 @@ def test_six_thrusters_forward_turn_and_strafe_come_from_the_vectored_posts():
 CORNER_SIGNS = [(1, 1, 1), (1, -1, 1), (-1, 1, 1), (-1, -1, 1), (1, 1, -1), (1, -1, -1), (-1, 1, -1), (-1, -1, -1)]
 
 
-# "up" needs a little nose trim mixed in: the top thrusters lean up and the bottom ones down, so a push on the top (forward) and on the bottom (back) tips the nose by itself
-UP_A, UP_B = 2 - math.sqrt(2), math.sqrt(2) - 1                          # 0.586 and 0.414: no pitch, and no thruster above 1
-
-
 def mix8(f=0, strafe=0, turn=0, up=0, trim=0, roll=0):
-    """Commands for the 8 corner thrusters: forward, slide right, turn right, up, nose up, right side down (the same mixing as web/controls.js)."""
-    return {f"t{i + 1}": f + strafe * sx * sy + turn * sy + up * (UP_A * sz + UP_B * sx * sz) + trim * sx * sz + roll * sy * sz for i, (sx, sy, sz) in enumerate(CORNER_SIGNS)}
+    """Commands for the 8 corner thrusters: forward, slide right, turn right, up, nose up, right side down (the same mixing as web/controls.js: each movement is one sign pattern)."""
+    return {f"t{i + 1}": f * sx + strafe * sy + turn * sx * sy + up * sz + trim * sx * sz + roll * sy * sz for i, (sx, sy, sz) in enumerate(CORNER_SIGNS)}
 
 
 def test_eight_corners_each_of_the_six_movements_moves_only_that_way():

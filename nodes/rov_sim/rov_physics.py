@@ -131,7 +131,7 @@ def _v(name, x, y, gx, gy, label):
 def _c(name, sx, sy, sz, label):
     """A thruster at the corner (sx, sy, sz = +-1: ahead/behind, left/right, top/bottom), 45 degrees up or down from the 6-layout's horizontal diagonal."""
     return {"name": name, "kind": "c", "x": 0.25 * sx, "y": 0.25 * sy, "z": 0.25 * sz, "gx": 0.30 * sx, "gy": 0.30 * sy, "gz": 0.30 * sz,
-            "dx": 0.5, "dy": -0.5 * sx * sy, "dz": sz * _C, "label": label, "color": "red" if sy > 0 else "green"}
+            "dx": 0.5 * sx, "dy": -0.5 * sy, "dz": sz * _C, "label": label, "color": "red" if sy > 0 else "green"}
 
 
 _CORNERS = [(1, 1, "front left"), (1, -1, "front right"), (-1, 1, "rear left"), (-1, -1, "rear right")]

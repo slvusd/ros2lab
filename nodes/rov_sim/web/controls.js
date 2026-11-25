@@ -26,10 +26,10 @@ export function switchValues(held, pointer = [0, 0, 0]) {
   return SWITCHES.map((s, i) => pointer[i] || ((held.has(s.plus) ? 1 : 0) - (held.has(s.minus) ? 1 : 0)));
 }
 
-// The 8 corner thrusters: t1-t4 top, t5-t8 bottom, each front left, front right, rear left, rear right = [ahead +1, left +1, top +1]. They lean 45 degrees up (top) or down
-// (bottom) from the "X" diagonal, so "up" needs a little nose trim mixed in (UP_A, UP_B: no pitch, no thruster above 1). See THRUSTER_LAYOUTS in sim/physics.js.
+// The 8 corner thrusters: t1-t4 top, t5-t8 bottom, each front left, front right, rear left, rear right = [ahead +1, left +1, top +1]. The rear ones are mirror images of the front
+// ones and every movement is one sign pattern over the corners: forward = ahead, slide right = left, turn right = ahead * left, up = top, nose up = ahead * top, roll = left * top.
+// (See THRUSTER_LAYOUTS in sim/physics.js.)
 const CORNERS = [[1, 1, 1], [1, -1, 1], [-1, 1, 1], [-1, -1, 1], [1, 1, -1], [1, -1, -1], [-1, 1, -1], [-1, -1, -1]];
-const UP_A = 2 - Math.SQRT2, UP_B = Math.SQRT2 - 1;
 
 /** Which thrusters each switch drives for a layout of n thrusters (3, 4, 6 or 8): [red, green, up/down]. */
 export function switchTargets(n) {
@@ -54,7 +54,7 @@ export function computeCommand(held, pointer, clawCmd = 0, { power = POWER, hOnl
   const cmd = {};
   if (thrusters === 8) {
     CORNERS.forEach(([sx, sy, sz], i) => {
-      cmd["t" + (i + 1)] = c(fwd + strafe * sx * sy + turn * sy + up * (UP_A * sz + UP_B * sx * sz) + trim * sx * sz + roll * sy * sz + (sy > 0 ? zl : zr));
+      cmd["t" + (i + 1)] = c(sx * (fwd + (sy > 0 ? zl : zr)) + strafe * sy + turn * sx * sy + up * sz + trim * sx * sz + roll * sy * sz);
     });
   } else if (thrusters <= 4) {
     cmd.t1 = c(fwd + turn + zl); cmd.t2 = c(fwd - turn + zr);
@@ -70,8 +70,8 @@ export function computeCommand(held, pointer, clawCmd = 0, { power = POWER, hOnl
   switchValues(held, pointer).forEach((v, i) => {
     if (!v) return;
     for (const t of targets[i]) {
-      const k = Number(t.slice(1)) - 1;                                     // with 8 corner thrusters the up/down switch pushes the top ones up and the bottom ones down (and trims the nose)
-      cmd[t] = thrusters === 8 && i === 2 ? v * (UP_A * CORNERS[k][2] + UP_B * CORNERS[k][0] * CORNERS[k][2]) : v;
+      const [sx, , sz] = CORNERS[Number(t.slice(1)) - 1] || [1, 1, 1];
+      cmd[t] = thrusters === 8 ? v * (i === 2 ? sz : sx) : v;               // 8 corner thrusters: red / green push ahead on the front ones and back on the rear ones, up/down pushes the top ones up and the bottom ones down
     }
   });
   return cmd;

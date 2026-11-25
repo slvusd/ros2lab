@@ -62,14 +62,15 @@ export const T_LEFT = "t1", T_RIGHT = "t2", T_FRONT = "t3", T_REAR = "t4";
 // 3: t1 left, t2 right (on the sides), t3 one vertical in the middle.   4: t1 left, t2 right, t3 front vertical, t4 rear vertical (the original).
 // 6: t1-t4 horizontal on the four vertical posts, angled 45 degrees in an "X" (so it can also slide sideways), t5 front vertical, t6 rear vertical.
 // 8: one thruster just outside EACH of the cube's 8 corners, tilted 45 degrees: t1-t4 on the top corners, t5-t8 on the bottom ones (front left, front right,
-//    rear left, rear right). Seen from above each points along the same "X" diagonal as the 6 layout's posts, and it leans up (top) or down (bottom) by 45 degrees
-//    (so 45 / 135 degrees to the PVC). Kind "c": it also has a z lever arm and dz. Eight directions give all six movements.
+//    rear left, rear right). The rear ones are the MIRROR IMAGES of the front ones: from above they fan out like an "X" (front ones point forward, rear ones backward,
+//    all sideways toward the middle), and each leans up (top) or down (bottom) by 45 degrees (so 45 / 135 degrees to the PVC). Kind "c": it also has a z lever arm and dz.
+//    Eight directions give all six movements, each from its own sign pattern.
 const _C = Math.sqrt(0.5);
 const _h = (name, x, y, gx, gy, dx, dy, label, color) => ({ name, kind: "h", x, y, z: 0.0, gx, gy, gz: 0.0, dx, dy, dz: 0.0, label, color });
 const _v = (name, x, y, gx, gy, label) => ({ name, kind: "v", x, y, z: 0.0, gx, gy, gz: 0.0, dx: 0.0, dy: 0.0, dz: 0.0, label, color: "white" });
 /** A thruster at the corner (sx, sy, sz = +-1: ahead/behind, left/right, top/bottom), 45 degrees up or down from the 6-layout's horizontal diagonal. */
 const _c = (name, sx, sy, sz, label) => ({ name, kind: "c", x: 0.25 * sx, y: 0.25 * sy, z: 0.25 * sz, gx: 0.30 * sx, gy: 0.30 * sy, gz: 0.30 * sz,
-  dx: 0.5, dy: -0.5 * sx * sy, dz: sz * _C, label, color: sy > 0 ? "red" : "green" });
+  dx: 0.5 * sx, dy: -0.5 * sy, dz: sz * _C, label, color: sy > 0 ? "red" : "green" });
 const _CORNERS = [[1, 1, "front left"], [1, -1, "front right"], [-1, 1, "rear left"], [-1, -1, "rear right"]];
 const _SIDES = [_h("t1", 0.0, TURN_ARM, 0.0, 0.32, 1.0, 0.0, "left", "red"), _h("t2", 0.0, -TURN_ARM, 0.0, -0.32, 1.0, 0.0, "right", "green")];
 const _POSTS = [_h("t1", 0.25, 0.25, 0.30, 0.30, _C, -_C, "front left", "red"), _h("t2", 0.25, -0.25, 0.30, -0.30, _C, _C, "front right", "green"),

@@ -47,6 +47,7 @@ test("six and eight put the horizontal thrusters on the four posts, angled 45 de
   for (const t of THRUSTER_LAYOUTS[8]) {
     assert.ok(near(Math.abs(t.dx), 0.5, 1e-12) && near(Math.abs(t.dy), 0.5, 1e-12) && near(Math.abs(t.dz), Math.SQRT1_2, 1e-12), "tilted 45 degrees from the horizontal diagonal");
     assert.ok(t.dz * t.z > 0 && t.gx * t.x > 0, "top corners lean up, bottom ones down; just outside the corner");
+    assert.ok(t.dx * t.x > 0 && t.dy * t.y < 0, "fanned out like an X: front ones point forward, rear ones backward, all toward the middle sideways");
     assert.equal(t.color, t.y > 0 ? "red" : "green");
   }
   const v3 = THRUSTER_LAYOUTS[3].filter((t) => t.kind === "v");
@@ -85,9 +86,8 @@ test("six thrusters: forward, a pure turn and a sideways slide come from the vec
 });
 
 const CORNER_SIGNS = [[1, 1, 1], [1, -1, 1], [-1, 1, 1], [-1, -1, 1], [1, 1, -1], [1, -1, -1], [-1, 1, -1], [-1, -1, -1]];
-const UP_A = 2 - Math.SQRT2, UP_B = Math.SQRT2 - 1;      // "up" with a little nose trim mixed in: no pitch, no thruster above 1
 const mix8 = ({ f = 0, strafe = 0, turn = 0, up = 0, trim = 0, roll = 0 } = {}) => Object.fromEntries(CORNER_SIGNS.map(([sx, sy, sz], i) =>
-  ["t" + (i + 1), f + strafe * sx * sy + turn * sy + up * (UP_A * sz + UP_B * sx * sz) + trim * sx * sz + roll * sy * sz]));
+  ["t" + (i + 1), f * sx + strafe * sy + turn * sx * sy + up * sz + trim * sx * sz + roll * sy * sz]));
 
 test("eight corners: each of the six movements moves only that way", () => {
   const base = (secs) => drive(8, {}, secs, 2.0);

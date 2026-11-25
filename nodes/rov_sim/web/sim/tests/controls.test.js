@@ -73,7 +73,7 @@ test("every switch key is a game key (so the page grabs it) and none clashes wit
 test("6 and 8 thrusters: W drives all four posts, A/D turn, Q/E slide, and the vertical ones take R/F, I/K (and U/O with 8)", async () => {
   const { computeCommand, switchTargets } = await import("../../controls.js");
   const c = (keys, n, o = {}) => computeCommand(new Set(keys), [0, 0, 0], 0, { thrusters: n, ...o });
-  for (const n of [6, 8]) {
+  for (const n of [6]) {
     const f = c(["KeyW"], n);
     assert.deepEqual([f.t1, f.t2, f.t3, f.t4], [0.8, 0.8, 0.8, 0.8]);
     const d = c(["KeyD"], n);
@@ -81,24 +81,24 @@ test("6 and 8 thrusters: W drives all four posts, A/D turn, Q/E slide, and the v
     const e = c(["KeyE"], n);
     assert.deepEqual([e.t1, e.t2, e.t3, e.t4], [0.8, -0.8, -0.8, 0.8]);          // slide right: the diagonals
     const ni = c(["KeyI"], n);
-    if (n === 6) { assert.equal(c(["KeyR"], n).t5, 0.8); assert.equal(c(["KeyR"], n).t6, 0.8); assert.ok(ni.t5 > 0 && ni.t6 < 0); }   // nose up: the front pushes up, the rear down
-    else assert.deepEqual([ni.t1, ni.t3, ni.t5, ni.t7], [0.8, -0.8, -0.8, 0.8]);                                                       // (top front and bottom rear push up)
+    assert.equal(c(["KeyR"], n).t5, 0.8); assert.equal(c(["KeyR"], n).t6, 0.8); assert.ok(ni.t5 > 0 && ni.t6 < 0);       // nose up: the front pushes up, the rear down
   }
-  const r = c(["KeyO"], 8);                                                       // roll: the left top and right bottom push one way, the other two the other
-  assert.deepEqual([r.t1, r.t2, r.t3, r.t4, r.t5, r.t6, r.t7, r.t8], [0.8, -0.8, 0.8, -0.8, -0.8, 0.8, -0.8, 0.8]);
-  const e8 = c(["KeyE"], 8), d8 = c(["KeyD"], 8);
-  assert.deepEqual([e8.t1, e8.t2, e8.t3, e8.t4, e8.t5], [0.8, -0.8, -0.8, 0.8, 0.8]);
-  assert.deepEqual([d8.t1, d8.t2, d8.t3, d8.t4, d8.t6], [0.8, -0.8, 0.8, -0.8, -0.8]);
-  const u8 = c(["KeyR"], 8);                                                       // up: the top ones up, the bottom ones down, with a little nose trim: none above 0.8
-  assert.ok(u8.t1 > 0 && u8.t5 < 0 && Math.max(...Object.entries(u8).filter(([k]) => k !== "claw").map(([, v]) => Math.abs(v))) <= 0.8 + 1e-12);
-  assert.ok(Math.abs(u8.t1 + u8.t4 - 2 * 0.8 * (2 - Math.SQRT2)) < 1e-9, "front and rear differ by the trim");
+  // 8 corner thrusters (t1-t4 top, t5-t8 bottom; front left, front right, rear left, rear right): every movement is one sign pattern
+  const pat = (keys) => { const v = c(keys, 8); return [1, 2, 3, 4, 5, 6, 7, 8].map((i) => v["t" + i] / 0.8); };
+  assert.deepEqual(pat(["KeyW"]), [1, 1, -1, -1, 1, 1, -1, -1], "forward: the front ones push ahead, the (mirrored) rear ones push back");
+  assert.deepEqual(pat(["KeyE"]), [1, -1, 1, -1, 1, -1, 1, -1], "slide right");
+  assert.deepEqual(pat(["KeyD"]), [1, -1, -1, 1, 1, -1, -1, 1], "turn right");
+  assert.deepEqual(pat(["KeyR"]), [1, 1, 1, 1, -1, -1, -1, -1], "up: the top ones up, the bottom ones down");
+  assert.deepEqual(pat(["KeyI"]), [1, 1, -1, -1, -1, -1, 1, 1], "nose up");
+  assert.deepEqual(pat(["KeyO"]), [1, -1, 1, -1, -1, 1, -1, 1], "roll right side down");
+  assert.deepEqual(pat(["KeyZ"]), [1, 0, -1, 0, 1, 0, -1, 0], "left side only");
   assert.equal("t7" in c([], 6), false);
   assert.deepEqual(Object.keys(c([], 8)).filter((k) => k !== "claw"), ["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"]);
   assert.deepEqual(switchTargets(8)[0], ["t1", "t3", "t5", "t7"]);
   const sw = computeCommand(new Set(["Digit2", "ArrowRight", "ArrowUp"]), [0, 0, 0], 0, { thrusters: 6, hOnly: true });   // the switches at full power
   assert.deepEqual([sw.t1, sw.t3, sw.t2, sw.t4, sw.t5, sw.t6], [1, 1, 1, 1, 1, 1]);
   const sw8 = computeCommand(new Set(["Digit2", "ArrowRight"]), [0, 0, 0], 0, { thrusters: 8, hOnly: true });
-  assert.deepEqual(Object.keys(sw8).filter((k) => sw8[k] === 1).sort(), ["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"], "red and green drive the left and right columns (top and bottom)");
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8].map((i) => sw8["t" + i]), [1, 1, -1, -1, 1, 1, -1, -1], "red and green push the front ones ahead and the mirrored rear ones back: forward");
 });
 
 test("3 thrusters: one vertical thruster (t3) takes R/F, there is no t4 and no trim", async () => {
