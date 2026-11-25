@@ -26,7 +26,7 @@ Check an install: `source mac/env.sh && ./nodes/rov_sim/install.sh` (prints a PA
 
 `web/` is a complete page. Serve that folder from any static web host (GitHub Pages, `python3 -m http.server` inside `web/`)
 and open it: when no sim server answers, the page runs its own copy of the physics (`web/sim/physics.js`) and you drive with the
-keyboard. `?mode=local` forces this, `?mode=server` forces the Python server. The claw and the nose both work (T switches, H opens/closes, `[ ]` nudge it),
+keyboard. `?mode=local` forces this, `?mode=server` forces the Python server. It starts with the **nose** (the usual scout tool); the claw is one key away. The claw and the nose both work (T switches, H opens/closes, `[ ]` nudge it),
 the coy fish swims (`web/sim/fishbrain.js`, an optional add-on: delete it and the fish is gone), the three pool rings are there (`web/sim/rings.js`, also optional: push them, hook them on the nose and carry them), and the IMU readout and joysticks are not there yet.
 `?quality=high|low|lowest|auto` picks the graphics level from the link (lowest hides the ROV camera window).
 The JS fish behaves like the Python one but uses its own random numbers, so it swims different paths; its tests check behaviour, not exact routes.

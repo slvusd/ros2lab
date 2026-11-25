@@ -797,7 +797,7 @@ function drawSwitches() {
 }
 
 // ---------- tool mode (claw / nose): the sim owns it, this just shows it and asks to change it ----------
-let tool = "claw", toolAsked = 0;
+let tool = backend.defaultTool || "claw", toolAsked = 0;
 function setTool(t, send = true) {
   tool = t;
   claw.visible = t === "claw"; nose.visible = t === "nose";
@@ -1164,7 +1164,7 @@ if (new URLSearchParams(location.search).has("selftest")) {
     if (!(state.depth > d1 + 0.2)) return fail(`did not dive (${d1.toFixed(2)} -> ${state.depth.toFixed(2)})`);
     backend.cmd({ t1: 0, t2: 0, t3: 0, t4: 0, claw: 0 });
     if (backend.features.fish && !(state.props || []).some((p) => p.type === "fish")) return fail("no fish in the state");
-    document.title = `PASS (${backend.name}, quality ${TIERS[tier].name}, ${lastFps ? lastFps.toFixed(0) + " fps" : "fps not measured"})`;
+    document.title = `PASS (${backend.name}, tool ${tool}, quality ${TIERS[tier].name}, ${lastFps ? lastFps.toFixed(0) + " fps" : "fps not measured"})`;
   })();
 }
 

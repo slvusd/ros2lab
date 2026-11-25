@@ -6,7 +6,8 @@ import { DeviceLink } from "./sim/devicelink.js";
 
 export const name = "local sim";
 export const features = { keys: true, joys: false, claw: true, imu: false, rings: true, fish: true, serial: true };
-const rov = new Rov({ tool: "claw" });
+export const defaultTool = "nose";               // scout ROVs mostly use a nose (hook); T switches to the claw
+const rov = new Rov({ tool: defaultTool });
 try { (await import("./sim/rings.js")).addTo(rov, 3); } catch (e) { /* optional add-on: no rings without rings.js */ }
 try { (await import("./sim/fishbrain.js")).addTo(rov, 1); } catch (e) { /* optional add-on: no fish without fishbrain.js */ }
 const world = new World(rov);
