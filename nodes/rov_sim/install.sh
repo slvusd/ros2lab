@@ -10,7 +10,7 @@
 #     c) publishing -1.0 to /sim/t3 + /sim/t4 makes it dive (depth grows)
 #     d) /sim/claw moves the claw servo
 #     e) /sim/imu, /sim/depth and both on-screen joysticks (/sim/joy1, /sim/joy2) are published
-#     f) test_physics.py passes (pool, rings and collisions, fish)
+#     f) test_physics.py passes (pool, rings and collisions, fish) and test_crab.py (the green crab and the pushable base class)
 #
 # WHAT IT CHANGES
 #   Nothing on disk. Starts one short-lived process, then stops it.
@@ -64,4 +64,7 @@ kill $JOYPID 2>/dev/null; wait $JOYPID 2>/dev/null || true
 timeout 10 ros2 topic echo --no-daemon --once /sim/depth std_msgs/msg/Float32 | grep -q '^data' \
   && echo "PASS: /sim/depth published" || fail "/sim/depth silent"
 python3 "$HERE/test_physics.py" > "$TMP_IMU" 2>&1 && echo "PASS: physics tests ($(tail -1 "$TMP_IMU"))" || { cat "$TMP_IMU"; fail "physics tests"; }
+if [ -f "$HERE/test_crab.py" ]; then      # the crab is an optional add-on with its own tests
+  python3 "$HERE/test_crab.py" > "$TMP_IMU" 2>&1 && echo "PASS: crab tests ($(tail -1 "$TMP_IMU"))" || { cat "$TMP_IMU"; fail "crab tests"; }
+fi
 echo "All good. Start it for real: python nodes/rov_sim/rov_sim.py   then open http://localhost:8000"

@@ -4,7 +4,7 @@
 # =============================================================================
 # Run (plain Python 3, nothing to install):
 #   python3 nodes/rov_sim/keyboard_sim.py            then open http://localhost:8000
-# Options:  --port 8000  --speed 1  --max-thrust 12  --mass 8  --buoyancy 1.5  --imu-noise 0  --hard-limits  --rings 3  --fish 1  --tool claw|nose
+# Options:  --port 8000  --speed 1  --max-thrust 12  --mass 8  --buoyancy 1.5  --imu-noise 0  --hard-limits  --rings 3  --fish 1  --crabs 1  --tool claw|nose
 #
 # Click the page once so it has keyboard focus, then:
 #   Switch box (top right of the page, like a scout controller, full power):
@@ -43,6 +43,7 @@ def main():
     ap.add_argument("--rings", type=int, default=3, help="number of pick-up rings, 0-5 (rov_props.py)")
     ap.add_argument("--no-ring", action="store_true", help="no rings at all (same as --rings 0)")
     ap.add_argument("--fish", type=int, default=1, help="number of fish, 0-3 (rov_fish.py)")
+    ap.add_argument("--crabs", type=int, default=1, help="number of green crabs on the shallow end's floor, 0-5 (rov_crab.py)")
     ap.add_argument("--hard-limits", action="store_true",
                     help="stop dead at the surface/floor (no overshoot or bounce)")
     a = ap.parse_args()
@@ -56,6 +57,11 @@ def main():
     try:
         import rov_fish
         rov_fish.add_to(rov, a.fish)
+    except ImportError:
+        pass
+    try:
+        import rov_crab
+        rov_crab.add_to(rov, a.crabs)
     except ImportError:
         pass
     shared = Shared(keys=True)

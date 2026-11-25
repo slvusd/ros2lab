@@ -7,7 +7,7 @@ const plain = (c) => Object.fromEntries(CONFIG_KEYS.map((k) => [k, c[k]]));
 
 test("no parameters: the defaults (3 rings, a fish, a camera, all keys, the normal pool)", () => {
   assert.deepEqual(plain(parseConfig("")), DEFAULTS);
-  assert.deepEqual(DEFAULTS, { controls: "all", fish: true, rings: 3, poollength: 1, poolwidth: 1, camera: true, speed: 1 });
+  assert.deepEqual(DEFAULTS, { controls: "all", fish: true, rings: 3, poollength: 1, poolwidth: 1, camera: true, speed: 1, crabs: 1 });
   assert.equal(parseConfig("").explicit.size, 0);
   assert.equal(parseConfig("").open, false);
 });
@@ -58,8 +58,8 @@ test("toQuery: only non-default values, other parameters are kept, config is dro
 
 test("a link made by toQuery reads back as the same settings", () => {
   for (const controls of ["all", "h", "h-hidden"]) for (const fish of [true, false]) for (const rings of [0, 3, 5])
-    for (const poollength of [1, 2]) for (const poolwidth of [1, 2, 3]) for (const camera of [true, false]) for (const speed of [0.25, 0.5, 1, 1.75, 4]) {
-      const cfg = { controls, fish, rings, poollength, poolwidth, camera, speed };
+    for (const poollength of [1, 2]) for (const poolwidth of [1, 2, 3]) for (const camera of [true, false]) for (const speed of [0.25, 0.5, 1, 1.75, 4]) for (const crabs of [0, 1, 5]) {
+      const cfg = { controls, fish, rings, poollength, poolwidth, camera, speed, crabs };
       assert.deepEqual(plain(parseConfig(toQuery(cfg))), cfg, JSON.stringify(cfg));
     }
 });
@@ -79,4 +79,16 @@ test("speed: any number from 0.25 to 4, rounded to 2 decimals, anything else is 
   for (const bad of ["?speed=fast", "?speed=", "?speed=NaN"]) { assert.equal(parseConfig(bad).speed, 1, bad); assert.equal(parseConfig(bad).explicit.has("speed"), false); }
   assert.equal(toQuery({ ...DEFAULTS, speed: 2 }), "speed=2");
   assert.equal(toQuery({ ...DEFAULTS, speed: 1 }), "");
+});
+
+test("crabs: 0 to 5, whole numbers, default 1", () => {
+  assert.equal(parseConfig("").crabs, 1);
+  assert.equal(parseConfig("?crabs=0").crabs, 0);
+  assert.equal(parseConfig("?crabs=2").crabs, 2);
+  assert.equal(parseConfig("?crabs=2.6").crabs, 3);
+  assert.equal(parseConfig("?crabs=99").crabs, 5);
+  assert.equal(parseConfig("?crabs=-1").crabs, 0);
+  assert.equal(parseConfig("?crabs=many").crabs, 1);
+  assert.equal(toQuery({ ...DEFAULTS, crabs: 2 }), "crabs=2");
+  assert.equal(toQuery({ ...DEFAULTS, crabs: 1 }), "");
 });

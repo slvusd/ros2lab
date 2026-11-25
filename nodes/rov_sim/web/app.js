@@ -650,6 +650,8 @@ let props = null;
 import("./props.js").then((m) => { props = new m.Props(scene, THREE); }).catch(() => { /* no props */ });
 let fish = null;                      // optional add-on: fish.js draws the coy fish (delete that file to remove it)
 import("./fish.js").then((m) => { fish = new m.Fish(scene, THREE); }).catch(() => { /* no fish */ });
+let crabs = null;                     // optional add-on: crab.js draws the green crabs (delete that file to remove them)
+import("./crab.js").then((m) => { crabs = new m.Crabs(scene, THREE); }).catch(() => { /* no crabs */ });
 
 // ---------- state from the sim ----------
 const state = { x: -1.5, y: 0, depth: 0.8, yaw: 0, t1: 0, t2: 0, t3: 0, t4: 0, claw: 0, speed: 0, pitch: 0, imu: null, buoyancy: 1.5, joys: [[0, 0], [0, 0]], joy_topics: [] };
@@ -1033,6 +1035,7 @@ function frame(now) {
   stepSilt(dt);
   if (props) props.update(state.props, dt);
   if (fish) fish.update(state.props, dt, t);
+  if (crabs) crabs.update(state.props, dt, t);
   for (const m of solids) {                          // x-ray: fade what is between us and the pool
     const mat = m.material, target = m.userData.hidesWhen(camera.position) ? 0.14 : 1;
     mat.opacity += (target - mat.opacity) * (1 - Math.exp(-dt * 8));
@@ -1228,7 +1231,7 @@ if (new URLSearchParams(location.search).has("selftest")) {
   })();
 }
 
-window.__rov = { state, backend, rings: () => (state.props || []).filter((p) => p.type === "ring") };      // read-only hook for automatic checks (see devtools-driven tests)
+window.__rov = { state, backend, camera, controls, rings: () => (state.props || []).filter((p) => p.type === "ring") };      // read-only hook for automatic checks (see devtools-driven tests)
 
 // ---------- ?config: a panel to set all of these and make the link ----------
 if (cfg.open) import("./configui.js").then((m) => m.showConfig({ cfg, configurable: backend.configurable || {} })).catch((e) => console.warn("config panel failed:", e));

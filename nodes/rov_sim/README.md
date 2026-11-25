@@ -49,6 +49,13 @@ To change a key, edit `SWITCHES` in `web/controls.js` (and the key help in `inde
 **Help page:** the **Help** button opens `web/help.html`, rendered from `web/help.md` (controls, the pool, page options, and the full micro:bit / Pico protocol with examples). It is the single
 source for the browser version's protocol; `web/sim/tests/help.test.js` fails if it falls out of step with the code. Edit `help.md`, not the HTML.
 
+**The green crab** (`rov_crab.py` / `web/sim/crab.js`, drawn by `web/crab.js`): the 2026 scout task is to remove the invasive European green crab, so a small crab now crawls (sideways, like a real one) on
+the floor of the shallow end. It scuttles away when the ROV comes close, but it is about five times slower than the ROV, and when the ROV touches it (any part of the frame, thrusters, jaws
+or nose, as long as it is low enough) it is simply **shoved out of the way**, like a ring. It never leaves the shallow end. It is an **optional add-on**: delete `rov_crab.py` (and `web/crab.js`,
+`web/sim/crab.js`) and the crab is gone; nothing else knows about it (the page only draws state entries whose `type` is `crab`). Picking a crab up (the actual task) is not built yet.
+The pushing is **not crab-specific**: `rov_pushable.py` / `web/sim/pushable.js` is a small generic `Pushable` base class (a body on the floor that the ROV shoves, that coasts and spins a little,
+and stays inside its rectangle); the crab only adds the walking. A rock or a lobster pot would be a few lines. Tests: `test_crab.py` and `web/sim/tests/crab.test.js`. Option: `crabs=0..5` in the page address / `?config`.
+
 **Drop a ring (`N`):** point the mouse at the water of the pool and press `N`: a new ring is dropped in at that spot and sinks to the floor (at most 10 rings in the pool,
 `MAX_RINGS` in `rov_props.py` / `web/config.js`). **Reset** removes the dropped rings again. It works in the browser version and with the Python server (the page POSTs `/ring`).
 
@@ -341,6 +348,7 @@ Read once at startup. `ros2 run`-style for `rov_sim.py`: `--ros-args -p name:=va
 | `tool` | claw | starting tool: `claw` or `nose` |
 | `rings` | 3 | how many pick-up rings, 0 to 5 (`--rings`; `--no-ring` = 0 on the keyboard version) |
 | `fish` | 1 | how many fish, 0 to 3 (`--fish`) |
+| `crabs` | 1 | how many green crabs on the shallow end's floor, 0 to 5 (`--crabs`); the 2026 scout task has two |
 | `speed` | 1 | power of the red and green (horizontal) thrusters, 0.25 to 4 (`--speed`). **1 is the normal speed, which is half of what these thrusters used to give** (`SIDE_THRUST = 0.5` in `rov_physics.py`); 2 is the old strength |
 | `max_thrust` | 12 | newtons the thrusters could give at full command; the horizontal ones give `SIDE_THRUST x speed` of it (6 N at the normal speed), the two vertical thrusters share one such budget (6 N each) |
 | `mass` | 8 | kg including added mass |

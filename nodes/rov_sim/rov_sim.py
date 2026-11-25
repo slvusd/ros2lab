@@ -26,7 +26,7 @@
 #
 # PARAMETERS  (ros2 run style:  --ros-args -p max_thrust:=15.0)   read once at startup
 #   port (8000), keys (true: the page's keyboard also works, last new value per thruster wins),
-#   joy (true: publish the on-screen joysticks), tool (claw | nose), rings (3: pick-up rings, 0-5), fish (1: 0-3),
+#   joy (true: publish the on-screen joysticks), tool (claw | nose), rings (3: pick-up rings, 0-5), fish (1: 0-3), crabs (1: green crabs on the shallow end, 0-5),
 #   speed (1: power of the red / green thrusters, 0.25 .. 4), max_thrust (N, 12), mass (kg incl. added mass, 8),
 #   buoyancy (N of spare buoyancy, default 1.5: floats; 0 = hovers; negative sinks),
 #   hard_limits (false; true = stop dead at surface/floor, no overshoot/bounce),
@@ -68,6 +68,7 @@ class RovSim(Node):
         self.declare_parameter("tool", "claw")        # front tool: claw or nose (or publish /sim/tool)
         self.declare_parameter("rings", 3)            # how many pick-up rings, 0-5 (optional add-on rov_props.py)
         self.declare_parameter("fish", 1)             # how many fish, 0-3 (optional add-on rov_fish.py)
+        self.declare_parameter("crabs", 1)            # how many green crabs on the shallow end's floor, 0-5 (optional add-on rov_crab.py)
         self.rov = Rov(self.get_parameter("max_thrust").value,
                        self.get_parameter("mass").value,
                        self.get_parameter("buoyancy").value,
@@ -85,6 +86,11 @@ class RovSim(Node):
         try:
             import rov_fish
             rov_fish.add_to(self.rov, self.get_parameter("fish").value)
+        except ImportError:
+            pass
+        try:
+            import rov_crab
+            rov_crab.add_to(self.rov, self.get_parameter("crabs").value)
         except ImportError:
             pass
 

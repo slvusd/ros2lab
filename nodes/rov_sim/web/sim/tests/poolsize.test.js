@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { Rov, POOL_REGIONS, POOL_MAX_DEPTH, ROV_BOTTOM, setPool, poolRegions, floorAt, nearestIn } from "../physics.js";
 import { addTo as addRings } from "../rings.js";
 import { addTo as addFish, Fish } from "../fishbrain.js";
+import { addTo as addCrabs } from "../crab.js";
 import { Rng } from "../rng.js";
 
 const DT = 1 / 60;
@@ -116,5 +117,20 @@ test("with no camera the fish never comes to look; with one it does", () => {
     for (let i = 0; i < 60 * 120; i++) { r.step(DT); if (fish.mode === "peek") peeking++; }
     if (peeks) assert.ok(peeking > 60 * 10, `only ${(peeking / 60).toFixed(0)} s peeking`);
     else assert.equal(peeking, 0, "a fish came to look at a camera that is not there");
+  }
+});
+
+test("the crab lives on the shallow end whatever size the main pool is", () => {
+  for (const [L, W] of SIZES) {
+    setPool(L, W);
+    const shelf = POOL_REGIONS[1];
+    const r = new Rov({ tool: "nose", buoyancy: 0 });
+    addCrabs(r, 3);
+    r.x = -2.5; r.y = -1.0;
+    for (let i = 0; i < 60 * 60; i++) {
+      r.step(DT);
+      for (const c of r.props) assert.ok(c.x >= shelf[0] - 1e-6 && c.x <= shelf[1] + 1e-6 && c.y >= shelf[2] - 1e-6 && c.y <= shelf[3] + 1e-6, `${L}x${W}: a crab left the shallow end`);
+    }
+    assert.ok(Math.abs(r.props[0].state().depth - (shelf[4] - 0.02)) < 1e-9, `${L}x${W}: not on the floor`);
   }
 });

@@ -43,10 +43,11 @@ export function showConfig({ cfg, configurable = {} }) {
     <fieldset><legend>In the pool</legend>
       <div class="row ${can("fish") ? "" : "off"}"><label><input type="checkbox" id="cfg-fish"${cur.fish ? " checked" : ""}${can("fish") ? "" : " disabled"}> Fish</label></div>
       <div class="row ${can("rings") ? "" : "off"}"><label for="cfg-rings">Pool rings (0&ndash;${LIMITS.rings[1]}, usually ${DEFAULTS.rings})</label><input type="number" id="cfg-rings" min="${LIMITS.rings[0]}" max="${LIMITS.rings[1]}" step="1" value="${cur.rings}"${can("rings") ? "" : " disabled"}></div>
+      <div class="row ${can("crabs") ? "" : "off"}"><label for="cfg-crabs">Green crabs on the shallow end (0&ndash;${LIMITS.crabs[1]}, usually ${DEFAULTS.crabs})</label><input type="number" id="cfg-crabs" min="${LIMITS.crabs[0]}" max="${LIMITS.crabs[1]}" step="1" value="${cur.crabs}"${can("crabs") ? "" : " disabled"}></div>
       <div class="row ${can("pool") ? "" : "off"}"><label for="cfg-length">Main pool length</label><select id="cfg-length"${can("pool") ? "" : " disabled"}>${[1, 2].map((n) => opt(n, `${n}× (${6 * n} m)`, cur.poollength === n)).join("")}</select></div>
       <div class="row ${can("pool") ? "" : "off"}"><label for="cfg-width">Main pool width</label><select id="cfg-width"${can("pool") ? "" : " disabled"}>${[1, 2, 3].map((n) => opt(n, `${n}× (${3 * n} m)`, cur.poolwidth === n)).join("")}</select></div>
       <div class="note" id="cfg-size"></div>
-      ${can("pool") ? "" : '<div class="note">Fish, rings and the pool size are set by the Python server (--fish, --rings, and its pool), not by the page.</div>'}
+      ${can("pool") ? "" : '<div class="note">Fish, crabs, rings and the pool size are set by the Python server (--fish, --crabs, --rings, and its pool), not by the page.</div>'}
     </fieldset>
     <fieldset><legend>ROV</legend>
       <div class="row ${can("speed") ? "" : "off"}"><label for="cfg-speed">Red and green thruster power <small>(1&times; = normal)</small></label>
@@ -71,6 +72,8 @@ export function showConfig({ cfg, configurable = {} }) {
     cur.fish = $("cfg-fish").checked;
     const n = Math.round(Number($("cfg-rings").value));
     cur.rings = Number.isFinite(n) ? Math.max(LIMITS.rings[0], Math.min(LIMITS.rings[1], n)) : DEFAULTS.rings;
+    const nc = Math.round(Number($("cfg-crabs").value));
+    cur.crabs = Number.isFinite(nc) ? Math.max(LIMITS.crabs[0], Math.min(LIMITS.crabs[1], nc)) : DEFAULTS.crabs;
     cur.poollength = Number($("cfg-length").value); cur.poolwidth = Number($("cfg-width").value);
     cur.camera = $("cfg-camera").checked;
     cur.speed = Math.max(LIMITS.speed[0], Math.min(LIMITS.speed[1], Number($("cfg-speed").value) || DEFAULTS.speed));
@@ -78,7 +81,7 @@ export function showConfig({ cfg, configurable = {} }) {
   };
   const write = () => {                                          // push `cur` back into the form (after Defaults)
     el.querySelectorAll('input[name="cfg-controls"]').forEach((r) => { r.checked = r.value === cur.controls; });
-    $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-length").value = cur.poollength; $("cfg-width").value = cur.poolwidth; $("cfg-camera").checked = cur.camera; $("cfg-speed").value = cur.speed;
+    $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-crabs").value = cur.crabs; $("cfg-length").value = cur.poollength; $("cfg-width").value = cur.poolwidth; $("cfg-camera").checked = cur.camera; $("cfg-speed").value = cur.speed;
     refresh();
   };
   el.addEventListener("input", read); el.addEventListener("change", read);
