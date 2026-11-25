@@ -82,6 +82,16 @@ PITCH_I = 0.6           # kg m^2, incl. added mass
 PITCH_KS = 16.8         # N m per rad: buoyancy keeps it level (a 1.7 N m load tilts it ~6 degrees)
 PITCH_DS = 3.0          # N m per (rad/s): water damps the swing
 MAX_PITCH = 0.6         # rad (~35 degrees)
+# Roll (heeling over sideways) works like pitch: a spring from buoyancy, damping from the water. Only a current (the water pushing the frame) makes it roll.
+# Roll is positive with the TOP of the ROV going to its right (right side down). It is shown on the page and in the IMU; the collision shape ignores it.
+ROLL_I = 0.6            # kg m^2, incl. added mass
+ROLL_KS = 12.0          # N m per rad
+ROLL_DS = 3.0           # N m per (rad/s)
+MAX_ROLL = 0.6          # rad (~35 degrees)
+# How a current tilts the ROV: the water's push on the frame acts this far above its middle (so a push from the side heels it over, and a push from
+# ahead or behind pitches it), plus the difference between the push on the top of the frame and on the bottom (a jet that hits only the upper part).
+TILT_ARM, SHEAR_ARM = 0.30, 0.20   # m: for pitch
+ROLL_ARM, ROLL_SHEAR = 0.55, 0.35   # m: for roll (a sideways push is weaker than a head-on one, so a longer lever shows it)
 G = 9.81
 
 # Footprint seen from above, metres from the centre (x forward, y left): the frame plus the side
@@ -129,6 +139,7 @@ class Rov:
         self.claw_holder = None     # the extra currently gripped in the claw, if any (only one at a time)
         self.thruster_up = THRUSTER_UP
         self.pitch = self.pitch_rate = 0.0   # radians, positive = nose DOWN
+        self.roll = self.roll_rate = 0.0     # radians, positive = right side DOWN (the top goes to the right)
         self.pitch_torque = 0.0              # extras (a hanging ring) add to this each step, N m nose-down
         self.imu_noise = imu_noise           # std-dev of Gaussian noise on the IMU readings (0 = clean)
         self.imu_resolution = imu_resolution # accelerometer step in m/s^2 (0 = exact; 0.01 like a BNO055, 0.0006 like an MPU-6050)
@@ -148,6 +159,7 @@ class Rov:
         for k in self.cmd:
             self.cmd[k] = 0.0
         self.pitch = self.pitch_rate = 0.0
+        self.roll = self.roll_rate = 0.0
         self.claw_holder = None
         self._depth_before = self.depth
         self._prev = (0.0, 0.0, 0.0, 0.0)                 # last step's u, v, w, r (for the accelerometer)
@@ -223,23 +235,48 @@ class Rov:
         self.claw_floor = 0.0                # extras that hold something in the jaws set it again below
         for p in self.props:
             p.step(self, dt)
-        tilt = (fb - ff) * VERT_ARM + self.pitch_torque             # rear pushing up = nose down
+        tp, tr = self._water_torque()                               # what a current does to the tilt (exactly 0, 0 with no current)
+        tilt = (fb - ff) * VERT_ARM + self.pitch_torque + tp        # rear pushing up = nose down
         self.pitch_rate += (tilt - PITCH_KS * self.pitch - PITCH_DS * self.pitch_rate) / PITCH_I * dt
         self.pitch = clamp(self.pitch + self.pitch_rate * dt, -MAX_PITCH, MAX_PITCH)
+        self.roll_rate += (tr - ROLL_KS * self.roll - ROLL_DS * self.roll_rate) / ROLL_I * dt
+        self.roll = clamp(self.roll + self.roll_rate * dt, -MAX_ROLL, MAX_ROLL)
         self._accelerometer(dt)
 
-    def _water(self):
-        """The water's own velocity at the ROV: (world x, world y, DOWN) in m/s. Any prop with a flow(x, y, depth) method moves the water
+    def _flow_at(self, x, y, depth):
+        """The water's velocity at a point: (world x, world y, DOWN) in m/s. Any prop with a flow(x, y, depth) method moves the water
         (the jets in rov_current.py do); with none, the water is still."""
         wx = wy = wd = 0.0
         for p in self.props:
             f = getattr(p, "flow", None)
             if f is not None:
-                a, b, c = f(self.x, self.y, self.depth)
+                a, b, c = f(x, y, depth)
                 wx += a
                 wy += b
                 wd += c
         return wx, wy, wd
+
+    def _water(self):
+        """The water's own velocity at the ROV's middle."""
+        return self._flow_at(self.x, self.y, self.depth)
+
+    def _water_torque(self):
+        """The twist a current gives the frame: (pitch torque, nose DOWN +; roll torque, top-to-the-right +), N m. The push of the water is worked
+        out at the top, middle and bottom of the frame (a jet usually hits only part of it), from the water's speed RELATIVE to the ROV: a ROV carried
+        along with the water is not pushed over, one held against it is. It fades in with the strength of the current, so with the water still it is
+        exactly (0.0, 0.0) and driving about does not tilt the ROV."""
+        if not any(getattr(p, "flow", None) is not None for p in self.props):
+            return 0.0, 0.0
+        c, s = math.cos(self.yaw), math.sin(self.yaw)
+        forces, strongest = [], 0.0
+        for dz in (-ROV_HALF, 0.0, ROV_HALF):                       # top (shallower), middle, bottom (deeper)
+            wx, wy, _ = self._flow_at(self.x, self.y, self.depth + dz)
+            strongest = max(strongest, math.hypot(wx, wy))
+            ur, vr = wx * c + wy * s - self.u, -wx * s + wy * c - self.v      # the water's speed along and across the ROV, relative to the ROV
+            forces.append((LIN_DRAG * ur + QUAD_DRAG * ur * abs(ur), LIN_DRAG * 2 * vr))
+        fade = min(1.0, strongest / 0.1)                              # 0 with still water, 1 once the current is 0.1 m/s or more
+        (fxt, fyt), (fxm, fym), (fxb, fyb) = forces
+        return fade * (TILT_ARM * fxm + SHEAR_ARM * (fxt - fxb)), -fade * (ROLL_ARM * fym + ROLL_SHEAR * (fyt - fyb))
 
     def _accelerometer(self, dt):
         """What an IMU's accelerometer reads: the real acceleration minus gravity, in the ROV's own axes
@@ -253,8 +290,10 @@ class Rov:
         f_up = -(self.w - w0) / dt + G                         # vertical acceleration plus gravity's reaction
         cp, sp = math.cos(self.pitch), math.sin(self.pitch)    # nose-down tilt swings gravity into the x axis
         ax, az = a_fwd * cp - f_up * sp, a_fwd * sp + f_up * cp
+        cr, sr = math.cos(self.roll), math.sin(self.roll)      # heeling over swings gravity into the y axis (the up direction leans toward the left)
+        ay, az = a_left * cr + az * sr, az * cr - a_left * sr
         n = self.imu_noise
-        acc = (ax + random.gauss(0, n), a_left + random.gauss(0, n), az + random.gauss(0, n)) if n else (ax, a_left, az)
+        acc = (ax + random.gauss(0, n), ay + random.gauss(0, n), az + random.gauss(0, n)) if n else (ax, ay, az)
         q = self.imu_resolution
         self.imu_acc = tuple(round(v / q) * q for v in acc) if q else acc
 
@@ -263,8 +302,8 @@ class Rov:
         angular velocity (rad/s) and linear acceleration (m/s^2, includes gravity like a real accelerometer)."""
         n = self.imu_noise
         g = (lambda: random.gauss(0, n * 0.1)) if n else (lambda: 0.0)
-        return {"roll": 0.0, "pitch": self.pitch, "yaw": self.yaw,
-                "gx": g(), "gy": self.pitch_rate + g(), "gz": self.r + g(),
+        return {"roll": self.roll, "pitch": self.pitch, "yaw": self.yaw,
+                "gx": self.roll_rate + g(), "gy": self.pitch_rate + g(), "gz": self.r + g(),
                 "ax": self.imu_acc[0], "ay": self.imu_acc[1], "az": self.imu_acc[2]}
 
     def _footprint(self, c, s):
@@ -323,7 +362,7 @@ class Rov:
                 "speed": math.sqrt(self.u ** 2 + self.v ** 2 + self.w ** 2),
                 "splash_n": self.splash_n, "splash_v": self.splash_v,
                 "floor_n": self.floor_n, "floor_v": self.floor_v,
-                "props": [p.state() for p in self.props], "tool": self.tool, "pitch": self.pitch, "imu": self.imu(), "buoyancy": self.buoyancy,
+                "props": [p.state() for p in self.props], "tool": self.tool, "pitch": self.pitch, "roll": self.roll, "imu": self.imu(), "buoyancy": self.buoyancy,
                 "regions": [list(r) for r in POOL_REGIONS], "keys": keys, "water": list(self._water())}
 
 

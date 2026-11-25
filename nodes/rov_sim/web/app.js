@@ -656,7 +656,7 @@ let jets = null;                      // optional add-on: jets.js draws the wate
 import("./jets.js").then((m) => { jets = new m.Jets(scene, THREE, { ripple: (x, z, r, k) => { if (fx) drop(x, z, r, k); } }); }).catch(() => { /* no jets */ });
 
 // ---------- state from the sim ----------
-const state = { x: -1.5, y: 0, depth: 0.8, yaw: 0, t1: 0, t2: 0, t3: 0, t4: 0, claw: 0, speed: 0, pitch: 0, imu: null, buoyancy: 1.5, joys: [[0, 0], [0, 0]], joy_topics: [] };
+const state = { x: -1.5, y: 0, depth: 0.8, yaw: 0, t1: 0, t2: 0, t3: 0, t4: 0, claw: 0, speed: 0, pitch: 0, roll: 0, imu: null, buoyancy: 1.5, joys: [[0, 0], [0, 0]], joy_topics: [] };
 const seen = { splash: null, floor: null };
 const shown = { ...state };
 let lastMsg = 0;
@@ -672,7 +672,7 @@ let lastMsg = 0;
 backend.connect(handleState);
 if (backend.features.current && backend.setCurrent) {                         // the Current button (browser version): turn the water outlets on and off while it runs
   $("current").style.display = "";
-  $("current").addEventListener("click", () => backend.setCurrent(!(state.props || []).some((p) => p.type === "jets")));
+  $("current").addEventListener("click", () => backend.setCurrent(!(state.props || []).some((p) => p.type === "jets" && p.on)));
 }
 if (backend.features.serial && backend.link) {          // micro:bit / Pico over USB (browser version only; with the Python sim use nodes/serial_bridge)
   $("serial").style.display = "";
@@ -733,7 +733,10 @@ function updateHud() {
     $("tilt").setAttribute("transform", `rotate(${deg.toFixed(1)} 20 10)`);
     $("accel").textContent = `${f(im.ax)} ${f(im.ay)} ${f(im.az)}`;
     const g = 9.81, sp = Math.sin(im.pitch), cp = Math.cos(im.pitch);      // gravity as the tilted accelerometer sees it
-    $("accel0").textContent = `${f(im.ax + g * sp)} ${f(im.ay)} ${f(im.az - g * cp)}`;
+    const rr = im.roll || 0, sr = Math.sin(rr), cr = Math.cos(rr);          // heeling over leans gravity into the y axis too
+    $("accel0").textContent = `${f(im.ax + g * sp)} ${f(im.ay - g * cp * sr)} ${f(im.az - g * cp * cr)}`;
+    const rdeg = rr * 180 / Math.PI;
+    $("rollv").textContent = (rdeg >= 0 ? "+" : "") + rdeg.toFixed(1) + "\u00b0" + (rdeg > 0.5 ? " right side down" : rdeg < -0.5 ? " left side down" : " level");
     $("gyro").textContent = `${f(im.gx)} ${f(im.gy)} ${f(im.gz)}`;
   }
   const bu = state.buoyancy ?? 0;
@@ -745,7 +748,7 @@ function updateHud() {
     $("joyval" + j.n).textContent = `${jy[0] >= 0 ? "+" : "-"}${Math.abs(jy[0]).toFixed(2)} ${jy[1] >= 0 ? "+" : "-"}${Math.abs(jy[1]).toFixed(2)}`;
     $("joycap" + j.n).textContent = state.ros ? (state.joy_topics && state.joy_topics[i]) || `joy${j.n} (not published)` : `joy${j.n} (no ROS)`;
   });
-  const hasJets = (state.props || []).some((p) => p.type === "jets");           // the water current is on
+  const hasJets = (state.props || []).some((p) => p.type === "jets" && p.on);   // the water is running (the outlets are in the wall either way)
   $("row-current").style.display = hasJets ? "" : "none";
   if (hasJets && state.water) $("currentv").textContent = Math.hypot(state.water[0], state.water[1]).toFixed(2) + " m/s";
   $("current").textContent = "Current: " + (hasJets ? "on" : "off");
@@ -1009,7 +1012,7 @@ function frame(now) {
   rov.position.set(shown.x, -shown.depth, -shown.y);
   rov.rotation.y = shown.yaw;
   wobble *= Math.exp(-dt * 1.6);
-  rov.rotation.x = 0.10 * wobble * Math.sin(t * 7);            // rocks after a splash or a bump
+  rov.rotation.x = shown.roll + 0.10 * wobble * Math.sin(t * 7);   // roll > 0 = the top goes to the right (a current pushing it over); rocks after a splash or a bump
   rov.rotation.z = -shown.pitch + 0.06 * wobble * Math.sin(t * 5.3 + 1);   // pitch > 0 = nose down (a hanging ring)
   rov.updateMatrixWorld(true);
   // spin props (visual speed ~ command)

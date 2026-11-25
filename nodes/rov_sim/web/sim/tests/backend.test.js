@@ -13,14 +13,16 @@ test("the browser version reports the IMU (the panel), the claw, rings, crabs an
   assert.equal(b.features.joys, false);
 });
 
-test("the Current button's setCurrent puts the water outlets in and takes them out again, and does nothing twice", () => {
-  const jets = () => b.link.world.state().props.filter((p) => p.type === "jets").length;
-  assert.equal(jets(), 0, "off at the start (no ?current=on)");
-  b.setCurrent(true); assert.equal(jets(), 1);
-  b.setCurrent(true); assert.equal(jets(), 1, "turning it on twice does not add a second pair");
-  b.setCurrent(false); assert.equal(jets(), 0);
-  b.setCurrent(false); assert.equal(jets(), 0);
+test("the outlets are always in the wall; the Current button's setCurrent only starts and stops the water", () => {
+  const jets = () => b.link.world.state().props.filter((p) => p.type === "jets");
+  assert.equal(jets().length, 1, "the two outlets are in the wall even though the water is off (no ?current=on)");
+  assert.equal(jets()[0].on, false);
+  assert.equal(jets()[0].outlets.length, 2);
+  assert.deepEqual(b.link.world.rov._water(), [0, 0, 0], "no water moving while it is off");
+  b.setCurrent(true);  assert.equal(jets().length, 1); assert.equal(jets()[0].on, true);
+  b.setCurrent(true);  assert.equal(jets().length, 1, "turning it on twice does not add a second pair");
+  b.setCurrent(false); assert.equal(jets().length, 1, "the outlets stay"); assert.equal(jets()[0].on, false);
   b.setCurrent(true);
   b.reset();
-  assert.equal(jets(), 1, "Reset does not remove the jets");
+  assert.equal(jets()[0].on, true, "Reset does not turn the water off");
 });

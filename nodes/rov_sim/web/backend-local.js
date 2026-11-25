@@ -22,7 +22,7 @@ if (config.fish) try {
 let crabsAdded = false;
 if (config.crabs > 0) try { (await import("./sim/crab.js")).addTo(rov, config.crabs); crabsAdded = true; } catch (e) { /* optional add-on: no crabs without crab.js */ }
 let currentMod = null;                           // the optional water current (sim/current.js); the page's Current button can turn it on and off at any time
-try { currentMod = await import("./sim/current.js"); if (config.current) currentMod.addTo(rov); } catch (e) { /* optional add-on: no current without current.js */ }
+try { currentMod = await import("./sim/current.js"); currentMod.addTo(rov, config.current); } catch (e) { /* optional add-on: no outlets without current.js */ }      // the outlets are always in the wall; ?current=on makes the water run
 export const features = { keys: true, joys: false, claw: true, imu: true, rings: !!ringsMod, fish: fishAdded, crabs: crabsAdded, current: !!currentMod, serial: true };
 const world = new World(rov);
 if (ringsMod) world.ringDropper = ringsMod.dropRing;
@@ -39,11 +39,9 @@ export const tool = (name) => world.setTool(name);
 export const buoyancy = (mode) => world.setBuoyancy(mode);
 export const joy = () => {};
 export const reset = () => world.reset();
-export const dropRing = (x, y) => world.dropRing(x, y);
-/** The Current button: put the two water outlets in the pool, or take them out again, while the sim runs. */
+export const dropRing = (x, y) => world.dropRing(x, y);          // the N key
+/** The Current button: make the water run, or stop it. (The outlets stay in the wall either way.) */
 export function setCurrent(on) {
-  if (!currentMod) return;
-  const has = rov.props.some((p) => p.type === "jets");
-  if (on && !has) currentMod.addTo(rov);
-  if (!on && has) rov.props = rov.props.filter((p) => p.type !== "jets");
-}          // the N key
+  const jets = rov.props.find((p) => p.type === "jets");
+  if (jets) jets.on = !!on;
+}

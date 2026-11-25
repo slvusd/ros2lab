@@ -19,17 +19,20 @@ import math
 
 from rov_physics import POOL_REGIONS
 
-# Game-sized, tuned so you notice it (a real jet is narrower and weaker): fast near a nozzle, and wide enough that a ROV floating at the SURFACE,
-# well above the nozzles, still feels about 0.3 to 0.45 m/s across the middle of the pool. (The ROV's own top speed is about 0.84 m/s.)
-U0 = 1.6          # m/s at the nozzle
-K = 1.0           # axial speed = K / s beyond s = K / U0 (about 0.6 m)
+# Game-sized: gentle enough to drive against, strong enough to notice. A ROV floating at the SURFACE, well above the nozzles, feels about 0.15 to 0.25 m/s
+# across the middle of the pool; at a nozzle's own depth it is stronger (about 0.5 m/s a couple of metres out), and within half a metre of a nozzle it is
+# faster than the ROV can swim (its top speed is about 0.84 m/s). Turn all of it up or down with U0 and K together.
+U0 = 1.0          # m/s at the nozzle
+K = 0.5           # axial speed = K / s beyond s = K / U0 (0.5 m)
 R0, SPREAD = 0.04, 0.40    # half-width b(s) = R0 + SPREAD * s
 
 
 class Jets:
+    """The two outlets. They are ALWAYS in the wall (the page draws them whether the water is running or not); `on` says whether water comes out."""
     type = "jets"
 
-    def __init__(self):
+    def __init__(self, on=True):
+        self.on = on
         self.reset()
 
     def reset(self):
@@ -52,6 +55,8 @@ class Jets:
     def flow(self, x, y, depth):
         """The water's velocity at this point: (world x, world y, down) in m/s: the sum of both jets."""
         vx = vy = 0.0
+        if not self.on:
+            return vx, vy, 0.0
         for o in self.outlets:
             rx, ry = x - o["x"], y - o["y"]
             s = rx * o["dx"] + ry * o["dy"]                            # distance along the jet from the nozzle
@@ -66,10 +71,9 @@ class Jets:
         return vx, vy, 0.0
 
     def state(self):
-        return {"type": "jets", "outlets": [dict(o) for o in self.outlets], "length": self.length, "floor": self.floor, "u0": U0, "k": K, "r0": R0, "spread": SPREAD}
+        return {"type": "jets", "on": self.on, "outlets": [dict(o) for o in self.outlets], "length": self.length, "floor": self.floor, "u0": U0, "k": K, "r0": R0, "spread": SPREAD}
 
 
 def add_to(rov, on=True):
-    """Called by the runners: put the two water outlets in the pool (when `on`)."""
-    if on:
-        rov.props.append(Jets())
+    """Called by the runners: put the two outlets in the pool wall. They are always there; `on` says whether the water is running."""
+    rov.props.append(Jets(on))

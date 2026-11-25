@@ -29,13 +29,13 @@ export class Jets {
     return (this._tex = new this.T.CanvasTexture(c));
   }
 
-  respawn(j, i, s = 0.18) {                // (0.18 m: just beyond the nozzle)
+  respawn(j, i, s = 0.04) {                // (0.04 m: just beyond the nozzle)
     j.s[i] = s; j.lx[i] = this.gauss(); j.ly[i] = this.gauss();
   }
 
   build(p) {
     const T = this.T, group = new T.Group();
-    const pipe = new T.MeshStandardMaterial({ color: 0x6d7a84, roughness: 0.55 }), rim = new T.MeshStandardMaterial({ color: 0xe0e6ea, roughness: 0.35, metalness: 0.3 });
+    const rim = new T.MeshStandardMaterial({ color: 0xe0e6ea, roughness: 0.35, metalness: 0.3 });
     const hole = new T.MeshBasicMaterial({ color: 0x0a2030 });
     const sys = [];
     for (const o of p.outlets) {
@@ -43,21 +43,19 @@ export class Jets {
       const side = new T.Vector3(-dir.z, 0, dir.x);                         // across the pool, level
       const origin = new T.Vector3(o.x, -o.depth, -o.y);
       const q = new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), dir);
-      const stub = new T.Mesh(new T.CylinderGeometry(0.075, 0.075, 0.16, 24), pipe);      // a pipe stub out of the wall ...
-      stub.position.copy(origin).addScaledVector(dir, 0.08); stub.quaternion.copy(q);
-      const ring = new T.Mesh(new T.CylinderGeometry(0.095, 0.095, 0.03, 24), rim);       // ... with a collar at its end
-      ring.position.copy(origin).addScaledVector(dir, 0.15); ring.quaternion.copy(q);
-      const mouth = new T.Mesh(new T.CircleGeometry(0.055, 24), hole);                      // and the dark opening
-      mouth.position.copy(origin).addScaledVector(dir, 0.166); mouth.quaternion.setFromUnitVectors(new T.Vector3(0, 0, 1), dir);
-      group.add(stub, ring, mouth);
+      const plate = new T.Mesh(new T.CylinderGeometry(0.09, 0.09, 0.012, 32), rim);       // a flat round cover plate on the wall ...
+      plate.position.copy(origin).addScaledVector(dir, 0.012); plate.quaternion.copy(q);
+      const mouth = new T.Mesh(new T.CircleGeometry(0.05, 32), hole);                       // ... with the dark opening in the middle (nothing sticks out of the wall)
+      mouth.position.copy(origin).addScaledVector(dir, 0.0195); mouth.quaternion.setFromUnitVectors(new T.Vector3(0, 0, 1), dir);
+      group.add(plate, mouth);
 
       const geo = new T.BufferGeometry(), pos = new Float32Array(PER_JET * 3);
       geo.setAttribute("position", new T.BufferAttribute(pos, 3));
       const pts = new T.Points(geo, new T.PointsMaterial({ color: 0xdcf2ff, size: 0.04, map: this.bubbleTexture(), transparent: true, opacity: 0.7, depthWrite: false, sizeAttenuation: true }));
       pts.frustumCulled = false;                                            // the points move around: never cull on the empty first bounding box
       group.add(pts);
-      const j = { dir, side, origin, pos, geo, s: new Float32Array(PER_JET), lx: new Float32Array(PER_JET), ly: new Float32Array(PER_JET) };
-      for (let i = 0; i < PER_JET; i++) this.respawn(j, i, 0.18 + Math.random() * p.length * 0.6);
+      const j = { dir, side, origin, pos, geo, pts, s: new Float32Array(PER_JET), lx: new Float32Array(PER_JET), ly: new Float32Array(PER_JET) };
+      for (let i = 0; i < PER_JET; i++) this.respawn(j, i, 0.04 + Math.random() * p.length * 0.6);
       sys.push(j);
     }
     this.scene.add(group);
@@ -70,6 +68,9 @@ export class Jets {
     if (!p) { if (this.group) this.group.visible = false; return; }
     if (!this.sys) this.build(p);
     this.group.visible = true;
+    const on = !!p.on;                                                     // the outlets are always drawn; the bubbles and ripples only while the water runs
+    for (const j of this.sys) j.pts.visible = on;
+    if (!on) return;
     dt = Math.min(dt, 0.05);
     if (this.ripple) {                                                     // the stream wells up and ruffles the surface above it, mostly over the upper jet, further out
       this.rippleT += dt;
@@ -89,7 +90,7 @@ export class Jets {
         const b = p.r0 + p.spread * Math.max(s, 0), bx = j.lx[i] * b * Math.SQRT1_2, by = j.ly[i] * b * Math.SQRT1_2;
         const u = (s * p.u0 <= p.k ? p.u0 : p.k / s) * Math.exp(-(bx * bx + by * by) / (b * b));      // the same formula as rov_current.py
         s += u * dt;
-        if (s > p.length) { this.respawn(j, i); s = 0.18; }
+        if (s > p.length) { this.respawn(j, i); s = 0.04; }
         j.s[i] = s;
         const b2 = p.r0 + p.spread * s;
         const ox = j.lx[i] * b2 * Math.SQRT1_2, oy = j.ly[i] * b2 * Math.SQRT1_2;

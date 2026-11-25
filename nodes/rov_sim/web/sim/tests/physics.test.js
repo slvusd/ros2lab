@@ -96,7 +96,7 @@ for (const [name, sc] of Object.entries(golden.current_scenarios)) {
         n++;
         if (n % golden.every === 0) {
           const s = rov.state(), im = s.imu;
-          const got = [s.x, s.y, s.depth, s.yaw, s.pitch, s.speed, im.ax, im.ay, im.az, im.gz];
+          const got = [s.x, s.y, s.depth, s.yaw, s.pitch, s.speed, im.ax, im.ay, im.az, im.gz, s.roll, im.gx];
           const want = sc.rows[row++];
           got.forEach((g, c) => assert.ok(Math.abs(g - want[c]) <= 1e-6, `${name} row ${row - 1} column ${c}: JS ${g} vs Python ${want[c]}`));
         }

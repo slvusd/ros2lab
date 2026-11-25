@@ -94,11 +94,11 @@ class RovSim(Node):
             rov_crab.add_to(self.rov, self.get_parameter("crabs").value)
         except ImportError:
             pass
-        if self.get_parameter("current").value:
-            try:
-                import rov_current
-                rov_current.add_to(self.rov)
-            except ImportError:
+        try:                       # the two outlets in the shallow end's side wall are always there; current:=true makes the water run
+            import rov_current
+            rov_current.add_to(self.rov, self.get_parameter("current").value)
+        except ImportError:
+            if self.get_parameter("current").value:
                 self.get_logger().warn("current:=true needs rov_current.py, which is missing")
 
         # ---- subscriptions: commands ----

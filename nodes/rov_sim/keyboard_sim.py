@@ -65,11 +65,11 @@ def main():
         rov_crab.add_to(rov, a.crabs)
     except ImportError:
         pass
-    if a.current:
-        try:
-            import rov_current
-            rov_current.add_to(rov)
-        except ImportError:
+    try:                           # the two outlets in the shallow end's side wall are always there; --current makes the water run
+        import rov_current
+        rov_current.add_to(rov, a.current)
+    except ImportError:
+        if a.current:
             print("(--current needs rov_current.py, which is missing)")
     shared = Shared(keys=True)
     server = start_server(shared, a.port)

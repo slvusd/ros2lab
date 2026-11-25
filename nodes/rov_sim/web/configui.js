@@ -50,8 +50,8 @@ export function showConfig({ cfg, configurable = {} }) {
       ${can("pool") ? "" : '<div class="note">Fish, crabs, rings and the pool size are set by the Python server (--fish, --crabs, --rings, and its pool), not by the page.</div>'}
     </fieldset>
     <fieldset><legend>Water</legend>
-      <div class="row ${can("current") ? "" : "off"}"><label><input type="checkbox" id="cfg-current"${cur.current ? " checked" : ""}${can("current") ? "" : " disabled"}> Current: two water outlets in the side wall, as if filling the pool <small>(a challenge for the driver and the IMU)</small></label></div>
-      ${can("current") ? "" : '<div class="note">With the Python server use its --current option.</div>'}
+      <div class="row ${can("current") ? "" : "off"}"><label><input type="checkbox" id="cfg-current"${cur.current ? " checked" : ""}${can("current") ? "" : " disabled"}> Run the water: it flows out of the two outlets in the side wall, as if filling the pool <small>(the outlets are always there; a challenge for the driver and the IMU: it pushes and tilts the ROV)</small></label></div>
+      ${can("current") ? "" : '<div class="note">With the Python server use its --current option (the outlets are always in the wall).</div>'}
     </fieldset>
     <fieldset><legend>ROV</legend>
       <div class="row ${can("speed") ? "" : "off"}"><label for="cfg-speed">Red and green thruster power <small>(1&times; = normal)</small></label>

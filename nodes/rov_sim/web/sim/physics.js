@@ -40,6 +40,13 @@ const EMERGE_SOFT = 0.08, EMERGE_K1 = 25.0, EMERGE_K2 = 140.0, EMERGE_DAMP = 45.
 const FLOOR_BOUNCE = 0.2, THRUSTER_UP = -0.15;
 export const VERT_ARM = 0.2;
 const PITCH_I = 0.6, PITCH_KS = 16.8, PITCH_DS = 3.0, MAX_PITCH = 0.6;
+// Roll (heeling over sideways) works like pitch: a spring from buoyancy, damping from the water. Only a current (the water pushing the frame) makes it roll.
+// Roll is positive with the TOP of the ROV going to its right (right side down). Shown on the page and in the IMU; the collision shape ignores it.
+const ROLL_I = 0.6, ROLL_KS = 12.0, ROLL_DS = 3.0, MAX_ROLL = 0.6;
+// How a current tilts the ROV: the water's push on the frame acts this far above its middle (a push from the side heels it over, one from ahead or behind
+// pitches it), plus the difference between the push on the top of the frame and on the bottom (a jet that hits only the upper part). Metres.
+const TILT_ARM = 0.30, SHEAR_ARM = 0.20;       // for pitch
+const ROLL_ARM = 0.55, ROLL_SHEAR = 0.35;      // for roll (a sideways push is weaker than a head-on one, so a longer lever shows it)
 export const G = 9.81;
 const BODY_HX = 0.26, BODY_HY = 0.33, TOOL_TIP = 0.60;
 
@@ -87,6 +94,7 @@ export class Rov {
     this.claw_holder = null;
     this.thruster_up = THRUSTER_UP;
     this.pitch = this.pitch_rate = 0.0;      // radians, positive = nose DOWN
+    this.roll = this.roll_rate = 0.0;        // radians, positive = right side DOWN (the top goes to the right)
     this.pitch_torque = 0.0;
     this.imu_noise = imuNoise;
     this.imu_resolution = imuResolution;
@@ -105,6 +113,7 @@ export class Rov {
     this.claw = 0.0;
     for (const k in this.cmd) this.cmd[k] = 0.0;
     this.pitch = this.pitch_rate = 0.0;
+    this.roll = this.roll_rate = 0.0;
     this.claw_holder = null;
     this._depth_before = this.depth;
     this._prev = [0.0, 0.0, 0.0, 0.0];
@@ -174,20 +183,45 @@ export class Rov {
     this.pitch_torque = 0.0;
     this.claw_floor = 0.0;
     for (const p of this.props) p.step(this, dt);
-    const tilt = (fb - ff) * VERT_ARM + this.pitch_torque;
+    const [tp, tr] = this._waterTorque();                       // what a current does to the tilt (exactly 0, 0 with no current)
+    const tilt = (fb - ff) * VERT_ARM + this.pitch_torque + tp;
     this.pitch_rate += (tilt - PITCH_KS * this.pitch - PITCH_DS * this.pitch_rate) / PITCH_I * dt;
     this.pitch = clamp(this.pitch + this.pitch_rate * dt, -MAX_PITCH, MAX_PITCH);
+    this.roll_rate += (tr - ROLL_KS * this.roll - ROLL_DS * this.roll_rate) / ROLL_I * dt;
+    this.roll = clamp(this.roll + this.roll_rate * dt, -MAX_ROLL, MAX_ROLL);
     this._accelerometer(dt);
   }
 
-  /** The water's own velocity at the ROV: [world x, world y, DOWN] in m/s. Any prop with a flow(x, y, depth) method moves the water
+  /** The water's velocity at a point: [world x, world y, DOWN] in m/s. Any prop with a flow(x, y, depth) method moves the water
    *  (the jets in current.js do); with none, the water is still. */
-  _water() {
+  _flowAt(x, y, depth) {
     let wx = 0.0, wy = 0.0, wd = 0.0;
     for (const p of this.props) {
-      if (typeof p.flow === "function") { const [a, b, c] = p.flow(this.x, this.y, this.depth); wx += a; wy += b; wd += c; }
+      if (typeof p.flow === "function") { const [a, b, c] = p.flow(x, y, depth); wx += a; wy += b; wd += c; }
     }
     return [wx, wy, wd];
+  }
+
+  /** The water's own velocity at the ROV's middle. */
+  _water() { return this._flowAt(this.x, this.y, this.depth); }
+
+  /** The twist a current gives the frame: [pitch torque, nose DOWN +; roll torque, top-to-the-right +], N m. The push of the water is worked out at
+   *  the top, middle and bottom of the frame (a jet usually hits only part of it), from the water's speed RELATIVE to the ROV: a ROV carried along with
+   *  the water is not pushed over, one held against it is. It fades in with the strength of the current, so with the water still it is exactly [0, 0]
+   *  and driving about does not tilt the ROV. */
+  _waterTorque() {
+    if (!this.props.some((p) => typeof p.flow === "function")) return [0.0, 0.0];
+    const c = Math.cos(this.yaw), s = Math.sin(this.yaw);
+    const forces = []; let strongest = 0.0;
+    for (const dz of [-ROV_HALF, 0.0, ROV_HALF]) {                // top (shallower), middle, bottom (deeper)
+      const [wx, wy] = this._flowAt(this.x, this.y, this.depth + dz);
+      strongest = Math.max(strongest, Math.hypot(wx, wy));
+      const ur = wx * c + wy * s - this.u, vr = -wx * s + wy * c - this.v;       // the water's speed along and across the ROV, relative to the ROV
+      forces.push([LIN_DRAG * ur + QUAD_DRAG * ur * Math.abs(ur), LIN_DRAG * 2 * vr]);
+    }
+    const fade = Math.min(1.0, strongest / 0.1);                   // 0 with still water, 1 once the current is 0.1 m/s or more
+    const [[fxt, fyt], [fxm, fym], [fxb, fyb]] = forces;
+    return [fade * (TILT_ARM * fxm + SHEAR_ARM * (fxt - fxb)), -fade * (ROLL_ARM * fym + ROLL_SHEAR * (fyt - fyb))];
   }
 
   _accelerometer(dt) {
@@ -198,9 +232,11 @@ export class Rov {
     const aLeft = (this.v - v0) / dt + this.r * this.u;
     const fUp = -(this.w - w0) / dt + G;
     const cp = Math.cos(this.pitch), sp = Math.sin(this.pitch);
-    const ax = aFwd * cp - fUp * sp, az = aFwd * sp + fUp * cp;
+    const ax = aFwd * cp - fUp * sp, az0 = aFwd * sp + fUp * cp;
+    const cr = Math.cos(this.roll), sr = Math.sin(this.roll);        // heeling over swings gravity into the y axis (the up direction leans toward the left)
+    const ay = aLeft * cr + az0 * sr, az = az0 * cr - aLeft * sr;
     const n = this.imu_noise;
-    const acc = n ? [ax + gauss(n), aLeft + gauss(n), az + gauss(n)] : [ax, aLeft, az];
+    const acc = n ? [ax + gauss(n), ay + gauss(n), az + gauss(n)] : [ax, ay, az];
     const q = this.imu_resolution;
     this.imu_acc = q ? acc.map((v) => pyRound(v / q) * q) : acc;
   }
@@ -208,8 +244,8 @@ export class Rov {
   imu() {
     const n = this.imu_noise;
     const g = n ? () => gauss(n * 0.1) : () => 0.0;
-    return { roll: 0.0, pitch: this.pitch, yaw: this.yaw,
-      gx: g(), gy: this.pitch_rate + g(), gz: this.r + g(),
+    return { roll: this.roll, pitch: this.pitch, yaw: this.yaw,
+      gx: this.roll_rate + g(), gy: this.pitch_rate + g(), gz: this.r + g(),
       ax: this.imu_acc[0], ay: this.imu_acc[1], az: this.imu_acc[2] };
   }
 
@@ -259,7 +295,7 @@ export class Rov {
       t1: this.cmd[T_LEFT], t2: this.cmd[T_RIGHT], t3: this.cmd[T_FRONT], t4: this.cmd[T_REAR], claw: this.claw,
       speed: Math.sqrt(this.u ** 2 + this.v ** 2 + this.w ** 2),
       splash_n: this.splash_n, splash_v: this.splash_v, floor_n: this.floor_n, floor_v: this.floor_v,
-      props: this.props.map((p) => p.state()), tool: this.tool, pitch: this.pitch, imu: this.imu(), buoyancy: this.buoyancy,
+      props: this.props.map((p) => p.state()), tool: this.tool, pitch: this.pitch, roll: this.roll, imu: this.imu(), buoyancy: this.buoyancy,
       regions: POOL_REGIONS.map((r) => [...r]), keys, water: this._water() };
   }
 }

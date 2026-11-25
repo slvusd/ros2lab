@@ -19,6 +19,12 @@ function run(r, seconds, cmd = {}) {
   for (const k of ["t1", "t2", "t3", "t4"]) r.set_cmd(k, 0);
 }
 const jetsOf = (r) => r.props.find((p) => p.type === "jets");
+/** Run, and return [the largest r.<attr> reached, the IMU reading at that moment, the value at the end]. */
+function runPeak(r, seconds, attr = "roll") {
+  let best = [0.0, null];
+  for (let i = 0, n = Math.floor(seconds / DT); i < n; i++) { r.step(DT); const v = r[attr]; if (Math.abs(v) > Math.abs(best[0])) best = [v, r.imu()]; }
+  return [best[0], best[1], r[attr]];
+}
 
 test("two outlets in the middle of the shallow end's side wall, at a third and two thirds of the depth, shooting into the pool", () => {
   const j = new Jets();
@@ -71,18 +77,80 @@ test("the current carries a resting ROV away from the wall", () => {
   assert.ok(r.y < MAIN[2] + 0.6, "left alone it ends up against the far wall");
 });
 
-test("the IMU feels the current", () => {
+test("the IMU feels the current: the sideways push first, then the tilt", () => {
   const quiet = make(false), jet = make();
-  for (const r of [quiet, jet]) { place(r, JET_X, 0.5, jetsOf(jet).outlets[0].depth, 0.0); run(r, 0.5); }
+  for (const r of [quiet, jet]) place(r, JET_X, 0.5, jetsOf(jet).outlets[0].depth, 0.0);
+  run(quiet, 0.1); run(jet, 0.1);
   assert.ok(Math.abs(quiet.imu().ay) < 1e-6);
-  assert.ok(jet.imu().ay < -0.2, `ay = ${jet.imu().ay.toFixed(3)}`);
-  assert.ok(Math.abs(jet.imu().az - G) < 1.0, "gravity still reads about +9.8 up");
+  assert.ok(jet.imu().ay < -0.1, `right at the start the accelerometer shows the sideways push: ay = ${jet.imu().ay.toFixed(3)}`);
+  const [peak, imu] = runPeak(jet, 1.5);
+  assert.ok(peak > 0.04, `the push should heel the ROV over (peak roll ${(peak * 180 / Math.PI).toFixed(1)} deg)`);
+  assert.ok(Math.abs(imu.roll - peak) < 1e-9, "the IMU reports the roll");
+  assert.ok(imu.ay > 0.2, `... and the tilt leans gravity into the sideways axis: ay = ${imu.ay.toFixed(3)}`);
+  assert.ok(Math.abs(Math.hypot(imu.ay, imu.az) - G) < 1.5, "the accelerometer still reads about 1 g in total");
+  run(quiet, 1.5);
+  assert.equal(quiet.imu().roll, 0); assert.equal(quiet.imu().gx, 0);
   const r2 = make();
-  place(r2, JET_X, 0.5, jetsOf(r2).outlets[0].depth, Math.PI / 2);        // facing the wall: pushed backwards
-  run(r2, 0.5);
-  assert.ok(r2.imu().ax < -0.2, `ax = ${r2.imu().ax.toFixed(3)}`);
-  run(r2, 6);
-  assert.ok(Math.abs(r2.imu().ax) < 0.2, "once it moves with the water the push is gone");
+  place(r2, JET_X, 0.5, jetsOf(r2).outlets[0].depth, Math.PI / 2);        // facing the wall: the jet hits the nose, pushing the ROV backwards
+  run(r2, 0.1);
+  assert.ok(r2.imu().ax < -0.1, `ax = ${r2.imu().ax.toFixed(3)}`);
+  run(r2, 8);
+  assert.ok(Math.abs(r2.imu().az - G) < 0.6, "against the far wall it settles; the accelerometer is back to about 1 g up");
+});
+
+test("the current tilts the ROV: roll from the side, pitch from ahead or behind, more when it hits only the top, none without water", () => {
+  const level = make(false);
+  place(level, JET_X, 0.5, 0.667);
+  run(level, 3);
+  assert.equal(level.roll, 0); assert.equal(level.pitch, 0);
+  const side = make();
+  place(side, JET_X, 0.5, jetsOf(side).outlets[0].depth, 0.0);
+  const [roll] = runPeak(side, 1.5, "roll");
+  assert.ok(roll > 0.05 && Math.abs(side.pitch) < 0.02, `sideways push: peak roll ${(roll * 180 / Math.PI).toFixed(1)} deg, pitch ${(side.pitch * 180 / Math.PI).toFixed(1)}`);
+  assert.ok(roll < 0.6, "it stays within its limit");
+  const head = make();
+  place(head, JET_X, 0.5, jetsOf(head).outlets[0].depth, Math.PI / 2);        // facing the wall: the jet hits the NOSE
+  const [pitchHead] = runPeak(head, 1.5, "pitch");
+  assert.ok(pitchHead < -0.03 && Math.abs(head.roll) < 0.02, `push on the nose: peak pitch ${(pitchHead * 180 / Math.PI).toFixed(1)} deg (nose UP is negative)`);
+  const behind = make();
+  place(behind, JET_X, 0.5, jetsOf(behind).outlets[0].depth, -Math.PI / 2);   // facing away: it hits from behind
+  const [pitchBehind] = runPeak(behind, 1.5, "pitch");
+  assert.ok(pitchBehind > 0.03, `push from behind: peak pitch ${(pitchBehind * 180 / Math.PI).toFixed(1)} deg should be nose DOWN (positive)`);
+  const high = make();
+  place(high, JET_X, 0.5, jetsOf(high).outlets[0].depth + 0.25, Math.PI / 2);    // the jet axis is level with the top of the frame
+  const [pitchHigh] = runPeak(high, 1.5, "pitch");
+  assert.ok(pitchHigh < pitchHead, `the shear should add to the pitch: ${(pitchHigh * 180 / Math.PI).toFixed(1)} vs ${(pitchHead * 180 / Math.PI).toFixed(1)} deg`);
+});
+
+test("a ROV carried along with the water levels out, one held against it stays tilted, and with the water off driving about does not tilt it", () => {
+  const drift = make();
+  place(drift, JET_X, 0.9, jetsOf(drift).outlets[0].depth, 0.0);
+  const [peak] = runPeak(drift, 1.5, "roll");
+  run(drift, 3);
+  assert.ok(Math.abs(drift.roll) < 0.6 * Math.abs(peak), `carried along it should level out: peak ${peak.toFixed(3)}, later ${drift.roll.toFixed(3)}`);
+  const pinned = make();
+  place(pinned, JET_X, MAIN[2] + 0.4, jetsOf(pinned).outlets[0].depth, 0.0);
+  run(pinned, 4);
+  assert.ok(pinned.roll > 0.03, `pinned against the wall in the stream it stays heeled over (${(pinned.roll * 180 / Math.PI).toFixed(1)} deg)`);
+  const fighting = make();
+  place(fighting, JET_X, -0.5, jetsOf(fighting).outlets[0].depth, Math.PI / 2);
+  run(fighting, 3, { t1: 1.0, t2: 1.0 });
+  assert.ok(fighting.pitch < -0.05, `powering into the stream noses it up (${(fighting.pitch * 180 / Math.PI).toFixed(1)} deg)`);
+  const off = make(false);
+  place(off, JET_X, 0.0, 0.7, 0.0);
+  for (let i = 0; i < 60 * 6; i++) { off.set_cmd("t1", 1.0); off.set_cmd("t2", 0.3); off.step(DT); }
+  assert.equal(off.roll, 0); assert.equal(off.pitch, 0);
+});
+
+test("the outlets are always in the wall whether the water runs or not", () => {
+  for (const on of [false, true]) {
+    const js = make(on).state().props.filter((p) => p.type === "jets");
+    assert.equal(js.length, 1); assert.equal(js[0].outlets.length, 2); assert.equal(js[0].on, on);
+  }
+  const off = make(false), j = jetsOf(off), d = j.outlets[0].depth;
+  assert.deepEqual(j.flow(JET_X, WALL_Y - 1.0, d), [0, 0, 0], "no water when it is off");
+  j.on = true;
+  assert.ok(j.flow(JET_X, WALL_Y - 1.0, d)[1] < -0.3, "and water when it is switched on");
 });
 
 test("the ROV can fight the current far from the nozzle, but not near it", () => {

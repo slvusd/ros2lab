@@ -6,15 +6,18 @@
 // off as exp(-(r / b)^2) with b = R0 + SPREAD * s. Where the two jets overlap the speeds add. Only the ROV feels it (rings, fish, crabs do not).
 import { POOL_REGIONS } from "./physics.js";
 
-// Game-sized, tuned so you notice it (a real jet is narrower and weaker): fast near a nozzle, and wide enough that a ROV floating at the SURFACE,
-// well above the nozzles, still feels about 0.3 to 0.45 m/s across the middle of the pool. (The ROV's own top speed is about 0.84 m/s.)
-export const U0 = 1.6;                    // m/s at the nozzle
-export const K = 1.0;                     // axial speed = K / s beyond s = K / U0 (about 0.6 m)
+// Game-sized: gentle enough to drive against, strong enough to notice. A ROV floating at the SURFACE, well above the nozzles, feels about 0.15 to 0.25 m/s
+// across the middle of the pool; at a nozzle's own depth it is stronger (about 0.5 m/s a couple of metres out), and within half a metre of a nozzle it is
+// faster than the ROV can swim (its top speed is about 0.84 m/s). Turn all of it up or down with U0 and K together.
+export const U0 = 1.0;                    // m/s at the nozzle
+export const K = 0.5;                     // axial speed = K / s beyond s = K / U0 (0.5 m)
 export const R0 = 0.04, SPREAD = 0.40;    // half-width b(s) = R0 + SPREAD * s
 
+/** The two outlets. They are ALWAYS in the wall (the page draws them whether the water is running or not); `on` says whether water comes out. */
 export class Jets {
-  constructor() {
+  constructor(on = true) {
     this.type = "jets";
+    this.on = on;
     this.reset();
   }
   reset() {
@@ -34,6 +37,7 @@ export class Jets {
   /** The water's velocity at this point: [world x, world y, down] in m/s: the sum of both jets. */
   flow(x, y, depth) {
     let vx = 0.0, vy = 0.0;
+    if (!this.on) return [0.0, 0.0, 0.0];
     for (const o of this.outlets) {
       const rx = x - o.x, ry = y - o.y;
       const s = rx * o.dx + ry * o.dy;                          // distance along the jet from the nozzle
@@ -47,8 +51,8 @@ export class Jets {
     return [vx, vy, 0.0];
   }
 
-  state() { return { type: "jets", outlets: this.outlets.map((o) => ({ ...o })), length: this.length, floor: this.floor, u0: U0, k: K, r0: R0, spread: SPREAD }; }
+  state() { return { type: "jets", on: this.on, outlets: this.outlets.map((o) => ({ ...o })), length: this.length, floor: this.floor, u0: U0, k: K, r0: R0, spread: SPREAD }; }
 }
 
-/** Put the two water outlets in the pool (when `on`). */
-export function addTo(rov, on = true) { if (on) rov.props.push(new Jets()); }
+/** Put the two outlets in the pool wall. They are always there; `on` says whether the water is running. */
+export function addTo(rov, on = true) { rov.props.push(new Jets(on)); }

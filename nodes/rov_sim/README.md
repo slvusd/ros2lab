@@ -51,15 +51,15 @@ To change a key, edit `SWITCHES` in `web/controls.js` (and the key help in `inde
 **Help page:** the **Help** button opens `web/help.html`, rendered from `web/help.md` (controls, the pool, page options, and the full micro:bit / Pico protocol with examples). It is the single
 source for the browser version's protocol; `web/sim/tests/help.test.js` fails if it falls out of step with the code. Edit `help.md`, not the HTML.
 
-**The Current button** (browser version): the toolbar button *Current: off / on* puts the two water outlets in the pool or takes them out again while it runs (the HUD then shows a *current* reading: how fast the water is moving at the ROV).
-
-**The water current** (`rov_current.py` / `web/sim/current.js`, drawn by `web/jets.js`; off unless you ask: `current=on`, the *Current* box in `?config`, `--current` / `current:=true` on the Python sim): two water
-outlets in the middle of the pool's +y wall (the side the shallow end is on), at 1/3 and 2/3 of the depth, shoot water straight across the pool, as if filling it. Not realistic, but a good challenge: it is a
-round turbulent jet (on the axis `min(U0, K / s)` at distance `s` from the nozzle, a Gaussian across it, widening with distance; constants at the top of `rov_current.py`), so it is faster than the ROV can
-swim close to a nozzle, and wide enough that even a ROV floating at the surface feels about 0.3 to 0.45 m/s across the middle of the pool. **How the ROV feels it:** the core physics asks every prop that has a `flow(x, y, depth)` method how fast the water moves at the ROV and computes drag from
-the speed *relative to the water*, so the ROV is carried along and has to be powered or steered against it, and the **IMU accelerometer shows the push** with no special code (with no current the physics is
-bit-for-bit what it was). Only the ROV is affected, not the rings, fish or crabs. The page draws the nozzles and a stream of small bubbles that follow the same flow formula (the numbers come in the state). Tests:
-`test_current.py`, `web/sim/tests/current.test.js`, and Python golden traces (with the IMU) replayed by the JS port. It is an optional add-on: delete the files and it is gone.
+**The water outlets and the current** (`rov_current.py` / `web/sim/current.js`, drawn by `web/jets.js`): two round outlets are **always** in the middle of the pool's +y wall (the side the shallow end is on), at 1/3 and 2/3 of
+the depth, whether or not the water runs. The water runs when you ask: `current=on`, the *Run the water* box in `?config`, the toolbar button *Current: off / on* (browser version; the HUD then shows a *current* reading: how fast the
+water moves at the ROV), or `--current` / `current:=true` on the Python sim. Water then shoots straight across the pool, as if filling it. Not realistic, but a good challenge: a round-jet-like profile (on the axis `min(U0, K / s)` at distance `s`
+from the nozzle, a Gaussian across it, widening with distance; constants at the top of `rov_current.py`: gentle at the surface, about 0.5 m/s a couple of metres out at the outlets' own depth, faster than the ROV can swim within half a metre of an
+outlet). **How the ROV feels it:** the core physics asks every prop that has a `flow(x, y, depth)` method how fast the water moves at the ROV and computes drag from the speed *relative to the water*, so the ROV is carried along and has to be powered or steered
+against it, and the **IMU accelerometer shows the push**. It also **tilts** the ROV: the push of the water on the top, middle and bottom of the frame twists it, so a push from the side makes it **roll** (heel over; new: the ROV has a roll angle, shown on the
+model, in the HUD and in the IMU, with the accelerometer's gravity leaning accordingly), and a push on the nose or tail pitches it (a ROV carried along with the water levels out again; one held against it stays tilted). With the water still, none of this
+exists: the physics is bit-for-bit what it was. Only the ROV is affected, not the rings, fish or crabs; the collision shape ignores roll. Tests: `test_current.py`, `web/sim/tests/current.test.js`, and Python golden traces (IMU, roll) replayed by the JS port. It is an
+optional add-on: delete the files and the outlets and the current are gone.
 
 **The green crab** (`rov_crab.py` / `web/sim/crab.js`, drawn by `web/crab.js`): the 2026 scout task is to remove the invasive European green crab, so a small crab now crawls (sideways, like a real one) on
 the floor of the shallow end. It scuttles away when the ROV comes close, but it is about five times slower than the ROV, and when the ROV touches it (any part of the frame, thrusters, jaws
@@ -361,7 +361,7 @@ Read once at startup. `ros2 run`-style for `rov_sim.py`: `--ros-args -p name:=va
 | `rings` | 3 | how many pick-up rings, 0 to 5 (`--rings`; `--no-ring` = 0 on the keyboard version) |
 | `fish` | 1 | how many fish, 0 to 3 (`--fish`) |
 | `crabs` | 1 | how many green crabs on the shallow end's floor, 0 to 5 (`--crabs`); the 2026 scout task has two |
-| `current` | false | two water outlets make a current across the pool (`--current`): see *The water current* |
+| `current` | false | make the water run out of the two wall outlets, a current across the pool (`--current`): see *The water outlets and the current* |
 | `speed` | 1 | power of the red and green (horizontal) thrusters, 0.25 to 4 (`--speed`). **1 is the normal speed, which is half of what these thrusters used to give** (`SIDE_THRUST = 0.5` in `rov_physics.py`); 2 is the old strength |
 | `max_thrust` | 12 | newtons the thrusters could give at full command; the horizontal ones give `SIDE_THRUST x speed` of it (6 N at the normal speed), the two vertical thrusters share one such budget (6 N each) |
 | `mass` | 8 | kg including added mass |

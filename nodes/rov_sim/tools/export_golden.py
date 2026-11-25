@@ -95,7 +95,7 @@ def run_current(sc):
             if n % EVERY == 0:
                 s = rov.state()
                 im = s["imu"]
-                rows.append([s["x"], s["y"], s["depth"], s["yaw"], s["pitch"], s["speed"], im["ax"], im["ay"], im["az"], im["gz"]])
+                rows.append([s["x"], s["y"], s["depth"], s["yaw"], s["pitch"], s["speed"], im["ax"], im["ay"], im["az"], im["gz"], s["roll"], im["gx"]])
     return rows
 
 

@@ -15,6 +15,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import rov_current
+import rov_physics
 from rov_physics import POOL_REGIONS, Rov
 
 DT = 1 / 60
@@ -24,7 +25,12 @@ JET_X = (MAIN[0] + min(r[0] for r in POOL_REGIONS if r is not MAIN)) / 2      # 
 G = 9.81
 
 
+def rov_physics_max_roll():
+    return rov_physics.MAX_ROLL
+
+
 def make(jets=True, **kw):
+    """A ROV with the two outlets in the wall; jets=False leaves the water still (the outlets are there but not running)."""
     kw.setdefault("buoyancy", 0.0)
     kw.setdefault("tool", "nose")
     r = Rov(**kw)
@@ -43,6 +49,17 @@ def run(r, seconds, **cmd):
         r.step(DT)
     for k in ("t1", "t2", "t3", "t4"):
         r.set_cmd(k, 0)
+
+
+def run_peak(r, seconds, attr="roll"):
+    """Run, and return (the largest value of r.<attr> reached, the IMU reading at that moment, the value at the end)."""
+    best = (0.0, None)
+    for _ in range(int(seconds / DT)):
+        r.step(DT)
+        v = getattr(r, attr)
+        if abs(v) > abs(best[0]):
+            best = (v, r.imu())
+    return best[0], best[1], getattr(r, attr)
 
 
 def jets_of(r):
@@ -111,20 +128,82 @@ def test_current_carries_a_resting_rov_away_from_the_wall():
 def test_imu_feels_the_current():
     quiet, jet = make(jets=False), make()
     for r in (quiet, jet):
-        place(r, JET_X, 0.5, jets_of(jet).outlets[0]["depth"], yaw=0.0)        # facing +x, so the jet (-y) pushes it to its right: body y is LEFT, so a_left < 0
-        run(r, 0.5)
-    qa, ja = quiet.imu(), jet.imu()
-    assert abs(qa["ay"]) < 1e-6
-    assert ja["ay"] < -0.2, f"the accelerometer should show the push to the side: ay = {ja['ay']:.3f}"
-    assert abs(ja["az"] - G) < 1.0, "gravity still reads about +9.8 up"
-    # facing the wall, the jet pushes the ROV backwards: body x acceleration negative
+        place(r, JET_X, 0.5, jets_of(jet).outlets[0]["depth"], yaw=0.0)        # facing +x: the jet (-y) pushes it to its right; body y is LEFT
+    run(quiet, 0.1); run(jet, 0.1)
+    assert abs(quiet.imu()["ay"]) < 1e-6
+    assert jet.imu()["ay"] < -0.1, f"right at the start the accelerometer shows the sideways push: ay = {jet.imu()['ay']:.3f}"
+    peak, imu, _ = run_peak(jet, 1.5)
+    assert peak > 0.04, f"the push should heel the ROV over (peak roll {math.degrees(peak):.1f} deg)"
+    assert abs(imu["roll"] - peak) < 1e-9, "the IMU reports the roll"
+    assert imu["ay"] > 0.2, f"... and the tilt leans gravity into the sideways axis: ay = {imu['ay']:.3f}"
+    assert abs(math.hypot(imu["ay"], imu["az"]) - G) < 1.5, "the accelerometer still reads about 1 g in total"
+    run(quiet, 1.5)
+    assert quiet.imu()["roll"] == 0.0 and quiet.imu()["gx"] == 0.0
+    # facing the wall, the jet hits the nose: the ROV is pushed backwards (body x acceleration negative at first)
     r2 = make()
     place(r2, JET_X, 0.5, jets_of(r2).outlets[0]["depth"], yaw=math.pi / 2)
-    run(r2, 0.5)
-    assert r2.imu()["ax"] < -0.2, f"facing the wall the push is backwards: ax = {r2.imu()['ax']:.3f}"
-    # and once it is moving with the water the accelerometer settles back toward zero (the force is gone)
-    run(r2, 6)
-    assert abs(r2.imu()["ax"]) < 0.2
+    run(r2, 0.1)
+    assert r2.imu()["ax"] < -0.1, f"facing the wall the push is backwards: ax = {r2.imu()['ax']:.3f}"
+    run(r2, 8)
+    assert abs(r2.imu()["az"] - G) < 0.6, "against the far wall it settles; the accelerometer is back to about 1 g up"
+
+
+def test_the_current_tilts_the_rov():
+    """A sideways push heels it over (roll), a push from ahead or behind pitches it, and with no current it stays level."""
+    level = make(jets=False)
+    place(level, JET_X, 0.5, 0.667)
+    run(level, 3)
+    assert level.roll == 0.0 and level.pitch == 0.0
+    side = make()
+    place(side, JET_X, 0.5, jets_of(side).outlets[0]["depth"], yaw=0.0)       # the jet hits its side
+    roll, _, _ = run_peak(side, 1.5, "roll")
+    assert roll > 0.05 and abs(side.pitch) < 0.02, f"sideways push: peak roll {math.degrees(roll):.1f}, pitch {math.degrees(side.pitch):.1f} deg"
+    assert roll < rov_physics_max_roll(), "it stays within its limit"
+    head = make()
+    place(head, JET_X, 0.5, jets_of(head).outlets[0]["depth"], yaw=math.pi / 2)    # facing the wall: the jet hits the NOSE
+    pitch_head, _, _ = run_peak(head, 1.5, "pitch")
+    assert pitch_head < -0.03 and abs(head.roll) < 0.02, f"push on the nose: peak pitch {math.degrees(pitch_head):.1f} deg (nose UP is negative)"
+    behind = make()
+    place(behind, JET_X, 0.5, jets_of(behind).outlets[0]["depth"], yaw=-math.pi / 2)   # facing away from the wall: it hits from behind
+    pitch_behind, _, _ = run_peak(behind, 1.5, "pitch")
+    assert pitch_behind > 0.03, f"push from behind: peak pitch {math.degrees(pitch_behind):.1f} deg should be nose DOWN (positive)"
+    # a jet that hits only the upper part of the frame tilts it more than the same push on the middle (the shear term)
+    high = make()
+    place(high, JET_X, 0.5, jets_of(high).outlets[0]["depth"] + 0.25, yaw=math.pi / 2)      # the jet axis is level with the top of the frame
+    pitch_high, _, _ = run_peak(high, 1.5, "pitch")
+    assert pitch_high < pitch_head, f"the shear should add to the pitch: {math.degrees(pitch_high):.1f} vs {math.degrees(pitch_head):.1f} deg"
+
+
+def test_a_rov_carried_along_with_the_water_levels_out_but_one_held_against_it_stays_tilted():
+    drift = make()
+    place(drift, JET_X, 0.9, jets_of(drift).outlets[0]["depth"], yaw=0.0)
+    peak, _, _ = run_peak(drift, 1.5, "roll")
+    run(drift, 3)
+    assert abs(drift.roll) < 0.6 * abs(peak), f"carried along it should level out: peak {math.degrees(peak):.1f}, later {math.degrees(drift.roll):.1f} deg"
+    pinned = make()
+    place(pinned, JET_X, MAIN[2] + 0.4, jets_of(pinned).outlets[0]["depth"], yaw=0.0)         # against the far wall already, in the stream
+    run(pinned, 4)
+    assert pinned.roll > 0.03, f"pinned against the wall in the stream it stays heeled over ({math.degrees(pinned.roll):.1f} deg)"
+    fighting = make()
+    place(fighting, JET_X, -0.5, jets_of(fighting).outlets[0]["depth"], yaw=math.pi / 2)       # facing the wall, powering against the stream
+    run(fighting, 3, t1=1.0, t2=1.0)
+    assert fighting.pitch < -0.05, f"powering into the stream noses it up ({math.degrees(fighting.pitch):.1f} deg)"
+    off = make(jets=False)                                         # the outlets are in the wall but the water is off: driving about must not tilt it
+    place(off, JET_X, 0.0, 0.7, yaw=0.0)
+    for _ in range(60 * 6):
+        off.set_cmd("t1", 1.0); off.set_cmd("t2", 0.3); off.step(DT)
+    assert off.roll == 0.0 and off.pitch == 0.0, f"roll {off.roll}, pitch {off.pitch}"
+
+
+def test_the_outlets_are_always_in_the_wall_whether_the_water_runs_or_not():
+    for on in (False, True):
+        r = make(jets=on)
+        js = [p for p in r.state()["props"] if p["type"] == "jets"]
+        assert len(js) == 1 and len(js[0]["outlets"]) == 2 and js[0]["on"] is on
+    off = make(jets=False)
+    assert jets_of(off).flow(JET_X, WALL_Y - 1.0, jets_of(off).outlets[0]["depth"]) == (0.0, 0.0, 0.0), "no water when it is off"
+    jets_of(off).on = True
+    assert jets_of(off).flow(JET_X, WALL_Y - 1.0, jets_of(off).outlets[0]["depth"])[1] < -0.3, "and water when it is switched on"
 
 
 def test_the_rov_can_fight_the_current_but_not_near_the_nozzle():
