@@ -179,10 +179,10 @@ for anyone you send it to. Every setting is also a plain option you can add to t
 | Option | Does |
 |---|---|
 | `config` | open the set-up panel |
-| `controls=all` | all keys: the three switches and the extra keys (the normal start-up) |
-| `controls=h` | **H-circuit only**: just the three switches work, and `H` no longer changes it (the link decides) |
+| `controls=all` | all keys: the three switches and the extra keys |
+| `controls=h` | **H-circuit only**: just the three switches work, and `H` no longer changes it (the link decides). Without any `controls` the page also starts in this mode (for the scouts), but `H` can still switch it |
 | `controls=h-hidden` | H-circuit only **and every other control hidden**: only the switch box (and the camera window, if there is a camera) is left on the page |
-| `fish=on` or `off` | the fish (normally on) |
+| `fish=on` or `off` | the fish (normally off) |
 | `rings=0` to `5` | how many pick-up rings (normally 3) |
 | `poollength=1` or `2` | the main pool is 6 m times this long (normally 1, so 6 m; 2 is 12 m) |
 | `poolwidth=1`, `2` or `3` | the main pool is 3 m times this wide (normally 1, so 3 m; 3 is 9 m) |
@@ -191,7 +191,7 @@ for anyone you send it to. Every setting is also a plain option you can add to t
 | `crabs=0` to `5` | how many green crabs crawl on the shallow end (normally 1; the 2026 scout task has two) |
 | `flow=bubbles`, `streaks`, `rings` or `mix` | how the running water is drawn: small bubbles in a narrow plume, thin tracer lines along the flow, ripple rings that expand as they travel out, or rings with a few bubbles (normally `mix`). **`J`** changes it while the page runs. The picture is a little narrower than the real flow: the water moves more gently over a wider area |
 | `current=on` or `off` | run the water out of the two outlets in the pool wall on the shallow-end side (the outlets are always there): a current that pushes and tilts the ROV (normally off) |
-| `camera=on` or `off` | whether the ROV has a camera: its housing on the model, the camera window, and the fish coming to look into it (normally on) |
+| `camera=on` or `off` | whether the ROV has a camera: its housing on the model, the camera window, and the fish coming to look into it (normally off) |
 
 Whole numbers (and any number from 0.25 to 4 for `speed`): anything else is rounded and kept inside the limits, and an option the page does not understand is ignored. The shallow end keeps its size
 and stays at the far end whatever the main pool size. A bigger pool has coarser water ripples so it still runs on a slow computer.

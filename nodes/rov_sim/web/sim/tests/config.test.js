@@ -7,7 +7,7 @@ const plain = (c) => Object.fromEntries(CONFIG_KEYS.map((k) => [k, c[k]]));
 
 test("no parameters: the defaults (3 rings, a fish, a camera, all keys, the normal pool)", () => {
   assert.deepEqual(plain(parseConfig("")), DEFAULTS);
-  assert.deepEqual(DEFAULTS, { controls: "all", fish: true, rings: 3, poollength: 1, poolwidth: 1, camera: true, speed: 1, crabs: 1, current: false, flow: "mix", thrusters: 4 });
+  assert.deepEqual(DEFAULTS, { controls: "h", fish: true, rings: 3, poollength: 1, poolwidth: 1, camera: false, speed: 1, crabs: 1, current: false, flow: "mix", thrusters: 4 });
   assert.equal(parseConfig("").explicit.size, 0);
   assert.equal(parseConfig("").open, false);
 });
@@ -50,7 +50,7 @@ test("explicit lists exactly the settings the address set; ?config opens the pan
 
 test("toQuery: only non-default values, other parameters are kept, config is dropped", () => {
   assert.equal(toQuery(DEFAULTS), "");
-  assert.equal(toQuery({ ...DEFAULTS, rings: 5, fish: false, camera: false }), "fish=off&rings=5&camera=off");
+  assert.equal(toQuery({ ...DEFAULTS, rings: 5, fish: false, camera: true }), "fish=off&rings=5&camera=on");
   assert.equal(toQuery({ ...DEFAULTS, controls: "h-hidden", poollength: 2, poolwidth: 3 }), "controls=h-hidden&poollength=2&poolwidth=3");
   assert.equal(toQuery(DEFAULTS, "?config&quality=low&view=top&rings=1"), "quality=low&view=top");
   assert.equal(toQuery({ ...DEFAULTS, rings: 1 }, "?config&quality=low"), "quality=low&rings=1");

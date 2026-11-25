@@ -800,7 +800,7 @@ function updateHud() {
 // ---------- keyboard (only when the server is keyboard_sim.py: state.keys) ----------
 const held = new Set();
 let clawCmd = 0, lastSent = "";
-let hOnly = false;                                            // "H-bridge only": only the three switches work (H key / the badge on the box)
+let hOnly = cfg.controls !== "all";                                            // "H-bridge only": only the three switches work (H key / the badge on the box)
 const hLocked = cfg.explicit.has("controls");                 // ?controls= in the address decides the mode: the H key and the badge do nothing then
 try { hOnly = localStorage.getItem("rovHOnly") === "on"; } catch (e) { /* no storage: keep default */ }
 if (hLocked) hOnly = cfg.controls !== "all";
