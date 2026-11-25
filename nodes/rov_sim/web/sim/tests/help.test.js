@@ -74,5 +74,14 @@ test("the example addresses in the help are read back as written", async () => {
 });
 
 test("the help describes the IMU panel and the Current button", () => {
-  for (const w of ["**IMU**", "accelerometer", "gyro", "**Current**", "current=on", "**Pool**", "`J`", "flow="]) assert.ok(md.includes(w), `help.md does not mention ${w}`);
+  for (const w of ["**IMU**", "accelerometer", "gyro", "**Config**", "Run the water", "main pool size", "current=on", "`J`", "flow=", "right away", "restart"]) assert.ok(md.includes(w), `help.md does not mention ${w}`);
+});
+
+test("the keys the help gives for Shift and Space match controls.js (Shift forward, Space reverse; R / F up and down)", async () => {
+  assert.ok(md.includes("`W` or Shift / `S` or Space"), "the help says W or Shift is forward and S or Space is reverse");
+  assert.ok(!/R.{0,12}Space/.test(md) && !/F.{0,12}Shift/.test(md.replace("W` or Shift", "")), "the old up/down meaning of Space and Shift is gone from the help");
+  const { computeCommand } = await import("../../controls.js");
+  const f = computeCommand(new Set(["ShiftLeft"]), [0, 0, 0], 0), r = computeCommand(new Set(["Space"]), [0, 0, 0], 0);
+  assert.ok(f.t1 > 0 && f.t2 > 0 && f.t3 === 0, "Shift drives forward");
+  assert.ok(r.t1 < 0 && r.t2 < 0 && r.t4 === 0, "Space drives in reverse");
 });

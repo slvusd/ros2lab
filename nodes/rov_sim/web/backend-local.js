@@ -40,13 +40,15 @@ export const buoyancy = (mode) => world.setBuoyancy(mode);
 export const joy = () => {};
 export const reset = () => world.reset();
 export const dropRing = (x, y) => world.dropRing(x, y);          // the N key
-/** The Pool button: resize the main pool (length 1-2 times 6 m, width 1-3 times 3 m) while the sim runs. Everything that stands in the pool (the ROV,
+/** The Config dialog's thruster power: the red and green thrusters' power, 0.25 to 4 (1 = normal). */
+export function setSpeed(v) { rov.speed_mult = Math.max(0.25, Math.min(4, Number(v) || 1)); }
+/** The Config dialog's pool size: resize the main pool (length 1-2 times 6 m, width 1-3 times 3 m) while the sim runs. Everything that stands in the pool (the ROV,
  *  the rings, the fish, the crabs, the water outlets) is put back in the new pool, like Reset. */
 export function setPoolSize(length, width) {
   setPool(length, width);
   world.reset();
 }
-/** The Current button: make the water run, or stop it. (The outlets stay in the wall either way.) */
+/** The Config dialog's Current box: make the water run, or stop it. (The outlets stay in the wall either way.) */
 export function setCurrent(on) {
   const jets = rov.props.find((p) => p.type === "jets");
   if (jets) jets.on = !!on;

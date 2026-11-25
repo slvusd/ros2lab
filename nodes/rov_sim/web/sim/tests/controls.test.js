@@ -13,8 +13,12 @@ test("the extra keyboard keys (non-H mode) mix the thrusters at 80%", () => {
   assert.deepEqual(cmd(["KeyD"]), T(0.8, -0.8, 0, 0), "D turns right: left thruster forward");
   assert.deepEqual(cmd(["KeyA"]), T(-0.8, 0.8, 0, 0));
   assert.deepEqual(cmd(["KeyR"]), T(0, 0, 0.8, 0.8));
-  assert.deepEqual(cmd(["Space"]), T(0, 0, 0.8, 0.8));
-  assert.deepEqual(cmd(["ShiftLeft"]), T(0, 0, -0.8, -0.8));
+  assert.deepEqual(cmd(["KeyF"]), T(0, 0, -0.8, -0.8));
+  assert.deepEqual(cmd(["ShiftLeft"]), T(0.8, 0.8, 0, 0), "Shift = forward");
+  assert.deepEqual(cmd(["ShiftRight"]), T(0.8, 0.8, 0, 0), "either Shift key");
+  assert.deepEqual(cmd(["Space"]), T(-0.8, -0.8, 0, 0), "Space = reverse");
+  assert.deepEqual(cmd(["Space", "KeyW"]), T(0, 0, 0, 0), "forward and reverse cancel");
+  assert.deepEqual(cmd(["ShiftLeft", "KeyD"]), T(0.8, 0, 0, 0), "Shift + D: forward and turn right (the left thruster is clamped at full, the right one cancels)");
   assert.deepEqual(cmd(["KeyI"]), T(0, 0, 0.8, -0.8), "I trims the nose up");
   assert.deepEqual(cmd(["KeyZ"]), T(0.8, 0, 0, 0));
   assert.deepEqual(cmd(["KeyC"]), T(0, 0.8, 0, 0));

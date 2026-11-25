@@ -668,26 +668,9 @@ let lastMsg = 0;
   if (!f.rings) hide("#help-ring");
   if (!f.current) hide("#help-jets");
   if (!f.claw) { hide("#help-claw"); const t = $("help-tool"); if (t) t.textContent = "B buoyancy   V reset view (or double-click)"; }
-  if (!f.claw) { hide("#tool"); const c = $("claw"); if (c && !f.rings) c.parentElement.style.display = "none"; }
+  if (!f.claw) { const c = $("claw"); if (c && !f.rings) c.parentElement.style.display = "none"; }
 }
 backend.connect(handleState);
-if (backend.setPoolSize) {                                                  // the Pool button (browser version): cycle through the pool sizes while it runs
-  const mainPool = () => regions.reduce((a, b) => (b.d > a.d ? b : a));      // the deep end
-  const sizeNow = () => { const m = mainPool(); return [Math.round((m.x1 - m.x0) / 6), Math.round((m.z1 - m.z0) / 3)]; };
-  $("pool").style.display = "";
-  $("pool").addEventListener("click", () => {
-    let [L, W] = sizeNow();
-    W = W % 3 + 1; if (W === 1) L = L % 2 + 1;                                // 1x1 -> 1x2 -> 1x3 -> 2x1 -> 2x2 -> 2x3 -> 1x1
-    backend.setPoolSize(L, W);
-    userMoved = false;                                                        // fit the camera to the new pool
-    const q = toQuery({ ...cfg, poollength: L, poolwidth: W }, location.search);
-    try { history.replaceState(null, "", location.pathname + (q ? "?" + q : "")); } catch (e) { /* the address is only a convenience: it keeps the size if you reload or share the link */ }
-  });
-}
-if (backend.features.current && backend.setCurrent) {                         // the Current button (browser version): turn the water outlets on and off while it runs
-  $("current").style.display = "";
-  $("current").addEventListener("click", () => backend.setCurrent(!(state.props || []).some((p) => p.type === "jets" && p.on)));
-}
 if (backend.features.serial && backend.link) {          // micro:bit / Pico over USB (browser version only; with the Python sim use nodes/serial_bridge)
   $("serial").style.display = "";
   import("./serial.js").then((m) => m.setupSerial({ link: backend.link, button: $("serial"), panel: $("seriallog") })).catch(() => { $("serial").style.display = "none"; });
@@ -765,9 +748,6 @@ function updateHud() {
   const hasJets = (state.props || []).some((p) => p.type === "jets" && p.on);   // the water is running (the outlets are in the wall either way)
   $("row-current").style.display = hasJets ? "" : "none";
   if (hasJets && state.water) $("currentv").textContent = Math.hypot(state.water[0], state.water[1]).toFixed(2) + " m/s";
-  $("current").textContent = "Current: " + (hasJets ? "on" : "off");
-  if ($("pool").style.display !== "none") { const m = regions.reduce((p, q) => (q.d > p.d ? q : p)); $("pool").textContent = `Pool: ${Math.round(m.x1 - m.x0)} \u00d7 ${Math.round(m.z1 - m.z0)} m`; }
-  $("current").classList.toggle("on", hasJets);
   $("depth").textContent = state.depth.toFixed(2) + " m";
   $("heading").textContent = Math.round(((state.yaw * 180 / Math.PI) % 360 + 360) % 360) + "°";
 }
@@ -878,10 +858,8 @@ let tool = backend.defaultTool || "claw", toolAsked = 0;
 function setTool(t, send = true) {
   tool = t;
   claw.visible = t === "claw"; nose.visible = t === "nose";
-  $("tool").textContent = "Tool: " + (t === "claw" ? "Claw" : "Nose");
   if (send) { toolAsked = performance.now(); backend.tool(t); }
 }
-$("tool").addEventListener("click", () => setTool(tool === "claw" ? "nose" : "claw"));
 setTool(backend.features.claw ? tool : "nose", false);       // no claw in this backend: the fixed nose
 
 // ---------- buoyancy: floats -> neutral -> sinks (a pool setting, not a ROS topic) ----------
@@ -1270,6 +1248,39 @@ if (new URLSearchParams(location.search).has("selftest")) {
         }
       }
     }
+    {                                                                  // the Config dialog: the "right now" settings must really change things
+      const q = (id) => document.getElementById(id), wantTool = tool === "nose" ? "claw" : "nose";
+      const choose = (el, v) => { el.value = v; el.dispatchEvent(new Event("change", { bubbles: true })); };
+      $("config").click();
+      await wait(300);
+      if (!q("configui")) return fail("the Config button did not open the dialog");
+      const radio = document.querySelector(`#configui input[name="cfg-tool"][value="${wantTool}"]`);
+      if (radio && !radio.disabled) {                                  // the tool
+        radio.click(); await wait(400);
+        if (state.tool !== wantTool) return fail(`the dialog's tool choice did not change the tool (${state.tool}, wanted ${wantTool})`);
+        document.querySelector(`#configui input[name="cfg-tool"][value="${wantTool === "nose" ? "claw" : "nose"}"]`).click(); await wait(400);
+      }
+      if (!q("cfg-pool").disabled) {                                   // the pool size
+        choose(q("cfg-pool"), "1x2"); await wait(500);
+        const m = state.regions.reduce((a, b) => (b[4] > a[4] ? b : a));
+        if (m[3] - m[2] !== 6) return fail(`the dialog's pool size did not resize the pool (${m[3] - m[2]} m wide, wanted 6)`);
+        choose(q("cfg-pool"), "1x1"); await wait(500);
+      }
+      if (!q("cfg-current").disabled) {                                // the water
+        q("cfg-current").click(); await wait(400);
+        const on = () => state.props.some((p) => p.type === "jets" && p.on);
+        if (!on()) return fail("the dialog's Run the water box did not start the water");
+        q("cfg-current").click(); await wait(400);
+        if (on()) return fail("unticking Run the water did not stop it");
+      }
+      if (jets && !q("cfg-flow").disabled) {                           // how it is drawn
+        choose(q("cfg-flow"), "streaks"); await wait(200);
+        if (jets.look !== "streaks") return fail(`the dialog's water look did not change it (${jets.look})`);
+        choose(q("cfg-flow"), "mix"); await wait(100);
+      }
+      q("cfg-close").click(); await wait(100);
+      if (q("configui")) return fail("the dialog did not close");
+    }
     document.title = `PASS (${backend.name}, tool ${tool}, quality ${TIERS[tier].name}, ${lastFps ? lastFps.toFixed(0) + " fps" : "fps not measured"})`;
   })();
 }
@@ -1277,6 +1288,29 @@ if (new URLSearchParams(location.search).has("selftest")) {
 window.__rov = { state, backend, camera, controls, jets: () => jets, rings: () => (state.props || []).filter((p) => p.type === "ring") };      // read-only hook for automatic checks (see devtools-driven tests)
 
 // ---------- ?config: a panel to set all of these and make the link ----------
-if (cfg.open) import("./configui.js").then((m) => m.showConfig({ cfg, configurable: backend.configurable || {} })).catch((e) => console.warn("config panel failed:", e));
+// The Config dialog (configui.js): the toolbar's Config button, or ?config. The "right now" settings (tool, water, pool size, thruster power) are changed through `live`.
+const liveCfg = { ...cfg };                                     // the page's settings as they are NOW (the address is kept in step with them)
+const mainPoolSize = () => { const m = regions.reduce((a, b) => (b.d > a.d ? b : a)); return [Math.round((m.x1 - m.x0) / 6), Math.round((m.z1 - m.z0) / 3)]; };
+const jetsRunning = () => (state.props || []).some((p) => p.type === "jets" && p.on);
+function syncAddress() {                                         // a reload or a shared link then keeps these settings
+  const sp = new URLSearchParams(toQuery(liveCfg, location.search));
+  if (tool !== (backend.defaultTool || "claw")) sp.set("tool", tool); else sp.delete("tool");
+  const q = sp.toString();
+  try { history.replaceState(null, "", location.pathname + (q ? "?" + q : "")); } catch (e) { /* the address is only a convenience */ }
+}
+const live = {
+  tool: { get: () => tool, set: (t) => { if (t === "nose" || backend.features.claw) setTool(t); } },
+  current: backend.features.current && backend.setCurrent ? { get: jetsRunning, set: (on) => backend.setCurrent(on) } : null,
+  flow: { get: () => (jets ? jets.look : liveCfg.flow), set: (v) => { if (jets) jets.setLook(v); } },
+  pool: backend.setPoolSize ? { get: mainPoolSize, set: (L, W) => { backend.setPoolSize(L, W); userMoved = false; } } : null,   // (puts everything back at the start; the camera refits)
+  speed: backend.setSpeed ? { get: () => liveCfg.speed, set: (v) => backend.setSpeed(v) } : null,
+  changed: (c) => { for (const k of ["current", "flow", "speed", "poollength", "poolwidth"]) liveCfg[k] = c[k]; syncAddress(); },
+};
+async function openConfig() {
+  try { (await import("./configui.js")).showConfig({ cfg: liveCfg, configurable: backend.configurable || {}, live }); }
+  catch (e) { console.warn("config dialog failed:", e); }
+}
+$("config").addEventListener("click", openConfig);
+if (cfg.open) openConfig();
 
 requestAnimationFrame(frame);

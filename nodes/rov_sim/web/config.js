@@ -63,5 +63,9 @@ export function toQuery(cfg, existing = "") {
   return out.toString();
 }
 
+/** The four pool sizes the Config dialog offers [length x6 m, width x3 m, name]. (Any size from poollength / poolwidth in the address is still allowed:
+ *  the dialog then shows it as "custom".) */
+export const POOL_PRESETS = [[1, 1, "Standard"], [1, 2, "Wide"], [2, 2, "Large"], [2, 3, "Huge"]];
+
 /** Short human text for the pool size, e.g. "12 m x 6 m". */
 export const poolSizeText = (length, width) => `${6 * length} m × ${3 * width} m`;

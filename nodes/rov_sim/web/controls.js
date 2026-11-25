@@ -7,7 +7,7 @@
 //   up/down      = both vertical t3 + t4         arrow keys Down and Up; upright
 // Only red shows its keys (1 and 2); the other two are meant to be obvious.
 // H TOGGLES "H-bridge only" mode: only the three switches work, like the real box. With it off, the extra keyboard keys
-// (W/S forward, A/D turn, R/F or Space/Shift up/down, Z/C one thruster, I/K nose trim) also work, at 80% power.
+// (W or Shift forward, S or Space reverse, A/D turn, R/F up/down, Z/C one thruster, I/K nose trim) also work, at 80% power.
 // A pushed switch always overrides everything else for ITS thrusters. To change a key, edit SWITCHES (and the help in index.html).
 export const SWITCHES = [
   { name: "red", orient: "h", thrusters: ["t1"], minus: "Digit1", plus: "Digit2", title: "red thruster (t1, the left one)" },
@@ -28,9 +28,9 @@ export function switchValues(held, pointer = [0, 0, 0]) {
 /** The command for the sim: {t1..t4, claw}. `hOnly`: ignore the extra keys, only the switches count. */
 export function computeCommand(held, pointer, clawCmd = 0, { power = POWER, hOnly = false } = {}) {
   const k = (c) => (!hOnly && held.has(c) ? 1 : 0);
-  const fwd = k("KeyW") - k("KeyS");
+  const fwd = k("KeyW") + k("ShiftLeft") + k("ShiftRight") - k("KeyS") - k("Space");     // Shift = forward, Space = reverse
   const turn = k("KeyD") - k("KeyA");                                       // + = turn right
-  const up = k("KeyR") + k("Space") - k("KeyF") - k("ShiftLeft") - k("ShiftRight");
+  const up = k("KeyR") - k("KeyF");
   const trim = k("KeyI") - k("KeyK");                                       // + = nose up: front pushes up, rear down
   const c = (v) => Math.max(-1, Math.min(1, v)) * power;
   const cmd = { t1: c(fwd + turn + k("KeyZ")), t2: c(fwd - turn + k("KeyC")), t3: c(up + trim), t4: c(up - trim), claw: Math.round(clawCmd * 100) / 100 };

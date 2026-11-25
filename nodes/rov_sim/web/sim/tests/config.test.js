@@ -1,7 +1,7 @@
 // The page settings read from the address. Run: node --test nodes/rov_sim/web/sim/tests/
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULTS, LIMITS, CONFIG_KEYS, parseConfig, toQuery, poolSizeText } from "../../config.js";
+import { DEFAULTS, LIMITS, CONFIG_KEYS, POOL_PRESETS, parseConfig, toQuery, poolSizeText } from "../../config.js";
 
 const plain = (c) => Object.fromEntries(CONFIG_KEYS.map((k) => [k, c[k]]));
 
@@ -112,4 +112,16 @@ test("flow: bubbles, streaks, rings or mix (default mix); anything else is ignor
   assert.equal(parseConfig("?flow=lasers").explicit.has("flow"), false);
   assert.equal(toQuery({ ...DEFAULTS, flow: "streaks" }), "flow=streaks");
   assert.equal(toQuery({ ...DEFAULTS, flow: "mix" }), "");
+});
+
+test("the Config dialog offers four pool sizes, all allowed, starting with the standard one", () => {
+  assert.equal(POOL_PRESETS.length, 4);
+  assert.deepEqual(POOL_PRESETS[0].slice(0, 2), [DEFAULTS.poollength, DEFAULTS.poolwidth], "the first is the normal pool");
+  for (const [L, W, name] of POOL_PRESETS) {
+    assert.ok(L >= LIMITS.poollength[0] && L <= LIMITS.poollength[1] && W >= LIMITS.poolwidth[0] && W <= LIMITS.poolwidth[1], `${name}: ${L}x${W} is within the limits`);
+    assert.ok(typeof name === "string" && name.length > 0);
+  }
+  assert.equal(new Set(POOL_PRESETS.map(([L, W]) => `${L}x${W}`)).size, 4, "no size twice");
+  const areas = POOL_PRESETS.map(([L, W]) => L * W);
+  assert.deepEqual(areas, [...areas].sort((a, b) => a - b), "smallest to largest");
 });

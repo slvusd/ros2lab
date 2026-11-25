@@ -145,13 +145,11 @@
   <button data-view="follow">Follow</button>
   <button data-view="top">Top</button>
   <button id="buoy" title="Pool setting: ROV floats / neutral (hovers) / sinks (B)">Buoyancy: floats</button>
-  <button id="tool" title="Front tool: claw or fixed nose (T)">Tool: Claw</button>
-  <button id="current" style="display:none">Current: off</button>
-  <button id="pool" style="display:none" title="Change the size of the main pool (this puts everything back at the start)">Pool: 6 &times; 3 m</button>
   <button id="fx" title="Refraction + water ripples (experimental)">Water FX</button>
   <button id="serial" style="display:none" title="Drive the ROV from a micro:bit or Pico (the Help page has the protocol)">Connect micro:bit / Pico</button>
   <button id="quality" title="Auto lowers the graphics if the page runs slowly; click to pin High or Low">Quality: Auto</button>
   <button id="reset">Reset</button>
+  <button id="config" title="Change the tool, the water, the pool size and more">Config</button>
   <a id="help" class="btnlink" href="help.html" target="_blank" rel="noopener" title="How it works: the controls, the pool, and the micro:bit / Pico protocol">Help</a>
 </div>
 <pre id="seriallog" class="panel" style="display:none; right: 8px; bottom: 8px; margin: 0; font: 11px/1.4 ui-monospace, Menlo, monospace; max-width: 300px; white-space: pre-wrap;"></pre>
@@ -159,7 +157,7 @@
 <div id="keyhelp" class="panel" style="display:none; bottom: 8px; left: 8px; font: 12px/1.5 ui-monospace, Menlo, monospace;">
   <div style="font: 600 12px -apple-system, system-ui, sans-serif">Keyboard (click the page first)</div>
   <div>Switch box: &nbsp;1 / 2 red &nbsp;&nbsp;&larr; / &rarr; green &nbsp;&nbsp;&darr; / &uarr; down / up</div>
-  <div class="nonh">W/S forward / reverse &nbsp;&nbsp;A/D turn &nbsp;&nbsp;R/Space up &nbsp;&nbsp;F/Shift down</div>
+  <div class="nonh">W/Shift forward &nbsp;&nbsp;S/Space reverse &nbsp;&nbsp;A/D turn &nbsp;&nbsp;R/F up/down</div>
   <div class="nonh">I/K nose up/down &nbsp;&nbsp;Z / C one thruster only</div>
   <div>H: H-bridge only (just the switch box) &nbsp;&nbsp;X stop all</div>
   <div id="help-ring">N drop a new ring where the mouse is</div>

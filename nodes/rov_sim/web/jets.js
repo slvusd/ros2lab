@@ -26,6 +26,9 @@ export class Jets {
     this.look = LOOKS.includes(opts.look) ? opts.look : "mix";
   }
 
+  /** Choose a look by name (ignored if it is not one of the four). */
+  setLook(name) { if (LOOKS.includes(name)) this.look = name; return this.look; }
+
   /** Next look; returns its name. */
   cycleLook() { this.look = LOOKS[(LOOKS.indexOf(this.look) + 1) % LOOKS.length]; return this.look; }
 

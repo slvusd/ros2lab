@@ -52,7 +52,7 @@ To change a key, edit `SWITCHES` in `web/controls.js` (and the key help in `inde
 source for the browser version's protocol; `web/sim/tests/help.test.js` fails if it falls out of step with the code. Edit `help.md`, not the HTML.
 
 **The water outlets and the current** (`rov_current.py` / `web/sim/current.js`, drawn by `web/jets.js`): two round outlets are **always** in the middle of the pool's +y wall (the side the shallow end is on), at 1/3 and 2/3 of
-the depth, whether or not the water runs. The water runs when you ask: `current=on`, the *Run the water* box in `?config`, the toolbar button *Current: off / on* (browser version; the HUD then shows a *current* reading: how fast the
+the depth, whether or not the water runs. The water runs when you ask: `current=on`, or the *Run the water* box in the Config dialog (the HUD then shows a *current* reading: how fast the
 water moves at the ROV), or `--current` / `current:=true` on the Python sim. Water then shoots straight across the pool, as if filling it. Not realistic, but a good challenge: a round-jet-like profile (on the axis `min(U0, K / s)` at distance `s`
 from the nozzle, a Gaussian across it, widening with distance; constants at the top of `rov_current.py`: gentle at the surface, about 0.5 m/s a couple of metres out at the outlets' own depth, faster than the ROV can swim within half a metre of an
 outlet). **How the ROV feels it:** the core physics asks every prop that has a `flow(x, y, depth)` method how fast the water moves at the ROV and computes drag from the speed *relative to the water*, so the ROV is carried along and has to be powered or steered
@@ -61,8 +61,10 @@ model, in the HUD and in the IMU, with the accelerometer's gravity leaning accor
 exists: the physics is bit-for-bit what it was. The ROV and the fish feel the water (the fish is carried along by `FLOW_PUSH` = 0.45 of the water's speed: it swims against it a little); rings and crabs do not. The collision shape ignores roll. Tests: `test_current.py`, `web/sim/tests/current.test.js`, and Python golden traces (IMU, roll) replayed by the JS port. It is an
 optional add-on: delete the files and the outlets and the current are gone.
 
-**Pool size button** (browser version): *Pool: 6 × 3 m* in the toolbar steps through the main pool sizes while the page runs (1x1, 1x2, 1x3, 2x1, 2x2, 2x3 times 6 x 3 m: `setPoolSize` in `backend-local.js`, which resizes the pool in place and resets, so the
-ROV, rings, fish, crabs and the outlets are put back in the new pool) and keeps `poollength` / `poolwidth` in the address. **Water looks** (`web/jets.js`): `flow=bubbles|streaks|rings|mix` or the `J` key choose how the running water is drawn;
+**The Config button / dialog** (`web/configui.js`): the toolbar has one *Config* button (it replaced the separate Tool, Current and Pool buttons to save toolbar space). Its dialog has a **Right now** box whose changes apply immediately: the front tool
+(nose / claw), the main pool size (four presets, `POOL_PRESETS` in `web/config.js`: 6 x 3, 6 x 6, 12 x 6, 12 x 9 m; any size from `poollength` / `poolwidth` in the address shows as "custom"; `setPoolSize` in `backend-local.js` resizes the pool in place and resets so the ROV,
+rings, fish, crabs and the outlets are put back in the new pool), the water (*Run the water*, and how it is drawn), and the thruster power; the address is kept in step (`syncAddress` in `app.js`) so a reload or a shared link keeps them. The **Needs a restart** box (controls mode,
+fish, rings, crabs, camera) applies with *Restart with these*, which reloads the page. With the Python server only the tool and the water look are live. **Water looks** (`web/jets.js`): `flow=bubbles|streaks|rings|mix` or the `J` key choose how the running water is drawn;
 the picture is deliberately narrower and straighter than the physical flow field.
 
 **The green crab** (`rov_crab.py` / `web/sim/crab.js`, drawn by `web/crab.js`): the 2026 scout task is to remove the invasive European green crab, so a small crab now crawls (sideways, like a real one) on
@@ -209,7 +211,7 @@ the water you look up at the rippling surface. `?view=follow`, `?cam=x,y,z`, `?t
 **Keyboard** (click the page once first). It's for playing by hand; it works alongside your ROS code, and per thruster **the last new value wins**
 (a key you aren't touching never overwrites what your code sent; releasing a key sets that thruster to 0). `-p keys:=false` turns it off.
 The **switch box** (see below) is driven by `1` `2` (red), the left and right arrow keys (green) and the up and down arrow keys. The extra keys
-W/S forward/reverse, A/D turn, R/Space both vertical thrusters up, F/Shift down, I/K tilt nose up/down, Z/C left/right thruster only
+W or Shift forward, S or Space reverse, A/D turn, R/F both vertical thrusters up/down, I/K tilt nose up/down, Z/C left/right thruster only
 work too unless you press H (H-bridge only: just the switch box). `[` `]` close/open the claw gradually, T claw/nose, B buoyancy, V reset the view, X stop.
 (These keys mix `t1`..`t4` for you.
 Your ROS code only has the individual thrusters, by design.)

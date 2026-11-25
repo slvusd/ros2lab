@@ -11,8 +11,8 @@
 #     1 / 2  red switch (left thruster) reverse / forward      Left / Right arrows  green switch (right thruster) reverse / forward
 #     Down / Up arrows  both vertical thrusters down / up
 #   Extra keys (80% power; turn them all off with H = "H-bridge only", just the switch box):
-#     W / S       both horizontal thrusters forward / reverse    A / D   turn left / right
-#     R / Space   both vertical thrusters up     F / Shift   both down
+#     W or Shift  both horizontal thrusters forward / S or Space reverse    A / D   turn left / right
+#     R / F       both vertical thrusters up / down (the Up / Down arrows do too)
 #     I / K       tilt nose up / down (front thruster up + rear down, or the reverse)
 #     Z / C       left / right thruster ONLY (hold)
 #   [ / ]       close / open the claw gradually (a servo)

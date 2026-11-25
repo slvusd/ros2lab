@@ -1,22 +1,36 @@
-// configui.js — the ?config panel: set the page's options with a form, see/copy the link, and Start. (The options and their rules: config.js.)
-// Applying reloads the page with the new address, because the pool, rings and fish are built when the page starts.
-import { DEFAULTS, LIMITS, CONFIG_KEYS, FLOW_LOOKS, toQuery, poolSizeText } from "./config.js";
+// configui.js — the Config dialog (the toolbar's Config button, or ?config in the address): set the page's options, see and copy the link.
+// The options and their rules are in config.js.
+//   RIGHT NOW   the tool, the water (on/off and how it is drawn), the pool size and the thruster power change the pool as soon as you change them
+//               (app.js gives this file a `live` object that does the work).
+//   RESTART     the controls mode, the fish, rings, crabs and the camera are built when the page starts: they apply when you press Restart,
+//               which reloads the page with the new address.
+import { DEFAULTS, LIMITS, CONFIG_KEYS, FLOW_LOOKS, POOL_PRESETS, toQuery, poolSizeText } from "./config.js";
 
 const CSS = `
-#configui { position: fixed; inset: 0; z-index: 50; background: rgba(4, 16, 26, .62); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
-#configui .box { background: #0f2a3d; color: #fff; border-radius: 12px; padding: 16px 20px; width: min(30rem, 100%); max-height: 100%; overflow-y: auto; box-shadow: 0 10px 40px #000a; font: 14px/1.4 -apple-system, system-ui, sans-serif; }
+#configui { position: fixed; inset: 0; z-index: 50; background: rgba(4, 16, 26, .3); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
+#configui .box { background: #0f2a3d; color: #fff; border-radius: 12px; padding: 16px 20px; width: min(800px, 100%); max-height: 100%; overflow-y: auto; box-shadow: 0 10px 40px #000a; font: 14px/1.4 -apple-system, system-ui, sans-serif; }
 #configui h2 { margin: 0 0 2px; font-size: 18px; } #configui .sub { opacity: .75; margin: 0 0 10px; }
-#configui fieldset { border: 1px solid rgba(255,255,255,.25); border-radius: 8px; margin: 0 0 10px; padding: 6px 10px 8px; }
+#configui .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; align-items: start; }
+@media (max-width: 760px) { #configui .cols { grid-template-columns: 1fr; } }
+#configui fieldset { border: 1px solid rgba(255,255,255,.25); border-radius: 8px; margin: 0 0 10px; padding: 6px 10px 8px; min-width: 0; }
+#configui fieldset.now { border-color: #f2b705aa; }
 #configui legend { padding: 0 6px; font-weight: 600; }
+#configui legend small { font-weight: 400; opacity: .75; }
 #configui label { display: flex; gap: 8px; align-items: baseline; margin: 3px 0; cursor: pointer; }
 #configui label small { opacity: .7; }
 #configui .row > label small { display: block; }
 #configui .row { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin: 5px 0; }
-#configui select, #configui input[type=number] { background: #1b4260; color: #fff; border: 1px solid rgba(255,255,255,.3); border-radius: 6px; padding: 3px 6px; font: inherit; }
+#configui .tools { display: flex; gap: 16px; }
+#configui fieldset.now .row { flex-direction: column; align-items: stretch; gap: 3px; margin: 8px 0; }     /* the label above its control: these columns are narrow */
+#configui fieldset.now .row > label small { display: inline; }
+#configui fieldset.now .row.inline { flex-direction: row; align-items: center; justify-content: space-between; }
+#configui fieldset.now select { width: 100%; }
+#configui fieldset.now .speed { width: 100%; } #configui fieldset.now .speed input { flex: 1; width: auto; }
+#configui select, #configui input[type=number] { background: #1b4260; color: #fff; border: 1px solid rgba(255,255,255,.3); border-radius: 6px; padding: 3px 6px; font: inherit; max-width: 100%; }
 #configui input[type=number] { width: 4.5em; }
 #configui .note { font-size: 12px; opacity: .75; margin: 4px 0 0; }
 #configui .off { opacity: .5; }
-#configui .speed { display: flex; gap: 8px; align-items: center; white-space: nowrap; } #configui .speed input { width: 8.5rem; } #configui .speed b { min-width: 2.6em; text-align: right; }
+#configui .speed { display: flex; gap: 8px; align-items: center; white-space: nowrap; } #configui .speed input { width: 130px; } #configui .speed b { min-width: 2.6em; text-align: right; }
 #configui .link { display: flex; gap: 6px; margin: 4px 0 12px; } #configui .link input { flex: 1; min-width: 0; background: #091c2a; color: #cfe8f7; border: 1px solid rgba(255,255,255,.3); border-radius: 6px; padding: 5px 8px; font: 12px ui-monospace, Menlo, monospace; }
 #configui .buttons { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 #configui button { background: #1d6f9f; color: #fff; border: 0; border-radius: 6px; padding: 6px 14px; font: inherit; cursor: pointer; }
@@ -24,43 +38,53 @@ const CSS = `
 #configui a { color: #8fd0f5; }
 `;
 
-export function showConfig({ cfg, configurable = {} }) {
+/** `live` (from app.js) has { tool, current, flow, pool, speed } each either null (this version cannot change it now) or { get(), set(...) }, and changed(cur). */
+export function showConfig({ cfg, configurable = {}, live = {} }) {
   if (document.getElementById("configui")) return;
   const cur = {}; for (const k of CONFIG_KEYS) cur[k] = cfg[k];
+  if (live.current) cur.current = live.current.get();
+  if (live.flow) cur.flow = live.flow.get();
+  if (live.speed) cur.speed = live.speed.get();
+  if (live.pool) [cur.poollength, cur.poolwidth] = live.pool.get();
+  let tool = live.tool ? live.tool.get() : "nose";
   const style = document.createElement("style"); style.textContent = CSS; document.head.appendChild(style);
   const el = document.createElement("div"); el.id = "configui"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Configure the pool");
-  const can = (k) => configurable[k] !== false;
+  const can = (k) => configurable[k] !== false;                                   // the restart options: only the Python server cannot do some of them
   const opt = (v, text, sel) => `<option value="${v}"${sel ? " selected" : ""}>${text}</option>`;
   const radio = (v, text, sub) => `<label><input type="radio" name="cfg-controls" value="${v}"${cur.controls === v ? " checked" : ""}><span>${text}<br><small>${sub}</small></span></label>`;
+  const sizeKey = (L, W) => `${L}x${W}`;
+  const presets = POOL_PRESETS.map(([L, W, name]) => opt(sizeKey(L, W), `${name}: ${poolSizeText(L, W)}`, cur.poollength === L && cur.poolwidth === W));
+  if (!POOL_PRESETS.some(([L, W]) => L === cur.poollength && W === cur.poolwidth)) presets.push(opt(sizeKey(cur.poollength, cur.poolwidth), `Custom: ${poolSizeText(cur.poollength, cur.poolwidth)}`, true));
+  const dis = (x) => (x ? "" : " disabled"), off = (x) => (x ? "" : "off");
   el.innerHTML = `<div class="box">
     <h2>Configure the pool</h2>
-    <p class="sub">Pick the settings, then <b>Start</b>. The link below makes the same setup for anyone you send it to.</p>
-    <fieldset><legend>Controls</legend>
-      ${radio("all", "All keys", "the three switches and the extra keys (W A S D, R F, Z C, I K). H switches modes.")}
+    <p class="sub">The first box changes the pool <b>right away</b>. The second needs a <b>restart</b>: pick what you want, then press Restart. The link makes the same setup for anyone you send it to.</p>
+    <div class="cols">
+    <fieldset class="now"><legend>Right now <small>(changes as you click)</small></legend>
+      <div class="row inline ${off(live.tool)}"><span>Front tool</span><span class="tools">
+        <label><input type="radio" name="cfg-tool" value="nose"${tool === "nose" ? " checked" : ""}${dis(live.tool)}> Nose</label>
+        <label><input type="radio" name="cfg-tool" value="claw"${tool === "claw" ? " checked" : ""}${dis(live.tool)}> Claw</label></span></div>
+      <div class="row ${off(live.pool)}"><label for="cfg-pool">Main pool size</label><select id="cfg-pool"${dis(live.pool)}>${presets.join("")}</select></div>
+      <div class="row ${off(live.current)}"><label><input type="checkbox" id="cfg-current"${cur.current ? " checked" : ""}${dis(live.current)}><span>Run the water<br><small>from the two outlets in the side wall, as if filling the pool: it pushes and tilts the ROV (the outlets are always there)</small></span></label></div>
+      <div class="row ${off(live.flow)}"><label for="cfg-flow">How the water is drawn <small>(J does this too)</small></label><select id="cfg-flow"${dis(live.flow)}>${FLOW_LOOKS.map((v) => `<option value="${v}"${cur.flow === v ? " selected" : ""}>${{ bubbles: "bubbles", streaks: "streaks (tracer lines)", rings: "ripple rings", mix: "rings and bubbles" }[v]}</option>`).join("")}</select></div>
+      <div class="row ${off(live.speed)}"><label for="cfg-speed">Red and green thruster power <small>(1&times; = normal)</small></label>
+        <span class="speed"><input type="range" id="cfg-speed" min="${LIMITS.speed[0]}" max="${LIMITS.speed[1]}" step="0.25" value="${cur.speed}"${dis(live.speed)}> <b id="cfg-speedv"></b></span></div>
+      <div class="note" id="cfg-size"></div>
+      ${live.pool && live.current ? "" : '<div class="note">With the Python server the pool size, the water and the thruster power are set when it starts (--current, --speed, its pool).</div>'}
+    </fieldset>
+    <fieldset><legend>Needs a restart</legend>
+      ${radio("all", "All keys", "the three switches and the extra keys. H switches modes.")}
       ${radio("h", "H-circuit only", "just the three switches, like the real controller. Locked: H does nothing.")}
       ${radio("h-hidden", "H-circuit only, everything else hidden", "only the switch box (and the camera view) on the page.")}
+      <div class="row ${off(can("fish"))}"><label><input type="checkbox" id="cfg-fish"${cur.fish ? " checked" : ""}${dis(can("fish"))}> Fish</label></div>
+      <div class="row ${off(can("rings"))}"><label for="cfg-rings">Pool rings (0&ndash;${LIMITS.rings[1]}, usually ${DEFAULTS.rings})</label><input type="number" id="cfg-rings" min="${LIMITS.rings[0]}" max="${LIMITS.rings[1]}" step="1" value="${cur.rings}"${dis(can("rings"))}></div>
+      <div class="row ${off(can("crabs"))}"><label for="cfg-crabs">Green crabs (0&ndash;${LIMITS.crabs[1]}, usually ${DEFAULTS.crabs})</label><input type="number" id="cfg-crabs" min="${LIMITS.crabs[0]}" max="${LIMITS.crabs[1]}" step="1" value="${cur.crabs}"${dis(can("crabs"))}></div>
+      <div class="row"><label><input type="checkbox" id="cfg-camera"${cur.camera ? " checked" : ""}> Camera <small>its housing on the ROV, the camera window, and the fish coming to look at it</small></label></div>
+      ${can("fish") ? "" : '<div class="note">Fish, crabs and rings are set by the Python server (--fish, --crabs, --rings).</div>'}
     </fieldset>
-    <fieldset><legend>In the pool</legend>
-      <div class="row ${can("fish") ? "" : "off"}"><label><input type="checkbox" id="cfg-fish"${cur.fish ? " checked" : ""}${can("fish") ? "" : " disabled"}> Fish</label></div>
-      <div class="row ${can("rings") ? "" : "off"}"><label for="cfg-rings">Pool rings (0&ndash;${LIMITS.rings[1]}, usually ${DEFAULTS.rings})</label><input type="number" id="cfg-rings" min="${LIMITS.rings[0]}" max="${LIMITS.rings[1]}" step="1" value="${cur.rings}"${can("rings") ? "" : " disabled"}></div>
-      <div class="row ${can("crabs") ? "" : "off"}"><label for="cfg-crabs">Green crabs on the shallow end (0&ndash;${LIMITS.crabs[1]}, usually ${DEFAULTS.crabs})</label><input type="number" id="cfg-crabs" min="${LIMITS.crabs[0]}" max="${LIMITS.crabs[1]}" step="1" value="${cur.crabs}"${can("crabs") ? "" : " disabled"}></div>
-      <div class="row ${can("pool") ? "" : "off"}"><label for="cfg-length">Main pool length</label><select id="cfg-length"${can("pool") ? "" : " disabled"}>${[1, 2].map((n) => opt(n, `${n}× (${6 * n} m)`, cur.poollength === n)).join("")}</select></div>
-      <div class="row ${can("pool") ? "" : "off"}"><label for="cfg-width">Main pool width</label><select id="cfg-width"${can("pool") ? "" : " disabled"}>${[1, 2, 3].map((n) => opt(n, `${n}× (${3 * n} m)`, cur.poolwidth === n)).join("")}</select></div>
-      <div class="note" id="cfg-size"></div>
-      ${can("pool") ? "" : '<div class="note">Fish, crabs, rings and the pool size are set by the Python server (--fish, --crabs, --rings, and its pool), not by the page.</div>'}
-    </fieldset>
-    <fieldset><legend>Water</legend>
-      <div class="row ${can("current") ? "" : "off"}"><label><input type="checkbox" id="cfg-current"${cur.current ? " checked" : ""}${can("current") ? "" : " disabled"}> Run the water: it flows out of the two outlets in the side wall, as if filling the pool <small>(the outlets are always there; a challenge for the driver and the IMU: it pushes and tilts the ROV)</small></label></div>
-      <div class="row ${can("current") ? "" : "off"}"><label for="cfg-flow">How the water is drawn <small>(J changes it while the page runs)</small></label><select id="cfg-flow"${can("current") ? "" : " disabled"}>${FLOW_LOOKS.map((v) => `<option value="${v}"${cur.flow === v ? " selected" : ""}>${{ bubbles: "bubbles", streaks: "streaks (tracer lines)", rings: "ripple rings", mix: "rings and bubbles" }[v]}</option>`).join("")}</select></div>
-      ${can("current") ? "" : '<div class="note">With the Python server use its --current option (the outlets are always in the wall).</div>'}
-    </fieldset>
-    <fieldset><legend>ROV</legend>
-      <div class="row ${can("speed") ? "" : "off"}"><label for="cfg-speed">Red and green thruster power <small>(1&times; = normal)</small></label>
-        <span class="speed"><input type="range" id="cfg-speed" min="${LIMITS.speed[0]}" max="${LIMITS.speed[1]}" step="0.25" value="${cur.speed}"${can("speed") ? "" : " disabled"}> <b id="cfg-speedv"></b></span></div>
-      <div class="row"><label><input type="checkbox" id="cfg-camera"${cur.camera ? " checked" : ""}> Camera: its housing on the ROV, the camera window, and the fish coming to look at it</label></div>
-    </fieldset>
+    </div>
     <div class="link"><input id="cfg-link" readonly aria-label="Link for this setup"><button class="quiet" id="cfg-copy">Copy link</button></div>
-    <div class="buttons"><button class="quiet" id="cfg-defaults">Defaults</button><button class="quiet" id="cfg-close">Close</button><button class="go" id="cfg-go">Start</button></div>
+    <div class="buttons"><button class="quiet" id="cfg-defaults">Defaults</button><button class="quiet" id="cfg-close">Close</button><button class="go" id="cfg-go">Restart with these</button></div>
     <p class="note">Everything here is also a plain address option (see <a href="help.html#options" target="_blank" rel="noopener">Help</a>).</p>
   </div>`;
   document.body.appendChild(el);
@@ -70,29 +94,39 @@ export function showConfig({ cfg, configurable = {} }) {
   const refresh = () => {
     $("cfg-size").textContent = `Main pool: ${poolSizeText(cur.poollength, cur.poolwidth)}, 2 m deep, plus the shallow end.`;
     $("cfg-link").value = url().href;
-    $("cfg-speedv").textContent = `${Number(cur.speed.toFixed(2))}\u00d7`;
+    $("cfg-speedv").textContent = `${Number(cur.speed.toFixed(2))}×`;
   };
-  const read = () => {
+  const clampInt = (v, [lo, hi], dflt) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : dflt; };
+  /** Read the form into `cur`, and do what a changed "right now" field means. `which` is the id of the field that changed (or null for all). */
+  const read = (which = null) => {
     cur.controls = el.querySelector('input[name="cfg-controls"]:checked').value;
     cur.fish = $("cfg-fish").checked;
-    const n = Math.round(Number($("cfg-rings").value));
-    cur.rings = Number.isFinite(n) ? Math.max(LIMITS.rings[0], Math.min(LIMITS.rings[1], n)) : DEFAULTS.rings;
-    const nc = Math.round(Number($("cfg-crabs").value));
-    cur.crabs = Number.isFinite(nc) ? Math.max(LIMITS.crabs[0], Math.min(LIMITS.crabs[1], nc)) : DEFAULTS.crabs;
-    cur.poollength = Number($("cfg-length").value); cur.poolwidth = Number($("cfg-width").value);
+    cur.rings = clampInt($("cfg-rings").value, LIMITS.rings, DEFAULTS.rings);
+    cur.crabs = clampInt($("cfg-crabs").value, LIMITS.crabs, DEFAULTS.crabs);
     cur.camera = $("cfg-camera").checked;
+    const was = { ...cur };
     cur.current = $("cfg-current").checked;
     cur.flow = $("cfg-flow").value;
     cur.speed = Math.max(LIMITS.speed[0], Math.min(LIMITS.speed[1], Number($("cfg-speed").value) || DEFAULTS.speed));
+    const [L, W] = $("cfg-pool").value.split("x").map(Number);
+    cur.poollength = L; cur.poolwidth = W;
+    if (which === "cfg-current" && live.current) live.current.set(cur.current);
+    if (which === "cfg-flow" && live.flow) live.flow.set(cur.flow);
+    if (which === "cfg-speed" && live.speed) live.speed.set(cur.speed);
+    if (which === "cfg-pool" && live.pool && (L !== was.poollength || W !== was.poolwidth)) live.pool.set(L, W);
+    if (which && which.startsWith("cfg-tool") && live.tool) { tool = el.querySelector('input[name="cfg-tool"]:checked').value; live.tool.set(tool); }
+    if (which && live.changed) live.changed(cur);
     refresh();
   };
-  const write = () => {                                          // push `cur` back into the form (after Defaults)
+  el.addEventListener("input", (e) => { if (e.target.id === "cfg-speed") read("cfg-speed"); else if (e.target.type !== "radio" && e.target.type !== "checkbox" && e.target.tagName !== "SELECT") read(null); });
+  el.addEventListener("change", (e) => read(e.target.name === "cfg-tool" ? "cfg-tool" : e.target.id));
+  $("cfg-defaults").addEventListener("click", () => {                          // back to the normal setup: the "right now" ones are applied at once
+    Object.assign(cur, DEFAULTS);
     el.querySelectorAll('input[name="cfg-controls"]').forEach((r) => { r.checked = r.value === cur.controls; });
-    $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-crabs").value = cur.crabs; $("cfg-length").value = cur.poollength; $("cfg-width").value = cur.poolwidth; $("cfg-camera").checked = cur.camera; $("cfg-current").checked = cur.current; $("cfg-flow").value = cur.flow; $("cfg-speed").value = cur.speed;
-    refresh();
-  };
-  el.addEventListener("input", read); el.addEventListener("change", read);
-  $("cfg-defaults").addEventListener("click", () => { Object.assign(cur, DEFAULTS); write(); });
+    $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-crabs").value = cur.crabs; $("cfg-camera").checked = cur.camera;
+    $("cfg-current").checked = cur.current; $("cfg-flow").value = cur.flow; $("cfg-speed").value = cur.speed; $("cfg-pool").value = `${cur.poollength}x${cur.poolwidth}`;
+    for (const id of ["cfg-current", "cfg-flow", "cfg-speed", "cfg-pool"]) read(id);
+  });
   $("cfg-go").addEventListener("click", () => { location.href = url().href; });
   const close = () => {
     el.remove(); style.remove();
@@ -108,5 +142,5 @@ export function showConfig({ cfg, configurable = {} }) {
   });
   window.addEventListener("keydown", (e) => { if (e.code === "Escape" && document.getElementById("configui")) close(); });
   refresh();
-  $("cfg-go").focus();
+  $("cfg-close").focus();
 }
