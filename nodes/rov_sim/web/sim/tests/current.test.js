@@ -182,6 +182,35 @@ test("the core hook works for any prop that moves the water (isolation)", () => 
   assert.ok(r.x > 0.8 && r.u > 0.25 && r.u < 0.31, `x=${r.x.toFixed(2)}, u=${r.u.toFixed(2)}`);
 });
 
+test("the stream shoves the fish a little (and the fish stays in the pool)", () => {
+  const drift = [];
+  for (const seed of [11, 18, 25, 32, 39, 46, 53, 60]) {
+    const ys = {};
+    for (const on of [false, true]) {
+      const r = make(on);
+      addFish(r, 1);
+      const fish = r.props.find((p) => p.type === "fish");
+      fish.seed = seed; fish.reset();
+      fish.x = JET_X; fish.y = WALL_Y - 0.8; fish.depth = jetsOf(r).outlets[0].depth;
+      place(r, -2.5, -1.0, 1.5);
+      for (let i = 0; i < 60 * 2; i++) r.step(DT);
+      ys[on] = fish.y;
+    }
+    drift.push(ys[false] - ys[true]);
+  }
+  assert.ok(drift.reduce((a, b) => a + b) / drift.length > 0.2 && drift.filter((d) => d > 0.1).length >= 6, `the stream should carry the fish away from the wall (the fish also swims about by itself, so look at the average): ${drift.map((d) => d.toFixed(2))}`);
+  const r = make();
+  addFish(r, 1);
+  const fish = r.props.find((p) => p.type === "fish");
+  place(r, -2.5, -1.0, 1.5);
+  const top = Math.max(...POOL_REGIONS.map((q) => q[3]));
+  for (let i = 0; i < 60 * 120; i++) {
+    r.step(DT);
+    assert.ok(fish.x >= MAIN[0] && fish.x <= MAIN[1] && fish.y >= MAIN[2] && fish.y <= top, `fish out of the pool: (${fish.x.toFixed(2)}, ${fish.y.toFixed(2)})`);
+    assert.ok(fish.depth >= 0 && fish.depth <= MAIN[4]);
+  }
+});
+
 test("the state is plain data and the page can recompute the axial speed from it", () => {
   const s = JSON.parse(JSON.stringify(make().state()));
   const j = s.props.find((p) => p.type === "jets");

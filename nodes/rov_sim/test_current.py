@@ -240,6 +240,35 @@ def test_the_core_hook_works_for_any_prop_that_moves_the_water():
     assert r.x > 0.8 and 0.25 < r.u < 0.31, f"a steady 0.3 m/s current should carry it along at about that speed (x={r.x:.2f}, u={r.u:.2f})"
 
 
+def test_the_stream_shoves_the_fish_a_little():
+    import rov_fish
+    drift = []
+    for seed in (11, 18, 25, 32, 39, 46, 53, 60):
+        ys = {}
+        for on in (False, True):
+            r = make(jets=on)
+            rov_fish.add_to(r, 1)
+            fish = [p for p in r.props if p.type == "fish"][0]
+            fish.seed = seed
+            fish.reset()
+            fish.x, fish.y, fish.depth = JET_X, WALL_Y - 0.8, jets_of(r).outlets[0]["depth"]      # in the stream, close to the outlet
+            place(r, -2.5, -1.0, 1.5)                                  # the ROV is far away
+            for _ in range(60 * 2):
+                r.step(DT)
+            ys[on] = fish.y
+        drift.append(ys[False] - ys[True])                              # how much further from the wall the stream carried it
+    assert sum(drift) / len(drift) > 0.2 and sum(d > 0.1 for d in drift) >= 6, f"the stream should carry the fish away from the wall (the fish also swims about by itself, so look at the average): {[round(d, 2) for d in drift]}"
+    # the push is gentle, not a catapult, and the fish stays in the water and inside the pool
+    r = make()
+    rov_fish.add_to(r, 1)
+    fish = [p for p in r.props if p.type == "fish"][0]
+    place(r, -2.5, -1.0, 1.5)
+    for _ in range(60 * 120):
+        r.step(DT)
+        assert MAIN[0] <= fish.x <= MAIN[1] and MAIN[2] <= fish.y <= max(r_[3] for r_ in POOL_REGIONS), f"fish out of the pool: ({fish.x:.2f}, {fish.y:.2f})"
+        assert 0.0 <= fish.depth <= MAIN[4]
+
+
 def test_state_is_plain_data_and_matches_the_flow():
     r = make()
     s = json.loads(json.dumps(r.state()))

@@ -7,7 +7,7 @@ const plain = (c) => Object.fromEntries(CONFIG_KEYS.map((k) => [k, c[k]]));
 
 test("no parameters: the defaults (3 rings, a fish, a camera, all keys, the normal pool)", () => {
   assert.deepEqual(plain(parseConfig("")), DEFAULTS);
-  assert.deepEqual(DEFAULTS, { controls: "all", fish: true, rings: 3, poollength: 1, poolwidth: 1, camera: true, speed: 1, crabs: 1, current: false });
+  assert.deepEqual(DEFAULTS, { controls: "all", fish: true, rings: 3, poollength: 1, poolwidth: 1, camera: true, speed: 1, crabs: 1, current: false, flow: "mix" });
   assert.equal(parseConfig("").explicit.size, 0);
   assert.equal(parseConfig("").open, false);
 });
@@ -58,8 +58,8 @@ test("toQuery: only non-default values, other parameters are kept, config is dro
 
 test("a link made by toQuery reads back as the same settings", () => {
   for (const controls of ["all", "h", "h-hidden"]) for (const fish of [true, false]) for (const rings of [0, 3, 5])
-    for (const poollength of [1, 2]) for (const poolwidth of [1, 2, 3]) for (const camera of [true, false]) for (const speed of [0.25, 0.5, 1, 1.75, 4]) for (const crabs of [0, 1, 5]) for (const current of [false, true]) {
-      const cfg = { controls, fish, rings, poollength, poolwidth, camera, speed, crabs, current };
+    for (const poollength of [1, 2]) for (const poolwidth of [1, 2, 3]) for (const camera of [true, false]) for (const speed of [0.25, 0.5, 1, 1.75, 4]) for (const crabs of [0, 1, 5]) for (const current of [false, true]) for (const flow of ["bubbles", "streaks", "rings", "mix"]) {
+      const cfg = { controls, fish, rings, poollength, poolwidth, camera, speed, crabs, current, flow };
       assert.deepEqual(plain(parseConfig(toQuery(cfg))), cfg, JSON.stringify(cfg));
     }
 });
@@ -102,4 +102,14 @@ test("current: on or off, default off", () => {
   assert.equal(parseConfig("?current=sometimes").explicit.has("current"), false);
   assert.equal(toQuery({ ...DEFAULTS, current: true }), "current=on");
   assert.equal(toQuery(DEFAULTS), "");
+});
+
+test("flow: bubbles, streaks, rings or mix (default mix); anything else is ignored", () => {
+  assert.equal(parseConfig("").flow, "mix");
+  for (const v of ["bubbles", "streaks", "rings", "mix"]) assert.equal(parseConfig(`?flow=${v}`).flow, v);
+  assert.equal(parseConfig("?flow=RINGS").flow, "rings");
+  assert.equal(parseConfig("?flow=lasers").flow, "mix");
+  assert.equal(parseConfig("?flow=lasers").explicit.has("flow"), false);
+  assert.equal(toQuery({ ...DEFAULTS, flow: "streaks" }), "flow=streaks");
+  assert.equal(toQuery({ ...DEFAULTS, flow: "mix" }), "");
 });

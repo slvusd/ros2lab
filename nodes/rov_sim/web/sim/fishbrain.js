@@ -22,6 +22,8 @@ export class Fish {
   static PEEK_FOR = [8.0, 16.0];
   static PEEK_COOLDOWN = [8.0, 20.0];
   static PEEK_SPEED = 0.55;
+  static FLOW_PUSH = 0.45;                          // a current (the water jets, current.js) carries the fish along by this fraction of the water's speed:
+                                                    // it swims against it a little, but a strong stream still shoves it about
   static REACTION = 0.0;
   // --- swimming ---
   static CRUISE = [0.15, 0.35];
@@ -351,6 +353,10 @@ export class Fish {
     this.x += hv * Math.cos(this.yaw) * dt;
     this.y += hv * Math.sin(this.yaw) * dt;
     this.depth += this.speed * Math.sin(this.pitch) * dt;
+    if (typeof rov._flowAt === "function") {                // the water itself may be moving: a stream shoves the fish a bit
+      const [wx, wy, wd] = rov._flowAt(this.x, this.y, this.depth);
+      this.x += wx * F.FLOW_PUSH * dt; this.y += wy * F.FLOW_PUSH * dt; this.depth += wd * F.FLOW_PUSH * dt;
+    }
     const bumped = this._keepInWater();
     this.pinned_t = bumped && flee ? this.pinned_t + dt : 0.0;
     if (bumped && this.mode === "wander") this.target = null;

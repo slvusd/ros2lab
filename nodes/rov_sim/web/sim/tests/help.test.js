@@ -74,5 +74,5 @@ test("the example addresses in the help are read back as written", async () => {
 });
 
 test("the help describes the IMU panel and the Current button", () => {
-  for (const w of ["**IMU**", "accelerometer", "gyro", "**Current**", "current=on"]) assert.ok(md.includes(w), `help.md does not mention ${w}`);
+  for (const w of ["**IMU**", "accelerometer", "gyro", "**Current**", "current=on", "**Pool**", "`J`", "flow="]) assert.ok(md.includes(w), `help.md does not mention ${w}`);
 });

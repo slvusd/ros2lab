@@ -33,13 +33,13 @@ Press `H` (or click the badge) and it becomes **H-bridge only**: just the three 
 | `I` / `K` | tilt the nose up / down (front thruster up and rear down, or the reverse) |
 | `Z` / `C` | the left / right thruster only |
 
-Other keys: `N` drops a new pool ring into the water where the mouse is (move the mouse over the pool first and a message says "Ring dropped"; if there is no message at all, reload the page with Ctrl+Shift+R. It sinks, there can be 10 rings at most, and **Reset** removes the dropped ones), `[` and `]` close and open the claw gradually, `T` switches between the nose and the claw, `B` changes the buoyancy,
+Other keys: `J` changes how the running water from the wall outlets is drawn (bubbles, tracer streaks, ripple rings, or a mix), `N` drops a new pool ring into the water where the mouse is (move the mouse over the pool first and a message says "Ring dropped"; if there is no message at all, reload the page with Ctrl+Shift+R. It sinks, there can be 10 rings at most, and **Reset** removes the dropped ones), `[` and `]` close and open the claw gradually, `T` switches between the nose and the claw, `B` changes the buoyancy,
 `V` (or a double-click) resets the camera view, `X` lets go of every key.
 
 The panel at the top left shows the thrusters, the depth, the heading and the **IMU**: how far the ROV is tilted (pitch: nose down is positive; roll: right side down is positive), what the **accelerometer** reads (x forward, y left, z up, in m/s², including gravity: about +9.81 up when it sits still), the same minus gravity, and the **gyro** (how fast it is turning). When the current is on it also shows how fast the water is moving at the ROV.
 
 Buttons: **Orbit** (drag to turn the view, scroll to zoom), **Follow** (a chase camera), **Top**, **Buoyancy**, **Tool**, **Water FX**
-(refraction and ripples), **Current** (turn the water outlets on and off), **Quality**, **Reset** (back to the start). The little window is the ROV's own camera.
+(refraction and ripples), **Current** (make the water run out of the wall outlets, or stop it), **Pool** (change the size of the main pool: it steps through 6, 12 m long by 3, 6, 9 m wide, and puts everything back at the start), **Quality**, **Reset** (back to the start). The little window is the ROV's own camera.
 
 ## The pool {#pool}
 
@@ -48,7 +48,8 @@ Buttons: **Orbit** (drag to turn the view, scroll to zoom), **Follow** (a chase 
   With the **claw**, open it, put the jaws round the side of the ring, then close it to grip. Open it to let go.
 - **Buoyancy** (`B`): **floats** (a long piece of dark pipe insulation on each of the top four sticks: it rises to the surface by itself),
   **neutral** (a few short pieces: it hovers) or **sinks** (no foam: it needs thrust to stay up).
-- Two round **water outlets** are always in the wall on the shallow-end side, in the middle of the wall, a third and two thirds of the way down. With the **Current** button (or `current=on`, or the *Run the water* box in **Set up the pool**) water runs out of them straight across the pool, as if filling it. It is not very realistic, but it gives you something to fight: a ROV floating at the surface feels a gentle push across the middle of the pool, at the outlets' own depth it is stronger, and within half a metre of an outlet the water is faster than the ROV can swim. It carries a ROV that is just sitting there across the pool, and it **tilts** it: a push from the side heels it over (the *roll* reading), a push on the nose or tail pitches it, and a ROV that is held against the water stays tilted. The IMU shows all of it. Only the ROV feels it (rings, the fish and the crab do not).
+- A **bigger pool** suits the current. The **Pool** button steps through the sizes (it also goes into the address, so a reload or a shared link keeps it), or use `poollength` and `poolwidth`. The ROV, rings, fish, crabs and the outlets all go back to the start in the new pool.
+- Two round **water outlets** are always in the wall on the shallow-end side, in the middle of the wall, a third and two thirds of the way down. With the **Current** button (or `current=on`, or the *Run the water* box in **Set up the pool**) water runs out of them straight across the pool, as if filling it. It is not very realistic, but it gives you something to fight: a ROV floating at the surface feels a gentle push across the middle of the pool, at the outlets' own depth it is stronger, and within half a metre of an outlet the water is faster than the ROV can swim. It carries a ROV that is just sitting there across the pool, and it **tilts** it: a push from the side heels it over (the *roll* reading), a push on the nose or tail pitches it, and a ROV that is held against the water stays tilted. The IMU shows all of it. Only the ROV and the fish feel it: the fish is carried along a little (it swims against it), rings and the crab are not moved by it.
 - A small **green crab** (the 2026 task is to remove this invasive species) crawls sideways on the floor of the shallow end. It scuttles away when the ROV comes close, but it is much slower than the ROV, and if the ROV touches it, it is simply shoved out of the way, like a ring. (Picking it up is a job for later.)
 - A **fish** lives here. It is shy: it never lets the ROV catch it. Sit still for a few seconds and it may come to look into your camera.
 - The ROV bobs when it breaks the surface and bounces gently off the floor. The walls stop it, and it slides along them.
@@ -184,6 +185,7 @@ for anyone you send it to. Every setting is also a plain option you can add to t
 | `poolwidth=1`, `2` or `3` | the main pool is 3 m times this wide (normally 1, so 3 m; 3 is 9 m) |
 | `speed=0.25` to `4` | the power of the red and green thrusters (normally 1). **1 is the normal speed, half of what these thrusters used to give**; 2 is the old strength. The up/down thrusters do not change |
 | `crabs=0` to `5` | how many green crabs crawl on the shallow end (normally 1; the 2026 scout task has two) |
+| `flow=bubbles`, `streaks`, `rings` or `mix` | how the running water is drawn: small bubbles in a narrow plume, thin tracer lines along the flow, ripple rings that expand as they travel out, or rings with a few bubbles (normally `mix`). **`J`** changes it while the page runs. The picture is a little narrower than the real flow: the water moves more gently over a wider area |
 | `current=on` or `off` | run the water out of the two outlets in the pool wall on the shallow-end side (the outlets are always there): a current that pushes and tilts the ROV (normally off) |
 | `camera=on` or `off` | whether the ROV has a camera: its housing on the model, the camera window, and the fish coming to look into it (normally on) |
 

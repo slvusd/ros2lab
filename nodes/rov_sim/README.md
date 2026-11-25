@@ -58,8 +58,12 @@ from the nozzle, a Gaussian across it, widening with distance; constants at the 
 outlet). **How the ROV feels it:** the core physics asks every prop that has a `flow(x, y, depth)` method how fast the water moves at the ROV and computes drag from the speed *relative to the water*, so the ROV is carried along and has to be powered or steered
 against it, and the **IMU accelerometer shows the push**. It also **tilts** the ROV: the push of the water on the top, middle and bottom of the frame twists it, so a push from the side makes it **roll** (heel over; new: the ROV has a roll angle, shown on the
 model, in the HUD and in the IMU, with the accelerometer's gravity leaning accordingly), and a push on the nose or tail pitches it (a ROV carried along with the water levels out again; one held against it stays tilted). With the water still, none of this
-exists: the physics is bit-for-bit what it was. Only the ROV is affected, not the rings, fish or crabs; the collision shape ignores roll. Tests: `test_current.py`, `web/sim/tests/current.test.js`, and Python golden traces (IMU, roll) replayed by the JS port. It is an
+exists: the physics is bit-for-bit what it was. The ROV and the fish feel the water (the fish is carried along by `FLOW_PUSH` = 0.45 of the water's speed: it swims against it a little); rings and crabs do not. The collision shape ignores roll. Tests: `test_current.py`, `web/sim/tests/current.test.js`, and Python golden traces (IMU, roll) replayed by the JS port. It is an
 optional add-on: delete the files and the outlets and the current are gone.
+
+**Pool size button** (browser version): *Pool: 6 × 3 m* in the toolbar steps through the main pool sizes while the page runs (1x1, 1x2, 1x3, 2x1, 2x2, 2x3 times 6 x 3 m: `setPoolSize` in `backend-local.js`, which resizes the pool in place and resets, so the
+ROV, rings, fish, crabs and the outlets are put back in the new pool) and keeps `poollength` / `poolwidth` in the address. **Water looks** (`web/jets.js`): `flow=bubbles|streaks|rings|mix` or the `J` key choose how the running water is drawn;
+the picture is deliberately narrower and straighter than the physical flow field.
 
 **The green crab** (`rov_crab.py` / `web/sim/crab.js`, drawn by `web/crab.js`): the 2026 scout task is to remove the invasive European green crab, so a small crab now crawls (sideways, like a real one) on
 the floor of the shallow end. It scuttles away when the ROV comes close, but it is about five times slower than the ROV, and when the ROV touches it (any part of the frame, thrusters, jaws

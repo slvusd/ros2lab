@@ -1,6 +1,8 @@
 # =============================================================================
 # rov_fish.py — OPTIONAL whimsy: a coy fish that swims around and never lets the ROV catch it
 # =============================================================================
+# (A current from the water jets, rov_current.py, also shoves the fish along a little: FLOW_PUSH.)
+#
 # This whole file is an add-on. To remove it completely:
 #   1. delete this file and web/fish.js
 #   2. (optional) delete the small "try: import rov_fish" blocks in rov_sim.py and keyboard_sim.py —
@@ -46,6 +48,8 @@ class Fish:
     PEEK_FOR = (8.0, 16.0)            # how long it hovers in view of the camera
     PEEK_COOLDOWN = (8.0, 20.0)       # after a visit it goes away for a while before coming back
     PEEK_SPEED = 0.55                 # m/s: a purposeful swim over to the ROV
+    FLOW_PUSH = 0.45                  # a current (the water jets, rov_current.py) carries the fish along by this fraction of the water's speed:
+                                      # it swims against it a little, but a strong stream still shoves it about
     REACTION = 0.0                    # extra seconds of warning: flees earlier by (ROV closing speed x this). Tried 0.5-1.0:
                                       # it just runs out of pool sooner, so it is off; the knob is here if you want to try
     # --- swimming ---
@@ -386,6 +390,12 @@ class Fish:
         self.x += hv * math.cos(self.yaw) * dt
         self.y += hv * math.sin(self.yaw) * dt
         self.depth += self.speed * math.sin(self.pitch) * dt
+        flow_at = getattr(rov, "_flow_at", None)                # the water itself may be moving: a stream shoves the fish a bit
+        if flow_at is not None:
+            wx, wy, wd = flow_at(self.x, self.y, self.depth)
+            self.x += wx * self.FLOW_PUSH * dt
+            self.y += wy * self.FLOW_PUSH * dt
+            self.depth += wd * self.FLOW_PUSH * dt
         bumped = self._keep_in_water()
         self.pinned_t = self.pinned_t + dt if (bumped and flee) else 0.0
         if bumped and self.mode == "wander":

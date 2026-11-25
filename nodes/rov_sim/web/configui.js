@@ -1,6 +1,6 @@
 // configui.js — the ?config panel: set the page's options with a form, see/copy the link, and Start. (The options and their rules: config.js.)
 // Applying reloads the page with the new address, because the pool, rings and fish are built when the page starts.
-import { DEFAULTS, LIMITS, CONFIG_KEYS, toQuery, poolSizeText } from "./config.js";
+import { DEFAULTS, LIMITS, CONFIG_KEYS, FLOW_LOOKS, toQuery, poolSizeText } from "./config.js";
 
 const CSS = `
 #configui { position: fixed; inset: 0; z-index: 50; background: rgba(4, 16, 26, .62); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
@@ -51,6 +51,7 @@ export function showConfig({ cfg, configurable = {} }) {
     </fieldset>
     <fieldset><legend>Water</legend>
       <div class="row ${can("current") ? "" : "off"}"><label><input type="checkbox" id="cfg-current"${cur.current ? " checked" : ""}${can("current") ? "" : " disabled"}> Run the water: it flows out of the two outlets in the side wall, as if filling the pool <small>(the outlets are always there; a challenge for the driver and the IMU: it pushes and tilts the ROV)</small></label></div>
+      <div class="row ${can("current") ? "" : "off"}"><label for="cfg-flow">How the water is drawn <small>(J changes it while the page runs)</small></label><select id="cfg-flow"${can("current") ? "" : " disabled"}>${FLOW_LOOKS.map((v) => `<option value="${v}"${cur.flow === v ? " selected" : ""}>${{ bubbles: "bubbles", streaks: "streaks (tracer lines)", rings: "ripple rings", mix: "rings and bubbles" }[v]}</option>`).join("")}</select></div>
       ${can("current") ? "" : '<div class="note">With the Python server use its --current option (the outlets are always in the wall).</div>'}
     </fieldset>
     <fieldset><legend>ROV</legend>
@@ -81,12 +82,13 @@ export function showConfig({ cfg, configurable = {} }) {
     cur.poollength = Number($("cfg-length").value); cur.poolwidth = Number($("cfg-width").value);
     cur.camera = $("cfg-camera").checked;
     cur.current = $("cfg-current").checked;
+    cur.flow = $("cfg-flow").value;
     cur.speed = Math.max(LIMITS.speed[0], Math.min(LIMITS.speed[1], Number($("cfg-speed").value) || DEFAULTS.speed));
     refresh();
   };
   const write = () => {                                          // push `cur` back into the form (after Defaults)
     el.querySelectorAll('input[name="cfg-controls"]').forEach((r) => { r.checked = r.value === cur.controls; });
-    $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-crabs").value = cur.crabs; $("cfg-length").value = cur.poollength; $("cfg-width").value = cur.poolwidth; $("cfg-camera").checked = cur.camera; $("cfg-current").checked = cur.current; $("cfg-speed").value = cur.speed;
+    $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-crabs").value = cur.crabs; $("cfg-length").value = cur.poollength; $("cfg-width").value = cur.poolwidth; $("cfg-camera").checked = cur.camera; $("cfg-current").checked = cur.current; $("cfg-flow").value = cur.flow; $("cfg-speed").value = cur.speed;
     refresh();
   };
   el.addEventListener("input", read); el.addEventListener("change", read);

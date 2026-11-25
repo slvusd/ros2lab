@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
 import { GAME_KEYS, SWITCHES, computeCommand, switchValues } from "./controls.js";
-import { MAX_RINGS, parseConfig } from "./config.js";
+import { MAX_RINGS, parseConfig, toQuery } from "./config.js";
 
 // Which simulation? A Python server answers GET ping -> talk to it; a plain web host (GitHub Pages...) does not -> run the sim in this page.
 // Override with ?mode=local or ?mode=server.
@@ -653,7 +653,7 @@ import("./fish.js").then((m) => { fish = new m.Fish(scene, THREE); }).catch(() =
 let crabs = null;                     // optional add-on: crab.js draws the green crabs (delete that file to remove them)
 import("./crab.js").then((m) => { crabs = new m.Crabs(scene, THREE); }).catch(() => { /* no crabs */ });
 let jets = null;                      // optional add-on: jets.js draws the water outlets and the current (delete that file to remove them)
-import("./jets.js").then((m) => { jets = new m.Jets(scene, THREE, { ripple: (x, z, r, k) => { if (fx) drop(x, z, r, k); } }); }).catch(() => { /* no jets */ });
+import("./jets.js").then((m) => { jets = new m.Jets(scene, THREE, { look: cfg.flow, ripple: (x, z, r, k) => { if (fx) drop(x, z, r, k); } }); }).catch(() => { /* no jets */ });
 
 // ---------- state from the sim ----------
 const state = { x: -1.5, y: 0, depth: 0.8, yaw: 0, t1: 0, t2: 0, t3: 0, t4: 0, claw: 0, speed: 0, pitch: 0, roll: 0, imu: null, buoyancy: 1.5, joys: [[0, 0], [0, 0]], joy_topics: [] };
@@ -666,10 +666,24 @@ let lastMsg = 0;
   if (!f.joys) { hide("#joys"); hide("#joyval1, #joyval2"); document.querySelectorAll("#joyval1, #joyval2").forEach((e) => { e.parentElement.style.display = "none"; }); }
   if (!f.imu) hide(".imu");
   if (!f.rings) hide("#help-ring");
+  if (!f.current) hide("#help-jets");
   if (!f.claw) { hide("#help-claw"); const t = $("help-tool"); if (t) t.textContent = "B buoyancy   V reset view (or double-click)"; }
   if (!f.claw) { hide("#tool"); const c = $("claw"); if (c && !f.rings) c.parentElement.style.display = "none"; }
 }
 backend.connect(handleState);
+if (backend.setPoolSize) {                                                  // the Pool button (browser version): cycle through the pool sizes while it runs
+  const mainPool = () => regions.reduce((a, b) => (b.d > a.d ? b : a));      // the deep end
+  const sizeNow = () => { const m = mainPool(); return [Math.round((m.x1 - m.x0) / 6), Math.round((m.z1 - m.z0) / 3)]; };
+  $("pool").style.display = "";
+  $("pool").addEventListener("click", () => {
+    let [L, W] = sizeNow();
+    W = W % 3 + 1; if (W === 1) L = L % 2 + 1;                                // 1x1 -> 1x2 -> 1x3 -> 2x1 -> 2x2 -> 2x3 -> 1x1
+    backend.setPoolSize(L, W);
+    userMoved = false;                                                        // fit the camera to the new pool
+    const q = toQuery({ ...cfg, poollength: L, poolwidth: W }, location.search);
+    try { history.replaceState(null, "", location.pathname + (q ? "?" + q : "")); } catch (e) { /* the address is only a convenience: it keeps the size if you reload or share the link */ }
+  });
+}
 if (backend.features.current && backend.setCurrent) {                         // the Current button (browser version): turn the water outlets on and off while it runs
   $("current").style.display = "";
   $("current").addEventListener("click", () => backend.setCurrent(!(state.props || []).some((p) => p.type === "jets" && p.on)));
@@ -752,6 +766,7 @@ function updateHud() {
   $("row-current").style.display = hasJets ? "" : "none";
   if (hasJets && state.water) $("currentv").textContent = Math.hypot(state.water[0], state.water[1]).toFixed(2) + " m/s";
   $("current").textContent = "Current: " + (hasJets ? "on" : "off");
+  if ($("pool").style.display !== "none") { const m = regions.reduce((p, q) => (q.d > p.d ? q : p)); $("pool").textContent = `Pool: ${Math.round(m.x1 - m.x0)} \u00d7 ${Math.round(m.z1 - m.z0)} m`; }
   $("current").classList.toggle("on", hasJets);
   $("depth").textContent = state.depth.toFixed(2) + " m";
   $("heading").textContent = Math.round(((state.yaw * 180 / Math.PI) % 360 + 360) % 360) + "°";
@@ -787,6 +802,7 @@ window.addEventListener("keydown", (e) => {
   if (e.code === "KeyB" && !e.repeat) { nextBuoyancy(); return; }
   if (e.code === "KeyT" && !e.repeat) { if (backend.features.claw) setTool(tool === "claw" ? "nose" : "claw"); return; }
   if (e.code === "KeyN" && !e.repeat) { if (backend.features.rings) dropRing(); return; }
+  if (e.code === "KeyJ" && !e.repeat) { if (jets) toast("Water look: " + jets.cycleLook() + " (J changes it)"); return; }
   if (!state.keys) return;
   if (GAME_KEYS.has(e.code)) { held.add(e.code); e.preventDefault(); }
   else if (e.code === "KeyH" && !e.repeat) { if (!hLocked) setHOnly(!hOnly); return; }
