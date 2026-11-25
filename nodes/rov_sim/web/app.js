@@ -268,15 +268,18 @@ function buildPool() {
     solid(deck, (c) => c.y < 0.01);
   }
 
-  // lane line down the middle of the deep floor, with a "T" at each end like a real pool, and short 1 m ruler ticks across it (they stay short in a wide
-  // pool: long ticks made a big pool look like it had lanes). Together they make motion easy to see.
+  // one lane line down the middle of each 3 m lane on the deep floor (a wide pool has several), with a "T" at each end like a real pool, and short 1 m ruler ticks
+  // along it (short, so a wide pool does not look striped). Together they make motion easy to see.
   {
     const deep = regions.reduce((a, b) => (b.d > a.d ? b : a)), dark = new THREE.MeshBasicMaterial({ color: 0x14384d });
-    const mz = (deep.z0 + deep.z1) / 2, len = deep.x1 - deep.x0, y = -deep.d + 0.004;
+    const len = deep.x1 - deep.x0, y = -deep.d + 0.004, lanes = Math.max(1, Math.round((deep.z1 - deep.z0) / 3)), laneW = (deep.z1 - deep.z0) / lanes;
     const mark = (w, h, x, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.005, h), dark); m.position.set(x, y, z); pool.add(m); };
-    mark(len - 1.0, 0.06, (deep.x0 + deep.x1) / 2, mz);                                   // the line stops short of the walls...
-    for (const sx of [deep.x0 + 0.5, deep.x1 - 0.5]) mark(0.06, 0.7, sx, mz);             // ... where a T crosses it
-    for (let x = Math.ceil(deep.x0 + 1.5); x < deep.x1 - 1.0; x += 1) mark(0.05, 0.3, x, mz);
+    for (let i = 0; i < lanes; i++) {
+      const mz = deep.z0 + (i + 0.5) * laneW;
+      mark(len - 1.0, 0.06, (deep.x0 + deep.x1) / 2, mz);                                   // the line stops short of the walls...
+      for (const sx of [deep.x0 + 0.5, deep.x1 - 0.5]) mark(0.06, 0.7, sx, mz);             // ... where a T crosses it
+      for (let x = Math.ceil(deep.x0 + 1.5); x < deep.x1 - 1.0; x += 1) mark(0.05, 0.3, x, mz);
+    }
   }
 
   // ---- a ladder on the shallow end's outer wall (so the pool can be climbed out of): two rails and rungs, bent over the deck at the top ----
