@@ -27,7 +27,8 @@ Check an install: `source mac/env.sh && ./nodes/rov_sim/install.sh` (prints a PA
 `web/` is a complete page. Serve that folder from any static web host (GitHub Pages, `python3 -m http.server` inside `web/`)
 and open it: when no sim server answers, the page runs its own copy of the physics (`web/sim/physics.js`) and you drive with the
 keyboard. `?mode=local` forces this, `?mode=server` forces the Python server. In this version the tool is the fixed nose,
-and the claw, rings, fish, IMU readout and joysticks are not there yet (see the plan in the repo history).
+the coy fish swims (`web/sim/fishbrain.js`, an optional add-on: delete it and the fish is gone), and the claw, rings, IMU readout and joysticks are not there yet.
+The JS fish behaves like the Python one but uses its own random numbers, so it swims different paths; its tests check behaviour, not exact routes.
 
 Python is the reference: `physics.js` is a line-by-line port of `rov_physics.py`. After changing `rov_physics.py`,
 run `python3 tools/export_golden.py` (rewrites `web/sim/tests/golden/physics.json`), port the change to `physics.js`,
