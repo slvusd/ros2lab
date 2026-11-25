@@ -79,3 +79,29 @@ test("the speed setting scales the red and green thrusters (1x is the new defaul
   for (const r of [a, b]) { r.depth = 1.0; r.set_cmd("t3", 1); r.set_cmd("t4", 1); for (let i = 0; i < 30; i++) r.step(1 / 60); }
   assert.ok(Math.abs(a.w - b.w) < 1e-9, "the speed setting changed the up/down thrusters");
 });
+
+// ---- the water jets (current.js): same idea, with the IMU recorded as well, from rov_current.py ----
+import { addTo as addCurrent } from "../current.js";
+
+for (const [name, sc] of Object.entries(golden.current_scenarios)) {
+  test(`current matches Python: ${name}`, () => {
+    const rov = new Rov({ buoyancy: 0.0, tool: "nose" });
+    addCurrent(rov);
+    Object.assign(rov, sc.pose);
+    let n = 0, row = 0;
+    for (const [secs, cmd] of sc.segments) {
+      for (const k of ["t1", "t2", "t3", "t4"]) rov.set_cmd(k, cmd[k] ?? 0.0);
+      for (let i = 0, steps = Math.round(secs / golden.dt); i < steps; i++) {
+        rov.step(golden.dt);
+        n++;
+        if (n % golden.every === 0) {
+          const s = rov.state(), im = s.imu;
+          const got = [s.x, s.y, s.depth, s.yaw, s.pitch, s.speed, im.ax, im.ay, im.az, im.gz];
+          const want = sc.rows[row++];
+          got.forEach((g, c) => assert.ok(Math.abs(g - want[c]) <= 1e-6, `${name} row ${row - 1} column ${c}: JS ${g} vs Python ${want[c]}`));
+        }
+      }
+    }
+    assert.equal(row, sc.rows.length);
+  });
+}

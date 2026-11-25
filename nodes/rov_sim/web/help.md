@@ -46,6 +46,7 @@ Buttons: **Orbit** (drag to turn the view, scroll to zoom), **Follow** (a chase 
   With the **claw**, open it, put the jaws round the side of the ring, then close it to grip. Open it to let go.
 - **Buoyancy** (`B`): **floats** (a long piece of dark pipe insulation on each of the top four sticks: it rises to the surface by itself),
   **neutral** (a few short pieces: it hovers) or **sinks** (no foam: it needs thrust to stay up).
+- With **`current=on`** (or the *Current* box in **Set up the pool**) two water outlets in the wall on the shallow-end side, a third and two thirds of the way down, shoot a stream of water straight across the pool, as if filling it. It is not very realistic, but it gives you something to fight: close to a nozzle the water is faster than the ROV can swim, further out it spreads and slows, and it carries a ROV that is just sitting there across the pool. The IMU's accelerometer shows the push. Only the ROV feels it (rings, the fish and the crab do not).
 - A small **green crab** (the 2026 task is to remove this invasive species) crawls sideways on the floor of the shallow end. It scuttles away when the ROV comes close, but it is much slower than the ROV, and if the ROV touches it, it is simply shoved out of the way, like a ring. (Picking it up is a job for later.)
 - A **fish** lives here. It is shy: it never lets the ROV catch it. Sit still for a few seconds and it may come to look into your camera.
 - The ROV bobs when it breaks the surface and bounces gently off the floor. The walls stop it, and it slides along them.
@@ -181,11 +182,12 @@ for anyone you send it to. Every setting is also a plain option you can add to t
 | `poolwidth=1`, `2` or `3` | the main pool is 3 m times this wide (normally 1, so 3 m; 3 is 9 m) |
 | `speed=0.25` to `4` | the power of the red and green thrusters (normally 1). **1 is the normal speed, half of what these thrusters used to give**; 2 is the old strength. The up/down thrusters do not change |
 | `crabs=0` to `5` | how many green crabs crawl on the shallow end (normally 1; the 2026 scout task has two) |
+| `current=on` or `off` | two **water outlets** in the middle of the pool wall on the shallow-end side, a third and two thirds of the way down, shoot water across the pool as if filling it: a current that pushes the ROV (normally off) |
 | `camera=on` or `off` | whether the ROV has a camera: its housing on the model, the camera window, and the fish coming to look into it (normally on) |
 
 Whole numbers (and any number from 0.25 to 4 for `speed`): anything else is rounded and kept inside the limits, and an option the page does not understand is ignored. The shallow end keeps its size
 and stays at the far end whatever the main pool size. A bigger pool has coarser water ripples so it still runs on a slow computer.
-With the Python server, `controls` and `camera` work the same; the pool, rings, fish, crabs and speed are set by the server's own options (`--rings`, `--fish`, `--crabs`, `--speed`).
+With the Python server, `controls` and `camera` work the same; the pool, rings, fish, crabs, current and speed are set by the server's own options (`--rings`, `--fish`, `--crabs`, `--current`, `--speed`).
 
 Other options:
 

@@ -10,7 +10,7 @@
 #     c) publishing -1.0 to /sim/t3 + /sim/t4 makes it dive (depth grows)
 #     d) /sim/claw moves the claw servo
 #     e) /sim/imu, /sim/depth and both on-screen joysticks (/sim/joy1, /sim/joy2) are published
-#     f) test_physics.py passes (pool, rings and collisions, fish) and test_crab.py (the green crab and the pushable base class)
+#     f) test_physics.py passes (pool, rings and collisions, fish) and test_crab.py (the green crab and the pushable base class), test_current.py (the water jets)
 #
 # WHAT IT CHANGES
 #   Nothing on disk. Starts one short-lived process, then stops it.
@@ -66,5 +66,8 @@ timeout 10 ros2 topic echo --no-daemon --once /sim/depth std_msgs/msg/Float32 | 
 python3 "$HERE/test_physics.py" > "$TMP_IMU" 2>&1 && echo "PASS: physics tests ($(tail -1 "$TMP_IMU"))" || { cat "$TMP_IMU"; fail "physics tests"; }
 if [ -f "$HERE/test_crab.py" ]; then      # the crab is an optional add-on with its own tests
   python3 "$HERE/test_crab.py" > "$TMP_IMU" 2>&1 && echo "PASS: crab tests ($(tail -1 "$TMP_IMU"))" || { cat "$TMP_IMU"; fail "crab tests"; }
+fi
+if [ -f "$HERE/test_current.py" ]; then   # so is the water current
+  python3 "$HERE/test_current.py" > "$TMP_IMU" 2>&1 && echo "PASS: current tests ($(tail -1 "$TMP_IMU"))" || { cat "$TMP_IMU"; fail "current tests"; }
 fi
 echo "All good. Start it for real: python nodes/rov_sim/rov_sim.py   then open http://localhost:8000"

@@ -169,17 +169,22 @@ class Rov:
         ff *= clamp(0.5 - (h0 - VERT_ARM * math.sin(self.pitch)) / 0.08, 0.0, 1.0)   # nose down: front is lower
         fb *= clamp(0.5 - (h0 + VERT_ARM * math.sin(self.pitch)) / 0.08, 0.0, 1.0)
         fv = ff + fb
+        # the water itself may be moving (a current from the optional jets, rov_current.py): drag works on the speed RELATIVE to the water.
+        # With no current this is exactly the old behaviour (the water is still: wx = wy = wd = 0).
+        wx, wy, wd = self._water()
+        c0, s0 = math.cos(self.yaw), math.sin(self.yaw)
+        ur, vr, wr = self.u - (wx * c0 + wy * s0), self.v - (-wx * s0 + wy * c0), self.w - wd
         # forces in the vehicle's own frame
-        surge = fl + fr - LIN_DRAG * self.u - QUAD_DRAG * self.u * abs(self.u)
+        surge = fl + fr - LIN_DRAG * ur - QUAD_DRAG * ur * abs(ur)
         torque = (fr - fl) * TURN_ARM - YAW_LIN * self.r - YAW_QUAD * self.r * abs(self.r)
         # thrust up (+) reduces depth. w = d(depth)/dt, so drag pushes against w
-        heave_up = fv + self.buoyancy + LIN_DRAG * self.w + QUAD_DRAG * self.w * abs(self.w)
+        heave_up = fv + self.buoyancy + LIN_DRAG * wr + QUAD_DRAG * wr * abs(wr)
         if not self.hard_limits:      # cube poking out of the water: less buoyancy, so it sinks back
             out = max(0.0, SURF_DEPTH - self.depth)
             heave_up -= EMERGE_K1 * min(out, EMERGE_SOFT) + EMERGE_K2 * max(0.0, out - EMERGE_SOFT)
             if out > 0:
                 heave_up += EMERGE_DAMP * self.w
-        sway = -LIN_DRAG * 2 * self.v            # side-slip dies quickly (keel-like frame)
+        sway = -LIN_DRAG * 2 * vr                # side-slip dies quickly (keel-like frame)
 
         self.u += surge / m * dt
         self.v += sway / m * dt
@@ -222,6 +227,19 @@ class Rov:
         self.pitch_rate += (tilt - PITCH_KS * self.pitch - PITCH_DS * self.pitch_rate) / PITCH_I * dt
         self.pitch = clamp(self.pitch + self.pitch_rate * dt, -MAX_PITCH, MAX_PITCH)
         self._accelerometer(dt)
+
+    def _water(self):
+        """The water's own velocity at the ROV: (world x, world y, DOWN) in m/s. Any prop with a flow(x, y, depth) method moves the water
+        (the jets in rov_current.py do); with none, the water is still."""
+        wx = wy = wd = 0.0
+        for p in self.props:
+            f = getattr(p, "flow", None)
+            if f is not None:
+                a, b, c = f(self.x, self.y, self.depth)
+                wx += a
+                wy += b
+                wd += c
+        return wx, wy, wd
 
     def _accelerometer(self, dt):
         """What an IMU's accelerometer reads: the real acceleration minus gravity, in the ROV's own axes

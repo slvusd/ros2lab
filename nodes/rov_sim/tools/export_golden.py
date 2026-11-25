@@ -12,6 +12,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 import rov_physics as P
 import rov_props
+import rov_current
 
 OUT = os.path.join(HERE, "..", "web", "sim", "tests", "golden", "physics.json")
 DT = 1 / 60
@@ -70,6 +71,34 @@ RING_SCENARIOS = {
 }
 
 
+# Scenarios with the water jets on (rov_current.py): a neutral ROV placed at x, y, depth, yaw, then scripted thrusters. The IMU is recorded too.
+CURRENT_SCENARIOS = {
+    "current_drift":      dict(pose=dict(x=-1.25, y=0.5, depth=0.667, yaw=0.0), segments=[(6, {})]),
+    "current_against":    dict(pose=dict(x=-1.25, y=-1.0, depth=0.667, yaw=1.5707963267948966), segments=[(3, {"t1": 1, "t2": 1}), (3, {"t1": -1, "t2": -1}), (2, {})]),
+    "current_cross":      dict(pose=dict(x=-1.8, y=0.4, depth=1.0, yaw=0.0), segments=[(5, {"t1": 1, "t2": 1}), (3, {"t1": 1, "t2": -1}), (3, {})]),
+    "current_start_spot": dict(pose=dict(x=-1.5, y=0.0, depth=0.8, yaw=0.0), segments=[(4, {}), (3, {"t3": -0.8, "t4": -0.8}), (3, {})]),
+}
+
+
+def run_current(sc):
+    rov = P.Rov(buoyancy=0.0, tool="nose")
+    rov_current.add_to(rov)
+    for k, v in sc["pose"].items():
+        setattr(rov, k, v)
+    rows, n = [], 0
+    for secs, cmd in sc["segments"]:
+        for k in ("t1", "t2", "t3", "t4"):
+            rov.set_cmd(k, cmd.get(k, 0.0))
+        for _ in range(int(round(secs / DT))):
+            rov.step(DT)
+            n += 1
+            if n % EVERY == 0:
+                s = rov.state()
+                im = s["imu"]
+                rows.append([s["x"], s["y"], s["depth"], s["yaw"], s["pitch"], s["speed"], im["ax"], im["ay"], im["az"], im["gz"]])
+    return rows
+
+
 def run_ring(sc):
     rov = P.Rov(buoyancy=0.0, tool=sc["tool"])
     rov_props.add_to(rov, sc["rings"])
@@ -99,6 +128,7 @@ def build():
     return {"dt": DT, "every": EVERY, "columns": ["x", "y", "depth", "yaw", "pitch", "speed", "splash_n", "floor_n", "ax", "ay", "az", "gy", "gz"],
             "scenarios": {name: {"buoyancy": sc[0], "speed": sc[2] if len(sc) > 2 else 1.0, "segments": [[t, c] for t, c in sc[1]], "rows": run(sc[0], sc[1], sc[2] if len(sc) > 2 else 1.0)}
                           for name, sc in SCENARIOS.items()},
+            "current_scenarios": {name: {**sc, "segments": [[t, c] for t, c in sc["segments"]], "rows": run_current(sc)} for name, sc in CURRENT_SCENARIOS.items()},
             "ring_scenarios": {name: {**sc, "ringset": {str(k): v for k, v in sc["ringset"].items()}, "segments": [[s, c] for s, c in sc["segments"]], "rows": run_ring(sc)}
                                for name, sc in RING_SCENARIOS.items()}}
 

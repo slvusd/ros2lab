@@ -8,7 +8,7 @@ import { DeviceLink } from "./sim/devicelink.js";
 export const name = "local sim";
 export const config = parseConfig(typeof location !== "undefined" ? location.search : "");   // ?rings= ?fish= ?poollength= ?poolwidth= ?camera= (see config.js)
 export const defaultTool = "nose";               // scout ROVs mostly use a nose (hook); T switches to the claw
-export const configurable = { controls: true, camera: true, fish: true, rings: true, pool: true, speed: true, crabs: true };   // what the ?config panel may change here
+export const configurable = { controls: true, camera: true, fish: true, rings: true, pool: true, speed: true, crabs: true, current: true };   // what the ?config panel may change here
 setPool(config.poollength, config.poolwidth);    // the pool first: rings and fish stand on its floor
 const rov = new Rov({ tool: defaultTool });
 rov.speed_mult = Math.max(0.25, Math.min(4, config.speed));   // ?speed= : the red / green thrusters' power (1 = normal)
@@ -21,7 +21,9 @@ if (config.fish) try {
 } catch (e) { /* optional add-on: no fish without fishbrain.js */ }
 let crabsAdded = false;
 if (config.crabs > 0) try { (await import("./sim/crab.js")).addTo(rov, config.crabs); crabsAdded = true; } catch (e) { /* optional add-on: no crabs without crab.js */ }
-export const features = { keys: true, joys: false, claw: true, imu: false, rings: !!ringsMod, fish: fishAdded, crabs: crabsAdded, serial: true };
+let currentAdded = false;
+if (config.current) try { (await import("./sim/current.js")).addTo(rov); currentAdded = true; } catch (e) { /* optional add-on: no current without current.js */ }
+export const features = { keys: true, joys: false, claw: true, imu: false, rings: !!ringsMod, fish: fishAdded, crabs: crabsAdded, current: currentAdded, serial: true };
 const world = new World(rov);
 if (ringsMod) world.ringDropper = ringsMod.dropRing;
 export const link = new DeviceLink(world);       // a micro:bit / Pico plugged in over USB (see serial.js)

@@ -49,6 +49,10 @@ export function showConfig({ cfg, configurable = {} }) {
       <div class="note" id="cfg-size"></div>
       ${can("pool") ? "" : '<div class="note">Fish, crabs, rings and the pool size are set by the Python server (--fish, --crabs, --rings, and its pool), not by the page.</div>'}
     </fieldset>
+    <fieldset><legend>Water</legend>
+      <div class="row ${can("current") ? "" : "off"}"><label><input type="checkbox" id="cfg-current"${cur.current ? " checked" : ""}${can("current") ? "" : " disabled"}> Current: two water outlets in the side wall, as if filling the pool <small>(a challenge for the driver and the IMU)</small></label></div>
+      ${can("current") ? "" : '<div class="note">With the Python server use its --current option.</div>'}
+    </fieldset>
     <fieldset><legend>ROV</legend>
       <div class="row ${can("speed") ? "" : "off"}"><label for="cfg-speed">Red and green thruster power <small>(1&times; = normal)</small></label>
         <span class="speed"><input type="range" id="cfg-speed" min="${LIMITS.speed[0]}" max="${LIMITS.speed[1]}" step="0.25" value="${cur.speed}"${can("speed") ? "" : " disabled"}> <b id="cfg-speedv"></b></span></div>
@@ -76,12 +80,13 @@ export function showConfig({ cfg, configurable = {} }) {
     cur.crabs = Number.isFinite(nc) ? Math.max(LIMITS.crabs[0], Math.min(LIMITS.crabs[1], nc)) : DEFAULTS.crabs;
     cur.poollength = Number($("cfg-length").value); cur.poolwidth = Number($("cfg-width").value);
     cur.camera = $("cfg-camera").checked;
+    cur.current = $("cfg-current").checked;
     cur.speed = Math.max(LIMITS.speed[0], Math.min(LIMITS.speed[1], Number($("cfg-speed").value) || DEFAULTS.speed));
     refresh();
   };
   const write = () => {                                          // push `cur` back into the form (after Defaults)
     el.querySelectorAll('input[name="cfg-controls"]').forEach((r) => { r.checked = r.value === cur.controls; });
-    $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-crabs").value = cur.crabs; $("cfg-length").value = cur.poollength; $("cfg-width").value = cur.poolwidth; $("cfg-camera").checked = cur.camera; $("cfg-speed").value = cur.speed;
+    $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-crabs").value = cur.crabs; $("cfg-length").value = cur.poollength; $("cfg-width").value = cur.poolwidth; $("cfg-camera").checked = cur.camera; $("cfg-current").checked = cur.current; $("cfg-speed").value = cur.speed;
     refresh();
   };
   el.addEventListener("input", read); el.addEventListener("change", read);

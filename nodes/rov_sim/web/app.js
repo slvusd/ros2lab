@@ -652,6 +652,8 @@ let fish = null;                      // optional add-on: fish.js draws the coy 
 import("./fish.js").then((m) => { fish = new m.Fish(scene, THREE); }).catch(() => { /* no fish */ });
 let crabs = null;                     // optional add-on: crab.js draws the green crabs (delete that file to remove them)
 import("./crab.js").then((m) => { crabs = new m.Crabs(scene, THREE); }).catch(() => { /* no crabs */ });
+let jets = null;                      // optional add-on: jets.js draws the water outlets and the current (delete that file to remove them)
+import("./jets.js").then((m) => { jets = new m.Jets(scene, THREE); }).catch(() => { /* no jets */ });
 
 // ---------- state from the sim ----------
 const state = { x: -1.5, y: 0, depth: 0.8, yaw: 0, t1: 0, t2: 0, t3: 0, t4: 0, claw: 0, speed: 0, pitch: 0, imu: null, buoyancy: 1.5, joys: [[0, 0], [0, 0]], joy_topics: [] };
@@ -1036,6 +1038,7 @@ function frame(now) {
   if (props) props.update(state.props, dt);
   if (fish) fish.update(state.props, dt, t);
   if (crabs) crabs.update(state.props, dt, t);
+  if (jets) jets.update(state.props, dt);
   for (const m of solids) {                          // x-ray: fade what is between us and the pool
     const mat = m.material, target = m.userData.hidesWhen(camera.position) ? 0.14 : 1;
     mat.opacity += (target - mat.opacity) * (1 - Math.exp(-dt * 8));

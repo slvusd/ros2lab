@@ -123,15 +123,20 @@ export class Rov {
     ff *= clamp(0.5 - (h0 - VERT_ARM * Math.sin(this.pitch)) / 0.08, 0.0, 1.0);
     fb *= clamp(0.5 - (h0 + VERT_ARM * Math.sin(this.pitch)) / 0.08, 0.0, 1.0);
     const fv = ff + fb;
-    const surge = fl + fr - LIN_DRAG * this.u - QUAD_DRAG * this.u * Math.abs(this.u);
+    // The water itself may be moving (a current from the optional jets, current.js): drag works on the speed RELATIVE to the water.
+    // With no current this is exactly the old behaviour (the water is still: wx = wy = wd = 0).
+    const [wx, wy, wd] = this._water();
+    const c0 = Math.cos(this.yaw), s0 = Math.sin(this.yaw);
+    const ur = this.u - (wx * c0 + wy * s0), vr = this.v - (-wx * s0 + wy * c0), wr = this.w - wd;
+    const surge = fl + fr - LIN_DRAG * ur - QUAD_DRAG * ur * Math.abs(ur);
     const torque = (fr - fl) * TURN_ARM - YAW_LIN * this.r - YAW_QUAD * this.r * Math.abs(this.r);
-    let heaveUp = fv + this.buoyancy + LIN_DRAG * this.w + QUAD_DRAG * this.w * Math.abs(this.w);
+    let heaveUp = fv + this.buoyancy + LIN_DRAG * wr + QUAD_DRAG * wr * Math.abs(wr);
     if (!this.hard_limits) {
       const out = Math.max(0.0, SURF_DEPTH - this.depth);
       heaveUp -= EMERGE_K1 * Math.min(out, EMERGE_SOFT) + EMERGE_K2 * Math.max(0.0, out - EMERGE_SOFT);
       if (out > 0) heaveUp += EMERGE_DAMP * this.w;
     }
-    const sway = -LIN_DRAG * 2 * this.v;
+    const sway = -LIN_DRAG * 2 * vr;
 
     this.u += surge / m * dt;
     this.v += sway / m * dt;
@@ -173,6 +178,16 @@ export class Rov {
     this.pitch_rate += (tilt - PITCH_KS * this.pitch - PITCH_DS * this.pitch_rate) / PITCH_I * dt;
     this.pitch = clamp(this.pitch + this.pitch_rate * dt, -MAX_PITCH, MAX_PITCH);
     this._accelerometer(dt);
+  }
+
+  /** The water's own velocity at the ROV: [world x, world y, DOWN] in m/s. Any prop with a flow(x, y, depth) method moves the water
+   *  (the jets in current.js do); with none, the water is still. */
+  _water() {
+    let wx = 0.0, wy = 0.0, wd = 0.0;
+    for (const p of this.props) {
+      if (typeof p.flow === "function") { const [a, b, c] = p.flow(this.x, this.y, this.depth); wx += a; wy += b; wd += c; }
+    }
+    return [wx, wy, wd];
   }
 
   _accelerometer(dt) {

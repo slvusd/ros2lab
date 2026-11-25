@@ -7,6 +7,7 @@ import { Rov, POOL_REGIONS, POOL_MAX_DEPTH, ROV_BOTTOM, setPool, poolRegions, fl
 import { addTo as addRings } from "../rings.js";
 import { addTo as addFish, Fish } from "../fishbrain.js";
 import { addTo as addCrabs } from "../crab.js";
+import { addTo as addCurrent } from "../current.js";
 import { Rng } from "../rng.js";
 
 const DT = 1 / 60;
@@ -132,5 +133,24 @@ test("the crab lives on the shallow end whatever size the main pool is", () => {
       for (const c of r.props) assert.ok(c.x >= shelf[0] - 1e-6 && c.x <= shelf[1] + 1e-6 && c.y >= shelf[2] - 1e-6 && c.y <= shelf[3] + 1e-6, `${L}x${W}: a crab left the shallow end`);
     }
     assert.ok(Math.abs(r.props[0].state().depth - (shelf[4] - 0.02)) < 1e-9, `${L}x${W}: not on the floor`);
+  }
+});
+
+test("the outlets stay in the middle of the shelf-side wall at a third and two thirds depth in every pool size, and the current stays inside the pool", () => {
+  for (const [L, W] of SIZES) {
+    setPool(L, W);
+    const [main, shelf] = POOL_REGIONS;
+    const r = new Rov({ tool: "nose", buoyancy: 0 });
+    addCurrent(r);
+    const j = r.props[0];
+    for (const o of j.outlets) {
+      assert.equal(o.y, main[3], `${L}x${W}: on the shelf side wall`);
+      assert.ok(Math.abs(o.x - (main[0] + shelf[0]) / 2) < 1e-9, `${L}x${W}: in the middle of the wall before the shallow end opens`);
+    }
+    assert.deepEqual(j.outlets.map((o) => +o.depth.toFixed(6)).sort(), [+(main[4] / 3).toFixed(6), +(2 * main[4] / 3).toFixed(6)]);
+    assert.equal(j.length, main[3] - main[2]);
+    // a ROV drifting in it never leaves the pool
+    r.x = j.outlets[0].x; r.y = main[3] - 1.0; r.depth = j.outlets[0].depth;
+    for (let i = 0; i < 60 * 40; i++) { r.step(DT); assert.ok(inside(r.x, r.y), `${L}x${W}: the current pushed the ROV out of the pool`); }
   }
 });

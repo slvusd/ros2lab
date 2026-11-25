@@ -12,7 +12,7 @@
 const post = (url, body) => fetch(url, { method: "POST", body, keepalive: true });
 
 export const name = "sim connected";
-export const configurable = { controls: true, camera: true, fish: false, rings: false, pool: false, speed: false, crabs: false };   // the ?config panel: the Python server owns the pool, rings and fish (its --rings / --fish options)
+export const configurable = { controls: true, camera: true, fish: false, rings: false, pool: false, speed: false, crabs: false, current: false };   // the ?config panel: the Python server owns the pool, rings and fish (its --rings / --fish options)
 export const features = { keys: true, joys: true, claw: true, imu: true, rings: true, fish: true };
 
 export function connect(onState) {
