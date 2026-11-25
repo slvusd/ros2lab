@@ -21,9 +21,9 @@ if (config.fish) try {
 } catch (e) { /* optional add-on: no fish without fishbrain.js */ }
 let crabsAdded = false;
 if (config.crabs > 0) try { (await import("./sim/crab.js")).addTo(rov, config.crabs); crabsAdded = true; } catch (e) { /* optional add-on: no crabs without crab.js */ }
-let currentAdded = false;
-if (config.current) try { (await import("./sim/current.js")).addTo(rov); currentAdded = true; } catch (e) { /* optional add-on: no current without current.js */ }
-export const features = { keys: true, joys: false, claw: true, imu: false, rings: !!ringsMod, fish: fishAdded, crabs: crabsAdded, current: currentAdded, serial: true };
+let currentMod = null;                           // the optional water current (sim/current.js); the page's Current button can turn it on and off at any time
+try { currentMod = await import("./sim/current.js"); if (config.current) currentMod.addTo(rov); } catch (e) { /* optional add-on: no current without current.js */ }
+export const features = { keys: true, joys: false, claw: true, imu: true, rings: !!ringsMod, fish: fishAdded, crabs: crabsAdded, current: !!currentMod, serial: true };
 const world = new World(rov);
 if (ringsMod) world.ringDropper = ringsMod.dropRing;
 export const link = new DeviceLink(world);       // a micro:bit / Pico plugged in over USB (see serial.js)
@@ -39,4 +39,11 @@ export const tool = (name) => world.setTool(name);
 export const buoyancy = (mode) => world.setBuoyancy(mode);
 export const joy = () => {};
 export const reset = () => world.reset();
-export const dropRing = (x, y) => world.dropRing(x, y);          // the N key
+export const dropRing = (x, y) => world.dropRing(x, y);
+/** The Current button: put the two water outlets in the pool, or take them out again, while the sim runs. */
+export function setCurrent(on) {
+  if (!currentMod) return;
+  const has = rov.props.some((p) => p.type === "jets");
+  if (on && !has) currentMod.addTo(rov);
+  if (!on && has) rov.props = rov.props.filter((p) => p.type !== "jets");
+}          // the N key

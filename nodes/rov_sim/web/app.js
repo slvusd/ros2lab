@@ -653,7 +653,7 @@ import("./fish.js").then((m) => { fish = new m.Fish(scene, THREE); }).catch(() =
 let crabs = null;                     // optional add-on: crab.js draws the green crabs (delete that file to remove them)
 import("./crab.js").then((m) => { crabs = new m.Crabs(scene, THREE); }).catch(() => { /* no crabs */ });
 let jets = null;                      // optional add-on: jets.js draws the water outlets and the current (delete that file to remove them)
-import("./jets.js").then((m) => { jets = new m.Jets(scene, THREE); }).catch(() => { /* no jets */ });
+import("./jets.js").then((m) => { jets = new m.Jets(scene, THREE, { ripple: (x, z, r, k) => { if (fx) drop(x, z, r, k); } }); }).catch(() => { /* no jets */ });
 
 // ---------- state from the sim ----------
 const state = { x: -1.5, y: 0, depth: 0.8, yaw: 0, t1: 0, t2: 0, t3: 0, t4: 0, claw: 0, speed: 0, pitch: 0, imu: null, buoyancy: 1.5, joys: [[0, 0], [0, 0]], joy_topics: [] };
@@ -670,6 +670,10 @@ let lastMsg = 0;
   if (!f.claw) { hide("#tool"); const c = $("claw"); if (c && !f.rings) c.parentElement.style.display = "none"; }
 }
 backend.connect(handleState);
+if (backend.features.current && backend.setCurrent) {                         // the Current button (browser version): turn the water outlets on and off while it runs
+  $("current").style.display = "";
+  $("current").addEventListener("click", () => backend.setCurrent(!(state.props || []).some((p) => p.type === "jets")));
+}
 if (backend.features.serial && backend.link) {          // micro:bit / Pico over USB (browser version only; with the Python sim use nodes/serial_bridge)
   $("serial").style.display = "";
   import("./serial.js").then((m) => m.setupSerial({ link: backend.link, button: $("serial"), panel: $("seriallog") })).catch(() => { $("serial").style.display = "none"; });
@@ -741,6 +745,11 @@ function updateHud() {
     $("joyval" + j.n).textContent = `${jy[0] >= 0 ? "+" : "-"}${Math.abs(jy[0]).toFixed(2)} ${jy[1] >= 0 ? "+" : "-"}${Math.abs(jy[1]).toFixed(2)}`;
     $("joycap" + j.n).textContent = state.ros ? (state.joy_topics && state.joy_topics[i]) || `joy${j.n} (not published)` : `joy${j.n} (no ROS)`;
   });
+  const hasJets = (state.props || []).some((p) => p.type === "jets");           // the water current is on
+  $("row-current").style.display = hasJets ? "" : "none";
+  if (hasJets && state.water) $("currentv").textContent = Math.hypot(state.water[0], state.water[1]).toFixed(2) + " m/s";
+  $("current").textContent = "Current: " + (hasJets ? "on" : "off");
+  $("current").classList.toggle("on", hasJets);
   $("depth").textContent = state.depth.toFixed(2) + " m";
   $("heading").textContent = Math.round(((state.yaw * 180 / Math.PI) % 360 + 360) % 360) + "°";
 }

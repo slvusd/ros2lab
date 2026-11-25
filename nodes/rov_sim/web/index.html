@@ -106,6 +106,7 @@
   <div class="row"><span class="lbl">tool</span><span id="claw">closed</span></div>
   <div class="row"><span class="lbl">depth</span><span id="depth">0.00 m</span></div>
   <div class="row"><span class="lbl">heading</span><span id="heading">0&deg;</span></div>
+  <div class="row" id="row-current" style="display:none"><span class="lbl">current</span><span id="currentv">0.00 m/s</span></div>
   <div class="imu">
     <div class="row"><span class="lbl">tilt</span><svg width="40" height="20" viewBox="0 0 40 20"><g id="tilt"><line x1="4" y1="10" x2="36" y2="10" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="36" cy="10" r="3" fill="#f2b705"/></g></svg><span id="pitch">level</span></div>
     <div class="row"><span class="lbl">accel</span><span id="accel">+0.000 +0.000 +9.810</span></div>
@@ -144,6 +145,7 @@
   <button data-view="top">Top</button>
   <button id="buoy" title="Pool setting: ROV floats / neutral (hovers) / sinks (B)">Buoyancy: floats</button>
   <button id="tool" title="Front tool: claw or fixed nose (T)">Tool: Claw</button>
+  <button id="current" style="display:none">Current: off</button>
   <button id="fx" title="Refraction + water ripples (experimental)">Water FX</button>
   <button id="serial" style="display:none" title="Drive the ROV from a micro:bit or Pico (the Help page has the protocol)">Connect micro:bit / Pico</button>
   <button id="quality" title="Auto lowers the graphics if the page runs slowly; click to pin High or Low">Quality: Auto</button>

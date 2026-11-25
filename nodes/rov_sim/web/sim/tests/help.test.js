@@ -72,3 +72,7 @@ test("the example addresses in the help are read back as written", async () => {
   assert.ok(md.includes("?controls=h&rings=2&poollength=2"), "the worked example moved");
   assert.ok(html.includes('href="index.html?config"'), "the Set up the pool link must survive rendering");
 });
+
+test("the help describes the IMU panel and the Current button", () => {
+  for (const w of ["**IMU**", "accelerometer", "gyro", "**Current**", "current=on"]) assert.ok(md.includes(w), `help.md does not mention ${w}`);
+});

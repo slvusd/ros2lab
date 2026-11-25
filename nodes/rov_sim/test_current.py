@@ -63,15 +63,15 @@ def test_two_outlets_in_the_middle_of_the_shallow_end_side_wall_at_a_third_and_t
 def test_jet_profile_is_fast_at_the_nozzle_decays_spreads_and_stops_at_the_wall():
     j = rov_current.Jets()
     d = j.outlets[0]["depth"]
-    on_axis = [j.flow(JET_X, WALL_Y - s, d)[1] for s in (0.2, 0.6, 1.0, 1.5, 2.0, 2.9)]
+    assert abs(-j.flow(JET_X, WALL_Y - 0.2, d)[1] - rov_current.U0) < 0.05, "at the nozzle it should be about U0"
+    on_axis = [j.flow(JET_X, WALL_Y - s, d)[1] for s in (0.8, 1.0, 1.5, 2.0, 2.9)]        # past the nozzle's fast core (about 0.6 m)
     assert all(v < 0 for v in on_axis), "the water flows away from the wall (-y)"
     speeds = [-v for v in on_axis]
     assert speeds == sorted(speeds, reverse=True), f"it should slow down with distance: {speeds}"
-    assert abs(speeds[0] - rov_current.U0) < 0.05, f"at the nozzle it should be about U0 = {rov_current.U0}: {speeds[0]:.2f}"
     assert j.flow(JET_X, WALL_Y + 0.3, d) == (0.0, 0.0, 0.0), "nothing behind the wall"
     assert j.flow(JET_X, WALL_Y - 4.0, d) == (0.0, 0.0, 0.0), "nothing past the far wall"
     off = [-j.flow(JET_X + dx, WALL_Y - 1.5, d)[1] for dx in (0.0, 0.2, 0.4, 0.8)]
-    assert off == sorted(off, reverse=True) and off[-1] < 0.1 * off[0], f"it falls off to the side: {off}"
+    assert off == sorted(off, reverse=True) and off[-1] < 0.3 * off[0], f"it falls off to the side: {off}"        # (a wide jet: still a good fraction 0.8 m to the side)
     left, right = j.flow(JET_X - 0.3, WALL_Y - 1.5, d), j.flow(JET_X + 0.3, WALL_Y - 1.5, d)
     assert abs(left[1] - right[1]) < 1e-9, "the jet is symmetric"
     one = rov_current.Jets()
@@ -102,9 +102,10 @@ def test_current_carries_a_resting_rov_away_from_the_wall():
     r = make()
     place(r, JET_X, 0.5, jets_of(r).outlets[0]["depth"])         # in the water 1 m out from the nozzle, on its axis
     start = r.y
-    run(r, 4)
-    assert r.y < start - 0.5, f"the current should carry the ROV away from the wall (moved {r.y - start:.2f} m)"
-    assert r.v < -0.1, f"it should be moving with the water (sideways speed {r.v:.2f} m/s)"
+    run(r, 1.5)
+    assert r.y < start - 0.3 and r.v < -0.1, f"the current should carry the ROV away from the wall (moved {r.y - start:.2f} m, sideways speed {r.v:.2f} m/s)"
+    run(r, 6)
+    assert r.y < MAIN[2] + 0.6, "left alone it ends up against the far wall"
 
 
 def test_imu_feels_the_current():

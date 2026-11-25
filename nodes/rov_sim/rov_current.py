@@ -9,7 +9,7 @@
 # ROV, and works out drag from the ROV's speed RELATIVE TO THE WATER. So the ROV is pushed along, has to be steered or powered against it,
 # and the IMU's accelerometer shows the push, with no special code. Rings, fish and crabs are not affected (only the ROV).
 #
-# A jet (turbulent round jet, game-sized): on the axis the speed is min(U0, K / s) at distance s from the nozzle; across the jet it falls off
+# A jet (like a turbulent round jet, but wider and stronger): on the axis the speed is min(U0, K / s) at distance s from the nozzle; across the jet it falls off
 # as a Gaussian, exp(-(r / b)^2), where b = R0 + SPREAD * s is how wide the jet has grown. Where the two jets overlap the speeds add.
 #
 # This whole file is an add-on. To remove it: delete this file and web/jets.js (and sim/current.js). The runners' "try: import rov_current"
@@ -19,10 +19,11 @@ import math
 
 from rov_physics import POOL_REGIONS
 
-U0 = 1.5          # m/s at the nozzle
-D = 0.08          # m, nozzle diameter
-K = 6.3 * D * U0  # axial speed = K / s beyond s = K / U0 (about 0.5 m): the usual round-jet decay
-R0, SPREAD = D / 2, 0.16   # half-width b(s) = R0 + SPREAD * s
+# Game-sized, tuned so you notice it (a real jet is narrower and weaker): fast near a nozzle, and wide enough that a ROV floating at the SURFACE,
+# well above the nozzles, still feels about 0.3 to 0.45 m/s across the middle of the pool. (The ROV's own top speed is about 0.84 m/s.)
+U0 = 1.6          # m/s at the nozzle
+K = 1.0           # axial speed = K / s beyond s = K / U0 (about 0.6 m)
+R0, SPREAD = 0.04, 0.40    # half-width b(s) = R0 + SPREAD * s
 
 
 class Jets:
@@ -37,6 +38,7 @@ class Jets:
         wall_x1 = min([r[0] for r in shelf], default=main[1])          # the +y wall runs from the near end to where the shallow end opens off it
         x = (main[0] + wall_x1) / 2                                    # the middle of that wall
         self.length = main[3] - main[2]                                # the jets cross the pool and stop at the far wall
+        self.floor = main[4]                                           # (the page keeps the stream of bubbles inside the water)
         self.outlets = [{"x": x, "y": main[3], "depth": main[4] * f, "dx": 0.0, "dy": -1.0} for f in (1 / 3, 2 / 3)]
 
     def step(self, rov, dt):
@@ -64,7 +66,7 @@ class Jets:
         return vx, vy, 0.0
 
     def state(self):
-        return {"type": "jets", "outlets": [dict(o) for o in self.outlets], "length": self.length, "u0": U0, "k": K, "r0": R0, "spread": SPREAD}
+        return {"type": "jets", "outlets": [dict(o) for o in self.outlets], "length": self.length, "floor": self.floor, "u0": U0, "k": K, "r0": R0, "spread": SPREAD}
 
 
 def add_to(rov, on=True):

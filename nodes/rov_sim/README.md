@@ -24,10 +24,12 @@ Check an install: `source mac/env.sh && ./nodes/rov_sim/install.sh` (prints a PA
 
 ## Browser-only version (no Python, no ROS: Chromebooks)
 
-`web/` is a complete page. Serve that folder from any static web host (GitHub Pages, `python3 -m http.server` inside `web/`)
+`web/` is a complete page. Serve that folder from any static web host (GitHub Pages), or on your own computer with
+`python3 nodes/rov_sim/tools/serve_web.py` (then open http://localhost:8000; it sends no-cache headers, unlike `python3 -m http.server`,
+which lets the browser keep old copies of the scripts so that after an update a new option can quietly do nothing until you hard-reload),
 and open it: when no sim server answers, the page runs its own copy of the physics (`web/sim/physics.js`) and you drive with the
 keyboard. `?mode=local` forces this, `?mode=server` forces the Python server. It starts with the **nose** (the usual scout tool); the claw is one key away. The claw and the nose both work (T switches, H opens/closes, `[ ]` nudge it),
-the coy fish swims (`web/sim/fishbrain.js`, an optional add-on: delete it and the fish is gone), the three pool rings are there (`web/sim/rings.js`, also optional: push them, hook them on the nose and carry them), and the IMU readout and joysticks are not there yet.
+the coy fish swims (`web/sim/fishbrain.js`, an optional add-on: delete it and the fish is gone), the three pool rings are there (`web/sim/rings.js`, also optional: push them, hook them on the nose and carry them), and the **IMU panel** is there (tilt, accelerometer, accelerometer minus gravity, gyro, in the HUD; the joysticks are not).
 `?quality=high|low|lowest|auto` picks the graphics level from the link (lowest hides the ROV camera window).
 The JS fish behaves like the Python one but uses its own random numbers, so it swims different paths; its tests check behaviour, not exact routes.
 
@@ -49,10 +51,12 @@ To change a key, edit `SWITCHES` in `web/controls.js` (and the key help in `inde
 **Help page:** the **Help** button opens `web/help.html`, rendered from `web/help.md` (controls, the pool, page options, and the full micro:bit / Pico protocol with examples). It is the single
 source for the browser version's protocol; `web/sim/tests/help.test.js` fails if it falls out of step with the code. Edit `help.md`, not the HTML.
 
+**The Current button** (browser version): the toolbar button *Current: off / on* puts the two water outlets in the pool or takes them out again while it runs (the HUD then shows a *current* reading: how fast the water is moving at the ROV).
+
 **The water current** (`rov_current.py` / `web/sim/current.js`, drawn by `web/jets.js`; off unless you ask: `current=on`, the *Current* box in `?config`, `--current` / `current:=true` on the Python sim): two water
 outlets in the middle of the pool's +y wall (the side the shallow end is on), at 1/3 and 2/3 of the depth, shoot water straight across the pool, as if filling it. Not realistic, but a good challenge: it is a
 round turbulent jet (on the axis `min(U0, K / s)` at distance `s` from the nozzle, a Gaussian across it, widening with distance; constants at the top of `rov_current.py`), so it is faster than the ROV can
-swim close to a nozzle and weak across the pool. **How the ROV feels it:** the core physics asks every prop that has a `flow(x, y, depth)` method how fast the water moves at the ROV and computes drag from
+swim close to a nozzle, and wide enough that even a ROV floating at the surface feels about 0.3 to 0.45 m/s across the middle of the pool. **How the ROV feels it:** the core physics asks every prop that has a `flow(x, y, depth)` method how fast the water moves at the ROV and computes drag from
 the speed *relative to the water*, so the ROV is carried along and has to be powered or steered against it, and the **IMU accelerometer shows the push** with no special code (with no current the physics is
 bit-for-bit what it was). Only the ROV is affected, not the rings, fish or crabs. The page draws the nozzles and a stream of small bubbles that follow the same flow formula (the numbers come in the state). Tests:
 `test_current.py`, `web/sim/tests/current.test.js`, and Python golden traces (with the IMU) replayed by the JS port. It is an optional add-on: delete the files and it is gone.

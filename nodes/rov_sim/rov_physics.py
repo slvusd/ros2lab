@@ -324,7 +324,7 @@ class Rov:
                 "splash_n": self.splash_n, "splash_v": self.splash_v,
                 "floor_n": self.floor_n, "floor_v": self.floor_v,
                 "props": [p.state() for p in self.props], "tool": self.tool, "pitch": self.pitch, "imu": self.imu(), "buoyancy": self.buoyancy,
-                "regions": [list(r) for r in POOL_REGIONS], "keys": keys}
+                "regions": [list(r) for r in POOL_REGIONS], "keys": keys, "water": list(self._water())}
 
 
 class Shared:

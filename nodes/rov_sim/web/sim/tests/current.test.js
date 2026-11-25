@@ -33,14 +33,14 @@ test("two outlets in the middle of the shallow end's side wall, at a third and t
 
 test("a jet is fast at the nozzle, slows and spreads with distance, and stops at the walls", () => {
   const j = new Jets(), d = j.outlets[0].depth;
-  const speeds = [0.2, 0.6, 1.0, 1.5, 2.0, 2.9].map((s) => { const v = j.flow(JET_X, WALL_Y - s, d)[1]; assert.ok(v < 0, "away from the wall"); return -v; });
+  assert.ok(Math.abs(-j.flow(JET_X, WALL_Y - 0.2, d)[1] - U0) < 0.05, "at the nozzle it is about U0");
+  const speeds = [0.8, 1.0, 1.5, 2.0, 2.9].map((s) => { const v = j.flow(JET_X, WALL_Y - s, d)[1]; assert.ok(v < 0, "away from the wall"); return -v; });     // past the fast core (about 0.6 m)
   for (let i = 1; i < speeds.length; i++) assert.ok(speeds[i] < speeds[i - 1], `it should slow down: ${speeds}`);
-  assert.ok(Math.abs(speeds[0] - U0) < 0.05);
   assert.deepEqual(j.flow(JET_X, WALL_Y + 0.3, d), [0, 0, 0], "nothing behind the wall");
   assert.deepEqual(j.flow(JET_X, WALL_Y - 4.0, d), [0, 0, 0], "nothing past the far wall");
   const off = [0, 0.2, 0.4, 0.8].map((dx) => -j.flow(JET_X + dx, WALL_Y - 1.5, d)[1]);
   for (let i = 1; i < off.length; i++) assert.ok(off[i] < off[i - 1]);
-  assert.ok(off[3] < 0.1 * off[0], `it falls off to the side: ${off}`);
+  assert.ok(off[3] < 0.3 * off[0], `it falls off to the side: ${off}`);          // (a wide jet: still a good fraction 0.8 m to the side)
   const one = new Jets(); one.outlets = one.outlets.slice(0, 1);
   assert.ok(Math.abs(one.flow(JET_X - 0.3, WALL_Y - 1.5, d)[1] - one.flow(JET_X + 0.3, WALL_Y - 1.5, d)[1]) < 1e-12, "symmetric sideways");
   assert.ok(Math.abs(one.flow(JET_X, WALL_Y - 1.5, d + 0.3)[1] - one.flow(JET_X, WALL_Y - 1.5, d - 0.3)[1]) < 1e-12, "symmetric up and down");
@@ -65,9 +65,10 @@ test("the current carries a resting ROV away from the wall", () => {
   const r = make();
   place(r, JET_X, 0.5, jetsOf(r).outlets[0].depth);
   const start = r.y;
-  run(r, 4);
-  assert.ok(r.y < start - 0.5, `moved ${(r.y - start).toFixed(2)} m`);
-  assert.ok(r.v < -0.1, `moving with the water (${r.v.toFixed(2)} m/s)`);
+  run(r, 1.5);
+  assert.ok(r.y < start - 0.3 && r.v < -0.1, `moved ${(r.y - start).toFixed(2)} m, sideways speed ${r.v.toFixed(2)} m/s`);
+  run(r, 6);
+  assert.ok(r.y < MAIN[2] + 0.6, "left alone it ends up against the far wall");
 });
 
 test("the IMU feels the current", () => {

@@ -36,8 +36,10 @@ Press `H` (or click the badge) and it becomes **H-bridge only**: just the three 
 Other keys: `N` drops a new pool ring into the water where the mouse is (move the mouse over the pool first and a message says "Ring dropped"; if there is no message at all, reload the page with Ctrl+Shift+R. It sinks, there can be 10 rings at most, and **Reset** removes the dropped ones), `[` and `]` close and open the claw gradually, `T` switches between the nose and the claw, `B` changes the buoyancy,
 `V` (or a double-click) resets the camera view, `X` lets go of every key.
 
+The panel at the top left shows the thrusters, the depth, the heading and the **IMU**: how far the ROV is tilted (nose down is positive), what the **accelerometer** reads (x forward, y left, z up, in m/s², including gravity: about +9.81 up when it sits still), the same minus gravity, and the **gyro** (how fast it is turning). When the current is on it also shows how fast the water is moving at the ROV.
+
 Buttons: **Orbit** (drag to turn the view, scroll to zoom), **Follow** (a chase camera), **Top**, **Buoyancy**, **Tool**, **Water FX**
-(refraction and ripples), **Quality**, **Reset** (back to the start). The little window is the ROV's own camera.
+(refraction and ripples), **Current** (turn the water outlets on and off), **Quality**, **Reset** (back to the start). The little window is the ROV's own camera.
 
 ## The pool {#pool}
 
@@ -46,7 +48,7 @@ Buttons: **Orbit** (drag to turn the view, scroll to zoom), **Follow** (a chase 
   With the **claw**, open it, put the jaws round the side of the ring, then close it to grip. Open it to let go.
 - **Buoyancy** (`B`): **floats** (a long piece of dark pipe insulation on each of the top four sticks: it rises to the surface by itself),
   **neutral** (a few short pieces: it hovers) or **sinks** (no foam: it needs thrust to stay up).
-- With **`current=on`** (or the *Current* box in **Set up the pool**) two water outlets in the wall on the shallow-end side, a third and two thirds of the way down, shoot a stream of water straight across the pool, as if filling it. It is not very realistic, but it gives you something to fight: close to a nozzle the water is faster than the ROV can swim, further out it spreads and slows, and it carries a ROV that is just sitting there across the pool. The IMU's accelerometer shows the push. Only the ROV feels it (rings, the fish and the crab do not).
+- With the **Current** button (or `current=on`, or the *Current* box in **Set up the pool**) two water outlets in the wall on the shallow-end side, a third and two thirds of the way down, shoot a stream of water straight across the pool, as if filling it. It is not very realistic, but it gives you something to fight: close to a nozzle the water is faster than the ROV can swim, further out it spreads and slows, and it carries a ROV that is just sitting there across the pool. The IMU's accelerometer shows the push. Only the ROV feels it (rings, the fish and the crab do not).
 - A small **green crab** (the 2026 task is to remove this invasive species) crawls sideways on the floor of the shallow end. It scuttles away when the ROV comes close, but it is much slower than the ROV, and if the ROV touches it, it is simply shoved out of the way, like a ring. (Picking it up is a job for later.)
 - A **fish** lives here. It is shy: it never lets the ROV catch it. Sit still for a few seconds and it may come to look into your camera.
 - The ROV bobs when it breaks the surface and bounces gently off the floor. The walls stop it, and it slides along them.

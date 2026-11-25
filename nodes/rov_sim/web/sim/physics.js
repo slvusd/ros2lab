@@ -260,6 +260,6 @@ export class Rov {
       speed: Math.sqrt(this.u ** 2 + this.v ** 2 + this.w ** 2),
       splash_n: this.splash_n, splash_v: this.splash_v, floor_n: this.floor_n, floor_v: this.floor_v,
       props: this.props.map((p) => p.state()), tool: this.tool, pitch: this.pitch, imu: this.imu(), buoyancy: this.buoyancy,
-      regions: POOL_REGIONS.map((r) => [...r]), keys };
+      regions: POOL_REGIONS.map((r) => [...r]), keys, water: this._water() };
   }
 }

@@ -54,3 +54,13 @@ test("the N key reaches the world: a ring appears, unless the rings add-on is mi
   assert.ok(ring);
   assert.equal(w.state().props.filter((p) => p.type === "ring").length, 1);
 });
+
+test("the state carries the water speed at the ROV (for the page's HUD): still water with no current", async () => {
+  const w = new World();
+  assert.deepEqual(w.state().water, [0, 0, 0]);
+  const { addTo } = await import("../current.js");
+  addTo(w.rov);
+  w.rov.x = -1.25; w.rov.y = 0.5; w.rov.depth = 0.67;
+  const water = w.state().water;
+  assert.ok(water[1] < -0.5 && Math.abs(water[0]) < 1e-9, `water at the ROV: ${water}`);
+});

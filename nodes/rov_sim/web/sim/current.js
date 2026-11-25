@@ -2,14 +2,15 @@
 // OPTIONAL add-on (the page draws the jets with ../jets.js). Remove: delete this file and the addTo() call in backend-local.js. The core physics
 // only knows "a prop may have a flow(x, y, depth) method" (see Rov._water in physics.js).
 // Two nozzles in the middle of the pool's +y wall (the side the shallow end is on), at 1/3 and 2/3 of the way down, shoot water straight across
-// the pool. A round turbulent jet, game-sized: on the axis the speed is min(U0, K / s) at distance s from the nozzle; across the jet it falls
+// the pool. Like a round turbulent jet, but wider and stronger: on the axis the speed is min(U0, K / s) at distance s from the nozzle; across the jet it falls
 // off as exp(-(r / b)^2) with b = R0 + SPREAD * s. Where the two jets overlap the speeds add. Only the ROV feels it (rings, fish, crabs do not).
 import { POOL_REGIONS } from "./physics.js";
 
-export const U0 = 1.5;                    // m/s at the nozzle
-export const D = 0.08;                    // m, nozzle diameter
-export const K = 6.3 * D * U0;            // axial speed = K / s beyond s = K / U0 (about 0.5 m)
-export const R0 = D / 2, SPREAD = 0.16;   // half-width b(s) = R0 + SPREAD * s
+// Game-sized, tuned so you notice it (a real jet is narrower and weaker): fast near a nozzle, and wide enough that a ROV floating at the SURFACE,
+// well above the nozzles, still feels about 0.3 to 0.45 m/s across the middle of the pool. (The ROV's own top speed is about 0.84 m/s.)
+export const U0 = 1.6;                    // m/s at the nozzle
+export const K = 1.0;                     // axial speed = K / s beyond s = K / U0 (about 0.6 m)
+export const R0 = 0.04, SPREAD = 0.40;    // half-width b(s) = R0 + SPREAD * s
 
 export class Jets {
   constructor() {
@@ -22,6 +23,7 @@ export class Jets {
     const wallX1 = shelf.length ? Math.min(...shelf.map((r) => r[0])) : main[1];          // the +y wall runs from the near end to where the shallow end opens off it
     const x = (main[0] + wallX1) / 2;                                                    // the middle of that wall
     this.length = main[3] - main[2];                                                     // the jets cross the pool and stop at the far wall
+    this.floor = main[4];                                                                // (the page keeps the stream of bubbles inside the water)
     this.outlets = [1 / 3, 2 / 3].map((f) => ({ x, y: main[3], depth: main[4] * f, dx: 0.0, dy: -1.0 }));
   }
   step() { /* the jets never change */ }
@@ -45,7 +47,7 @@ export class Jets {
     return [vx, vy, 0.0];
   }
 
-  state() { return { type: "jets", outlets: this.outlets.map((o) => ({ ...o })), length: this.length, u0: U0, k: K, r0: R0, spread: SPREAD }; }
+  state() { return { type: "jets", outlets: this.outlets.map((o) => ({ ...o })), length: this.length, floor: this.floor, u0: U0, k: K, r0: R0, spread: SPREAD }; }
 }
 
 /** Put the two water outlets in the pool (when `on`). */
