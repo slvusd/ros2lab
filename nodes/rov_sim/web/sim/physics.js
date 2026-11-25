@@ -26,6 +26,9 @@ export function setPool(lengthMul = 1, widthMul = 1) {
 export const ROV_HALF = 0.25, ROV_BOTTOM = 0.28;
 export const START = { x: -1.5, y: 0.0, depth: 0.8, yaw: 0.0 };
 
+// The red (t1) and green (t2) thrusters give this fraction of max_thrust at a command of 1.0: the normal ("1x") speed. The `speed` setting
+// (0.25 .. 4, the page's ?speed=) multiplies it. It was 1.0 before; halved so the ROV is easier to drive. (Same constant as rov_physics.py.)
+export const SIDE_THRUST = 0.5;
 const TURN_ARM = 0.22, INERTIA = 1.2;
 const LIN_DRAG = 6.0, QUAD_DRAG = 10.0, YAW_LIN = 1.6, YAW_QUAD = 1.0, HEAVE_MASS_BOOST = 1.5;
 export const CLAW_TIME = 0.6;
@@ -74,8 +77,9 @@ export function nearestIn(regions, x, y, margin = 0.0) {
 }
 
 export class Rov {
-  constructor({ maxThrust = 12.0, mass = 8.0, buoyancy = BUOYANCY, hardLimits = false, tool = "claw", imuNoise = 0.0, imuResolution = 0.0 } = {}) {
+  constructor({ maxThrust = 12.0, mass = 8.0, buoyancy = BUOYANCY, hardLimits = false, tool = "claw", imuNoise = 0.0, imuResolution = 0.0, speed = 1.0 } = {}) {
     this.max_thrust = maxThrust; this.mass = mass; this.buoyancy = buoyancy;
+    this.speed_mult = clamp(Number(speed), 0.25, 4.0);       // multiplies the red / green thrusters' power (1 = normal)
     this.hard_limits = hardLimits;
     this.tool = tool;
     this.props = [];                         // optional extras (rings, fish): each has reset/step/state
@@ -95,6 +99,7 @@ export class Rov {
   }
 
   reset() {
+    this.props = this.props.filter((p) => !p.transient);     // rings dropped into the pool disappear on Reset
     this.x = START.x; this.y = START.y; this.depth = START.depth; this.yaw = START.yaw;
     this.u = this.v = this.w = this.r = 0.0;
     this.claw = 0.0;
@@ -111,7 +116,8 @@ export class Rov {
 
   step(dt) {
     const mt = this.max_thrust, m = this.mass;
-    const fl = this.cmd[T_LEFT] * mt, fr = this.cmd[T_RIGHT] * mt;
+    const side = mt * SIDE_THRUST * this.speed_mult;          // what a command of 1.0 gives the red and green thrusters (N)
+    const fl = this.cmd[T_LEFT] * side, fr = this.cmd[T_RIGHT] * side;
     let ff = this.cmd[T_FRONT] * mt / 2, fb = this.cmd[T_REAR] * mt / 2;
     const h0 = -this.depth + this.thruster_up * Math.cos(this.pitch);
     ff *= clamp(0.5 - (h0 - VERT_ARM * Math.sin(this.pitch)) / 0.08, 0.0, 1.0);

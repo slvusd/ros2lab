@@ -124,7 +124,7 @@ def test_pool_no_upward_jump_from_any_legal_pose():
 
 # ------------------------------------------------------------------ rings: bumping
 def test_ring_is_pushed_not_passed_through():
-    r = with_props("claw")
+    r = with_props("claw", speed=2.0)     # speed=2.0: as strong as the red/green thrusters were before their default was halved
     ring = rings_of(r)[0]
     r.x, r.y, r.yaw, r.depth = -0.3, 0.0, 0.0, 1.6
     ring.x, ring.y, ring.yaw = 0.9, 0.0, math.pi / 2
@@ -346,7 +346,7 @@ def test_fish_does_not_get_stuck_in_corners():
     near = steps = 0
     longest_stuck = still = 0
     for seed in (11, 18, 25):
-        r = with_props("claw", rings=0, fish=1, buoyancy=0.0)
+        r = with_props("claw", rings=0, fish=1, buoyancy=0.0, speed=2.0)    # a chaser as quick as the ROV used to be
         fish = [p for p in r.props if p.type == "fish"][0]
         fish.seed = seed
         fish.reset()
@@ -429,7 +429,7 @@ def test_fish_peeks_promptly_at_a_default_rov_floating_at_the_surface():
 
 
 def test_two_rings_on_the_nose_tilt_twice_as_much():
-    r = with_props("nose", rings=2, buoyancy=0.0)
+    r = with_props("nose", rings=2, buoyancy=0.0, speed=2.0)
     a, b = rings_of(r)
     a.x, a.y, a.yaw = 0.8, 0.0, math.pi / 2
     b.x, b.y, b.yaw = 1.5, 0.0, math.pi / 2
@@ -494,6 +494,81 @@ def test_fish_wanders_and_swims_at_sane_speeds():
         xs.append(fish.x); ys.append(fish.y); speeds.append(fish.speed)
     assert max(xs) - min(xs) > 1.0 or max(ys) - min(ys) > 1.0, "the fish barely moved in a minute"
     assert max(speeds) < 2.0, f"fish speed reached {max(speeds):.1f} m/s"
+
+
+# ------------------------------------------------------------------ the speed setting and dropping rings
+def test_speed_setting_scales_the_red_and_green_thrusters():
+    """1x is the new default (half of max_thrust on t1/t2); the speed setting multiplies it, clamped to 0.25 .. 4."""
+    import rov_physics
+    assert rov_physics.SIDE_THRUST == 0.5
+    us = {}
+    for sp in (0.25, 1.0, 2.0, 4.0):
+        r = Rov(buoyancy=0.0, speed=sp)
+        r.depth = 1.0
+        r.x, r.y, r.yaw = -2.5, 0.0, 0.0
+        run(r, 0.5, t1=1, t2=1)
+        us[sp] = r.u
+    assert us[0.25] < us[1.0] < us[2.0] < us[4.0], us
+    assert 1.6 < us[2.0] / us[1.0] < 2.05 and 3.0 < us[4.0] / us[1.0] < 4.1, f"early acceleration should scale with the setting: {us}"
+    assert Rov(speed=99).speed_mult == 4.0 and Rov(speed=0.001).speed_mult == 0.25
+    # the vertical thrusters are not affected
+    a, b = Rov(buoyancy=0.0, speed=1.0), Rov(buoyancy=0.0, speed=4.0)
+    for r in (a, b):
+        r.depth = 1.0
+        run(r, 0.5, t3=1, t4=1)
+    assert abs(a.w - b.w) < 1e-9, "the speed setting changed the up/down thrusters"
+
+
+def test_drop_ring_sinks_is_capped_and_reset_removes_it():
+    import rov_props
+    r = with_props("nose", rings=3)
+    r.x, r.y = -2.5, -1.0
+    ring = rov_props.drop_ring(r, 0.0, 0.5)
+    assert ring is not None and ring in r.props and ring.transient
+    assert abs(ring.depth - (ring.R + ring.TUBE)) < 1e-9, "a dropped ring starts at the surface"
+    for _ in range(60 * 2):
+        r.step(DT)
+    assert ring.R + ring.TUBE < ring.depth < ring.floor, f"after 2 s it should be sinking (depth {ring.depth:.2f})"
+    for _ in range(60 * 14):
+        r.step(DT)
+    assert abs(ring.depth - ring.floor) < 1e-6, f"it should end on the floor (depth {ring.depth:.2f}, floor {ring.floor:.2f})"
+    assert all(ring in p.others for p in rings_of(r)), "every ring must know about the new one (ring-ring collisions)"
+    # the cap
+    n = 0
+    while rov_props.drop_ring(r, 0.0, -0.5 + 0.1 * n) is not None:
+        n += 1
+        assert n < 50
+    assert len(rings_of(r)) == rov_props.MAX_RINGS == 10, len(rings_of(r))
+    # asking for a spot outside the pool puts it inside
+    r2 = with_props("nose", rings=0)
+    far = rov_props.drop_ring(r2, 50.0, 50.0)
+    assert any(q[0] <= far.x <= q[1] and q[2] <= far.y <= q[3] for q in POOL_REGIONS), (far.x, far.y)
+    # Reset puts the pool back: only the original rings are left, and nothing keeps colliding with a removed ring
+    r.reset()
+    assert len(rings_of(r)) == 3 and all(not getattr(p, "transient", False) for p in r.props)
+    for _ in range(120):
+        r.step(DT)
+
+
+def test_ring_drop_request_through_the_server():
+    """The page's N key POSTs /ring {x, y}; the sim loop then calls apply_ring_drops."""
+    import json
+    import urllib.request
+    import rov_physics
+    import rov_props
+    shared = rov_physics.Shared(keys=True)
+    server = rov_physics.start_server(shared, 0)
+    try:
+        port = server.server_address[1]
+        for body in (json.dumps({"x": 0.5, "y": 0.25}), json.dumps({"x": "bad"}), "not json", json.dumps({"x": 1e999, "y": 0})):
+            req = urllib.request.Request(f"http://127.0.0.1:{port}/ring", data=body.encode(), method="POST")
+            assert urllib.request.urlopen(req, timeout=5).status == 204
+    finally:
+        server.shutdown()
+    assert shared.ring_drops == [(0.5, 0.25)], f"only the one good request should be queued: {shared.ring_drops}"
+    r = with_props("nose", rings=3)
+    rov_physics.apply_ring_drops(shared, r)
+    assert shared.ring_drops == [] and len(rings_of(r)) == 4
 
 
 # ------------------------------------------------------------------ speed

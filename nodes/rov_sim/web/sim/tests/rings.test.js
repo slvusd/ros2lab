@@ -2,9 +2,9 @@
 // Run: node --test nodes/rov_sim/web/sim/tests/
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Rov } from "../physics.js";
+import { Rov, POOL_REGIONS } from "../physics.js";
 import { distanceToRov } from "../shape.js";
-import { addTo as addRings } from "../rings.js";
+import { addTo as addRings, dropRing, MAX_RINGS } from "../rings.js";
 import { addTo as addFish } from "../fishbrain.js";
 import { Rng } from "../rng.js";
 
@@ -24,7 +24,7 @@ const ringsOf = (r) => r.props.filter((p) => p.type === "ring");
 const deg = (rad) => (rad * 180 / Math.PI).toFixed(1);
 
 test("a ring is pushed, not passed through", () => {
-  const r = withProps("claw");
+  const r = withProps("claw", { speed: 2.0 });         // speed 2.0: as strong as the red / green thrusters were before their default was halved
   const [ring] = ringsOf(r);
   r.x = -0.3; r.y = 0.0; r.yaw = 0.0; r.depth = 1.6;
   ring.x = 0.9; ring.y = 0.0; ring.yaw = Math.PI / 2;
@@ -185,7 +185,7 @@ test("a ring is carried over the step to the shallow end and left there", () => 
 });
 
 test("two rings on the nose tilt twice as much", () => {
-  const r = withProps("nose", { rings: 2 });
+  const r = withProps("nose", { rings: 2, speed: 2.0 });
   const [a, b] = ringsOf(r);
   a.x = 0.8; a.y = 0.0; a.yaw = Math.PI / 2;
   b.x = 1.5; b.y = 0.0; b.yaw = Math.PI / 2;
@@ -231,4 +231,47 @@ test("physics with rings and a fish runs fast enough for 60 Hz", () => {
   for (let i = 0; i < 600; i++) { r.set_cmd("t1", 0.4); r.set_cmd("t2", 0.4); r.step(DT); }
   const ms = (performance.now() - t) / 600;
   assert.ok(ms < 5.0, `${ms.toFixed(2)} ms per step is too slow for 60 Hz`);
+});
+
+test("dropping a ring: it starts at the surface, sinks to the floor, every ring knows it, the pool holds at most 10", () => {
+  const r = withProps("nose", { rings: 3 });
+  r.x = -2.5; r.y = -1.0;
+  const ring = dropRing(r, 0.0, 0.5);
+  assert.ok(ring && r.props.includes(ring) && ring.transient);
+  assert.ok(Math.abs(ring.depth - (ring.R + ring.TUBE)) < 1e-9, "starts at the surface");
+  for (let i = 0; i < 60 * 2; i++) r.step(DT);
+  assert.ok(ring.depth > ring.R + ring.TUBE && ring.depth < ring.floor, `after 2 s it is sinking (depth ${ring.depth.toFixed(2)})`);
+  for (let i = 0; i < 60 * 14; i++) r.step(DT);
+  assert.ok(Math.abs(ring.depth - ring.floor) < 1e-6, `ends on the floor (depth ${ring.depth.toFixed(2)}, floor ${ring.floor.toFixed(2)})`);
+  assert.ok(ringsOf(r).every((p) => p.others.includes(ring)), "every ring must know the new one");
+  let n = 0;
+  while (dropRing(r, 0.0, -0.5 + 0.1 * n)) { n++; assert.ok(n < 50); }
+  assert.equal(ringsOf(r).length, MAX_RINGS);
+  assert.equal(MAX_RINGS, 10);
+});
+
+test("a dropped ring asked for outside the pool lands inside it; the state describes it like any ring", () => {
+  const r = withProps("nose", { rings: 0 });
+  const ring = dropRing(r, 50, 50);
+  const [x, y] = [ring.x, ring.y];
+  assert.ok(POOL_REGIONS.some((q) => q[0] <= x && x <= q[1] && q[2] <= y && y <= q[3]), `(${x}, ${y}) is outside the pool`);
+  const st = r.state().props[0];
+  assert.equal(st.type, "ring"); assert.ok("color" in st && "yaw" in st);
+});
+
+test("Reset removes dropped rings (and nothing keeps colliding with them)", () => {
+  const r = withProps("nose", { rings: 3 });
+  r.x = -2.5; r.y = -1.0;
+  dropRing(r, 0.0, 0.0); dropRing(r, 0.1, 0.0);
+  assert.equal(ringsOf(r).length, 5);
+  r.reset();
+  assert.equal(ringsOf(r).length, 3);
+  assert.ok(r.props.every((p) => !p.transient));
+  for (let i = 0; i < 120; i++) r.step(DT);                 // no ghost collisions, no errors
+});
+
+test("the ring cap is the same number as in the Python reference", async () => {
+  const { readFileSync } = await import("node:fs");
+  const py = readFileSync(new URL("../../../rov_props.py", import.meta.url), "utf8");
+  assert.equal(Number(py.match(/^MAX_RINGS = (\d+)/m)[1]), MAX_RINGS);
 });

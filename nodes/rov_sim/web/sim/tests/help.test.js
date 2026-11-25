@@ -32,7 +32,7 @@ test("the documented limits match the code", async () => {
 test("the switches and keys the help names are the ones in controls.js", () => {
   const keyText = { Digit1: "`1`", Digit2: "`2`", ArrowLeft: "left arrow", ArrowRight: "right arrow", ArrowUp: "up arrow", ArrowDown: "down arrow" };
   for (const s of SWITCHES) for (const k of [s.minus, s.plus]) assert.ok(md.includes(keyText[k]), `help.md does not mention ${k}`);
-  for (const w of ["red", "green", "up / down", "`H`", "`T`", "`B`", "`V`", "`X`"]) assert.ok(md.includes(w), `help.md does not mention ${w}`);
+  for (const w of ["red", "green", "up / down", "`H`", "`T`", "`B`", "`V`", "`X`", "`N`"]) assert.ok(md.includes(w), `help.md does not mention ${w}`);
 });
 
 test("every internal link points at a heading that exists", () => {

@@ -24,6 +24,8 @@ SCENARIOS = {
     "surface_bob":     (1.5, [(3, {"t3": .8, "t4": .8}), (6, {}), (2, {"t3": 1, "t4": 1}), (4, {})]),
     "neutral_hover":   (0.0, [(5, {})]),
     "sinks":           (-1.5, [(6, {})]),
+    "double_speed":    (1.5, [(2, {"t1": .8, "t2": .8}), (2, {"t1": .8, "t2": .3}), (3, {})], 2.0),     # speed=2.0 doubles the red / green thrusters
+    "quarter_speed":   (1.5, [(3, {"t1": 1, "t2": 1}), (2, {"t1": -1, "t2": 1}), (3, {})], 0.25),
     "pitch_trim":      (1.5, [(2, {"t3": .8, "t4": -.8}), (2, {"t3": -.8, "t4": .8}), (3, {})]),
     "into_east_wall":  (1.5, [(8, {"t1": .8, "t2": .8}), (2, {})]),
     "turn_in_corner":  (1.5, [(5, {"t1": .8, "t2": .8}), (3, {"t1": -.8, "t2": .8}), (3, {"t1": .8, "t2": .8})]),
@@ -32,8 +34,8 @@ SCENARIOS = {
 }
 
 
-def run(buoy, segs):
-    rov = P.Rov(buoyancy=buoy, tool="nose")
+def run(buoy, segs, speed=1.0):
+    rov = P.Rov(buoyancy=buoy, tool="nose", speed=speed)
     rows, n = [], 0
     for secs, cmd in segs:
         for k in ("t1", "t2", "t3", "t4"):
@@ -95,7 +97,8 @@ def run_ring(sc):
 
 def build():
     return {"dt": DT, "every": EVERY, "columns": ["x", "y", "depth", "yaw", "pitch", "speed", "splash_n", "floor_n", "ax", "ay", "az", "gy", "gz"],
-            "scenarios": {name: {"buoyancy": b, "segments": [[s, c] for s, c in segs], "rows": run(b, segs)} for name, (b, segs) in SCENARIOS.items()},
+            "scenarios": {name: {"buoyancy": sc[0], "speed": sc[2] if len(sc) > 2 else 1.0, "segments": [[t, c] for t, c in sc[1]], "rows": run(sc[0], sc[1], sc[2] if len(sc) > 2 else 1.0)}
+                          for name, sc in SCENARIOS.items()},
             "ring_scenarios": {name: {**sc, "ringset": {str(k): v for k, v in sc["ringset"].items()}, "segments": [[s, c] for s, c in sc["segments"]], "rows": run_ring(sc)}
                                for name, sc in RING_SCENARIOS.items()}}
 

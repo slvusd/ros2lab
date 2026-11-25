@@ -25,6 +25,7 @@
 # the (light) ring out of the way; the ROV is not slowed by what it pushes.
 # =============================================================================
 import math
+import random
 
 import rov_shape
 from rov_physics import POOL_MAX_DEPTH, POOL_REGIONS, clamp, floor_at, nearest_in
@@ -128,8 +129,8 @@ class Ring:
             self._coast(dt)
         if not self.held:
             self._collide(rov, dt)                              # bumped by the ROV's pipes, thrusters, tool ...
-            for other in self.others:                           # ... and by the other rings
-                if other is not self:
+            for other in self.others:                           # ... and by the other rings (a ring removed by Reset is skipped)
+                if other is not self and other in rov.props:
                     self._collide_ring(other)
         for _ in range(3):                                      # keep both ends of the hoop inside the pool
             worst = None
@@ -346,6 +347,25 @@ RING_STARTS = [
     (-1.9, 0.9, math.pi / 2 + 0.2, 0xb15cff),     # purple
     (2.3, -0.9, math.pi / 2 - 0.3, 0xff4d88),     # pink
 ]
+
+
+MAX_RINGS = 10                  # the most rings the pool can hold (the page's "drop a ring" key stops here)
+
+
+def drop_ring(rov, x, y):
+    """Drop a NEW ring into the water at (x, y): it starts at the surface and sinks to the floor. Returns the ring, or None when the pool
+    already has MAX_RINGS. It is a "transient" prop: Reset removes it again (the pool goes back to how it started)."""
+    rings = [p for p in rov.props if getattr(p, "type", "") == "ring"]
+    if len(rings) >= MAX_RINGS:
+        return None
+    others = rings[0].others if rings else []               # one shared list, so every ring knows every other ring
+    x, y = nearest_in(POOL_REGIONS, x, y)                   # inside the pool, whatever was asked for
+    ring = Ring(x, y, random.uniform(0.0, math.pi), RING_STARTS[len(rings) % len(RING_STARTS)][3], others=others)
+    ring.depth = Ring.R + Ring.TUBE                         # the top of the hoop just at the surface
+    ring.transient = True
+    others.append(ring)
+    rov.props.append(ring)
+    return ring
 
 
 def add_to(rov, n=3):

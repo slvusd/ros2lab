@@ -33,7 +33,7 @@ Press `H` (or click the badge) and it becomes **H-bridge only**: just the three 
 | `I` / `K` | tilt the nose up / down (front thruster up and rear down, or the reverse) |
 | `Z` / `C` | the left / right thruster only |
 
-Other keys: `[` and `]` close and open the claw gradually, `T` switches between the nose and the claw, `B` changes the buoyancy,
+Other keys: `N` drops a new pool ring into the water where the mouse is (point at the pool first; it sinks, there can be 10 rings at most, and **Reset** removes the dropped ones), `[` and `]` close and open the claw gradually, `T` switches between the nose and the claw, `B` changes the buoyancy,
 `V` (or a double-click) resets the camera view, `X` lets go of every key.
 
 Buttons: **Orbit** (drag to turn the view, scroll to zoom), **Follow** (a chase camera), **Top**, **Buoyancy**, **Tool**, **Water FX**
@@ -178,11 +178,12 @@ for anyone you send it to. Every setting is also a plain option you can add to t
 | `rings=0` to `5` | how many pick-up rings (normally 3) |
 | `poollength=1` or `2` | the main pool is 6 m times this long (normally 1, so 6 m; 2 is 12 m) |
 | `poolwidth=1`, `2` or `3` | the main pool is 3 m times this wide (normally 1, so 3 m; 3 is 9 m) |
+| `speed=0.25` to `4` | the power of the red and green thrusters (normally 1). **1 is the normal speed, half of what these thrusters used to give**; 2 is the old strength. The up/down thrusters do not change |
 | `camera=on` or `off` | whether the ROV has a camera: its housing on the model, the camera window, and the fish coming to look into it (normally on) |
 
-Whole numbers only: anything else is rounded and kept inside the limits, and an option the page does not understand is ignored. The shallow end keeps its size
+Whole numbers (and any number from 0.25 to 4 for `speed`): anything else is rounded and kept inside the limits, and an option the page does not understand is ignored. The shallow end keeps its size
 and stays at the far end whatever the main pool size. A bigger pool has coarser water ripples so it still runs on a slow computer.
-With the Python server, `controls` and `camera` work the same; the pool, rings and fish are set by the server's own options (`--rings`, `--fish`).
+With the Python server, `controls` and `camera` work the same; the pool, rings, fish and speed are set by the server's own options (`--rings`, `--fish`, `--speed`).
 
 Other options:
 

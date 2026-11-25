@@ -10,7 +10,7 @@ const TOL = 1e-6;
 
 for (const [name, sc] of Object.entries(golden.scenarios)) {
   test(`physics matches Python: ${name}`, () => {
-    const rov = new Rov({ buoyancy: sc.buoyancy, tool: "nose" });
+    const rov = new Rov({ buoyancy: sc.buoyancy, tool: "nose", speed: sc.speed ?? 1.0 });
     let n = 0, row = 0, worst = 0;
     for (const [secs, cmd] of sc.segments) {
       for (const k of ["t1", "t2", "t3", "t4"]) rov.set_cmd(k, cmd[k] ?? 0.0);
@@ -60,3 +60,22 @@ for (const [name, sc] of Object.entries(golden.ring_scenarios)) {
     assert.equal(row, sc.rows.length);
   });
 }
+
+test("the speed setting scales the red and green thrusters (1x is the new default: half of the old full power), not the vertical ones", async () => {
+  const { SIDE_THRUST } = await import("../physics.js");
+  assert.equal(SIDE_THRUST, 0.5);
+  const us = {};
+  for (const sp of [0.25, 1, 2, 4]) {
+    const r = new Rov({ buoyancy: 0.0, speed: sp });
+    r.depth = 1.0; r.x = -2.5; r.y = 0; r.yaw = 0;
+    r.set_cmd("t1", 1); r.set_cmd("t2", 1);
+    for (let i = 0; i < 30; i++) r.step(1 / 60);
+    us[sp] = r.u;
+  }
+  assert.ok(us[0.25] < us[1] && us[1] < us[2] && us[2] < us[4], JSON.stringify(us));
+  assert.ok(us[2] / us[1] > 1.6 && us[2] / us[1] < 2.05 && us[4] / us[1] > 3.0 && us[4] / us[1] < 4.1, JSON.stringify(us));
+  assert.equal(new Rov({ speed: 99 }).speed_mult, 4); assert.equal(new Rov({ speed: 0.001 }).speed_mult, 0.25);
+  const a = new Rov({ buoyancy: 0, speed: 1 }), b = new Rov({ buoyancy: 0, speed: 4 });
+  for (const r of [a, b]) { r.depth = 1.0; r.set_cmd("t3", 1); r.set_cmd("t4", 1); for (let i = 0; i < 30; i++) r.step(1 / 60); }
+  assert.ok(Math.abs(a.w - b.w) < 1e-9, "the speed setting changed the up/down thrusters");
+});

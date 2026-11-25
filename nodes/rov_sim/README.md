@@ -49,9 +49,12 @@ To change a key, edit `SWITCHES` in `web/controls.js` (and the key help in `inde
 **Help page:** the **Help** button opens `web/help.html`, rendered from `web/help.md` (controls, the pool, page options, and the full micro:bit / Pico protocol with examples). It is the single
 source for the browser version's protocol; `web/sim/tests/help.test.js` fails if it falls out of step with the code. Edit `help.md`, not the HTML.
 
+**Drop a ring (`N`):** point the mouse at the water of the pool and press `N`: a new ring is dropped in at that spot and sinks to the floor (at most 10 rings in the pool,
+`MAX_RINGS` in `rov_props.py` / `web/config.js`). **Reset** removes the dropped rings again. It works in the browser version and with the Python server (the page POSTs `/ring`).
+
 **Settings (`?config`):** add `?config` to the page address (or use *Set up the pool* in the Help page) for a panel that sets the options and gives you a link to share;
 each setting is also a plain address option: `controls=all|h|h-hidden` (all keys / H-circuit only, locked / H-circuit only with every other control hidden),
-`fish=on|off`, `rings=0..5` (3), `poollength=1|2` (x 6 m), `poolwidth=1|2|3` (x 3 m), `camera=on|off`. They live in `web/config.js` (parsing and limits, tested) and
+`fish=on|off`, `rings=0..5` (3), `speed=0.25..4` (1: the red and green thrusters' power), `poollength=1|2` (x 6 m), `poolwidth=1|2|3` (x 3 m), `camera=on|off`. They live in `web/config.js` (parsing and limits, tested) and
 `web/configui.js` (the panel); `physics.js` `setPool()` resizes the main pool. The pool size is a browser-version feature for now: Python's pool is still the fixed
 6 x 3 m plus shelf (`POOL_REGIONS` in `rov_physics.py`), and with the Python server only `controls` and `camera` apply (use `--rings` / `--fish` there).
 
@@ -232,6 +235,8 @@ A cube frame (about 50 cm) of PVC pipe, nose toward +x. Four thrusters, and a to
 | `t3` | low on the frame, near the nose | up (`+`) or down (`-`) | white shroud |
 | `t4` | low on the frame, near the tail | up (`+`) or down (`-`) | white shroud |
 
+At the normal speed a command of 1.0 on `t1` or `t2` pushes with 6 N (see the `speed` parameter); the vertical ones give up to 6 N each.
+
 A real ROV has 6–8 thrusters; adding `t5`... later means extending the thruster list in `rov_physics.py` and the model in `web/app.js`.
 
 Every thruster is clamped to a real frame member: the side thrusters hang from rails on each side of the frame, the vertical thrusters sit on the
@@ -336,7 +341,8 @@ Read once at startup. `ros2 run`-style for `rov_sim.py`: `--ros-args -p name:=va
 | `tool` | claw | starting tool: `claw` or `nose` |
 | `rings` | 3 | how many pick-up rings, 0 to 5 (`--rings`; `--no-ring` = 0 on the keyboard version) |
 | `fish` | 1 | how many fish, 0 to 3 (`--fish`) |
-| `max_thrust` | 12 | newtons at full command for **each** horizontal thruster; the two vertical thrusters share one such budget (6 N each) |
+| `speed` | 1 | power of the red and green (horizontal) thrusters, 0.25 to 4 (`--speed`). **1 is the normal speed, which is half of what these thrusters used to give** (`SIDE_THRUST = 0.5` in `rov_physics.py`); 2 is the old strength |
+| `max_thrust` | 12 | newtons the thrusters could give at full command; the horizontal ones give `SIDE_THRUST x speed` of it (6 N at the normal speed), the two vertical thrusters share one such budget (6 N each) |
 | `mass` | 8 | kg including added mass |
 | `buoyancy` | 1.5 | N of spare buoyancy: positive floats, `0` hovers, negative sinks |
 | `hard_limits` | false | stop dead at surface and floor (no overshoot, no bounce) |

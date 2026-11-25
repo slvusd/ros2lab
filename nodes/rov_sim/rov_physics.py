@@ -53,6 +53,8 @@ ROV_BOTTOM = 0.28                     # lowest point below the centre: the botto
                                       # clamps hang below the pipe centre line, so the floor stops THIS, not ROV_HALF
 START = dict(x=-1.5, y=0.0, depth=0.8, yaw=0.0)
 
+SIDE_THRUST = 0.5    # the red (t1) and green (t2) thrusters give this fraction of max_thrust at a command of 1.0: the normal ("1x") speed.
+                     # The `speed` setting multiplies it (0.25 .. 4). It was 1.0 before; halved so the ROV is easier to drive.
 TURN_ARM = 0.22      # m: thruster offset from centre line (torque = diff * arm)
 INERTIA = 1.2        # kg m^2 about the vertical axis, incl. added mass
 LIN_DRAG, QUAD_DRAG = 6.0, 10.0      # forward/vertical: N per (m/s), N per (m/s)^2
@@ -117,8 +119,9 @@ def nearest_in(regions, x, y, margin=0.0):
 class Rov:
     """The vehicle. Set .cmd / .claw_target, call step(dt) ~60 times a second."""
 
-    def __init__(self, max_thrust=12.0, mass=8.0, buoyancy=BUOYANCY, hard_limits=False, tool="claw", imu_noise=0.0, imu_resolution=0.0):
+    def __init__(self, max_thrust=12.0, mass=8.0, buoyancy=BUOYANCY, hard_limits=False, tool="claw", imu_noise=0.0, imu_resolution=0.0, speed=1.0):
         self.max_thrust, self.mass, self.buoyancy = max_thrust, mass, buoyancy
+        self.speed_mult = clamp(float(speed), 0.25, 4.0)    # multiplies the red / green thrusters' power (1.0 = normal)
         self.hard_limits = hard_limits
         self.tool = tool            # front tool: "claw" (servo jaws) or "nose" (fixed upturned bar)
         self.props = []             # optional extras in the pool (see rov_props.py); each has reset/step/state
@@ -138,6 +141,7 @@ class Rov:
         self.reset()
 
     def reset(self):
+        self.props = [p for p in self.props if not getattr(p, "transient", False)]     # rings dropped into the pool disappear on Reset
         self.x, self.y, self.depth, self.yaw = (START[k] for k in ("x", "y", "depth", "yaw"))
         self.u = self.v = self.w = self.r = 0.0   # speeds: forward, sideways, down, yaw rate
         self.claw = 0.0
@@ -156,7 +160,8 @@ class Rov:
 
     def step(self, dt):
         mt, m = self.max_thrust, self.mass
-        fl, fr = self.cmd[T_LEFT] * mt, self.cmd[T_RIGHT] * mt
+        side = mt * SIDE_THRUST * self.speed_mult                  # what a command of 1.0 gives the red and green thrusters (N)
+        fl, fr = self.cmd[T_LEFT] * side, self.cmd[T_RIGHT] * side
         # the two vertical thrusters share the vertical thrust budget: each is half of max_thrust
         ff, fb = self.cmd[T_FRONT] * mt / 2, self.cmd[T_REAR] * mt / 2
         # a propeller only pushes water while it is under the surface (heights allow for pitch)
@@ -317,6 +322,19 @@ class Shared:
         self._kb_prev = {}          # the keyboard command we last acted on
         self.tool_request = None    # "claw" / "nose", set when the page's Tool button is pressed
         self.buoyancy_request = None   # "positive" / "neutral" / "negative", from the page's Buoyancy button
+        self.ring_drops = []        # (x, y) spots where the page asked for a new ring (its N key), handled by the sim loop
+
+
+def apply_ring_drops(shared, rov):
+    """Drop the rings the page asked for (the optional add-on rov_props.py does the work; without it nothing happens)."""
+    while shared.ring_drops:
+        x, y = shared.ring_drops.pop(0)
+        try:
+            import rov_props
+        except ImportError:
+            shared.ring_drops.clear()
+            return
+        rov_props.drop_ring(rov, x, y)
 
 
 def apply_keyboard(shared, rov):
@@ -388,6 +406,15 @@ def make_handler(shared):
                 t = self.rfile.read(min(n, 20)).decode("ascii", "ignore").strip()
                 if t in ("claw", "nose"):
                     shared.tool_request = t
+            elif self.path == "/ring":
+                try:
+                    n = int(self.headers.get("Content-Length", 0))
+                    d = json.loads(self.rfile.read(min(n, 100)))
+                    x, y = float(d["x"]), float(d["y"])
+                    if math.isfinite(x) and math.isfinite(y) and len(shared.ring_drops) < 8:
+                        shared.ring_drops.append((x, y))
+                except (ValueError, KeyError, TypeError):
+                    pass
             elif self.path == "/cmd" and shared.keys:
                 try:
                     n = int(self.headers.get("Content-Length", 0))

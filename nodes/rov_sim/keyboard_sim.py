@@ -4,7 +4,7 @@
 # =============================================================================
 # Run (plain Python 3, nothing to install):
 #   python3 nodes/rov_sim/keyboard_sim.py            then open http://localhost:8000
-# Options:  --port 8000  --max-thrust 12  --mass 8  --buoyancy 1.5  --imu-noise 0  --hard-limits  --rings 3  --fish 1  --tool claw|nose
+# Options:  --port 8000  --speed 1  --max-thrust 12  --mass 8  --buoyancy 1.5  --imu-noise 0  --hard-limits  --rings 3  --fish 1  --tool claw|nose
 #
 # Click the page once so it has keyboard focus, then:
 #   Switch box (top right of the page, like a scout controller, full power):
@@ -16,6 +16,7 @@
 #     I / K       tilt nose up / down (front thruster up + rear down, or the reverse)
 #     Z / C       left / right thruster ONLY (hold)
 #   [ / ]       close / open the claw gradually (a servo)
+#   N           drop a new pool ring into the water where the mouse is (it sinks; Reset removes it)
 #   T           claw <-> nose tool         V  reset the camera view          X           stop everything
 #   B           buoyancy: floats -> neutral (hovers) -> sinks   (a setting of the pool, not a ROS topic)
 # Same physics as the ROS version (rov_physics.py), so tuning carries over.
@@ -26,13 +27,14 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from rov_physics import BUOYANCY, BUOYANCY_MODES, Rov, Shared, apply_keyboard, clamp, start_server
+from rov_physics import BUOYANCY, BUOYANCY_MODES, Rov, Shared, apply_keyboard, apply_ring_drops, clamp, start_server
 
 
 def main():
     ap = argparse.ArgumentParser(description="ROV pool, keyboard-driven, no ROS")
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--max-thrust", type=float, default=12.0)
+    ap.add_argument("--speed", type=float, default=1.0, help="power of the red and green thrusters, 0.25 .. 4 (1 = normal)")
     ap.add_argument("--mass", type=float, default=8.0)
     ap.add_argument("--buoyancy", type=float, default=BUOYANCY, help="spare buoyancy in N (+ floats up; 0 hovers)")
     ap.add_argument("--imu-resolution", type=float, default=0.0, help="accelerometer step in m/s^2 (0 = exact, 0.01 = BNO055-like)")
@@ -45,7 +47,7 @@ def main():
                     help="stop dead at the surface/floor (no overshoot or bounce)")
     a = ap.parse_args()
 
-    rov = Rov(a.max_thrust, a.mass, a.buoyancy, a.hard_limits, a.tool, a.imu_noise, a.imu_resolution)
+    rov = Rov(a.max_thrust, a.mass, a.buoyancy, a.hard_limits, a.tool, a.imu_noise, a.imu_resolution, a.speed)
     try:                           # optional extras; each works without its file (see the file's header)
         import rov_props
         rov_props.add_to(rov, 0 if a.no_ring else a.rings)
@@ -72,6 +74,7 @@ def main():
                 rov.buoyancy, shared.buoyancy_request = BUOYANCY_MODES[shared.buoyancy_request], None
             if shared.tool_request:            # the page's Tool button
                 rov.tool, shared.tool_request = shared.tool_request, None
+            apply_ring_drops(shared, rov)   # the page's "drop a ring" key
             apply_keyboard(shared, rov)    # the browser sends a command whenever a key changes
             rov.step(dt)
             with shared.lock:

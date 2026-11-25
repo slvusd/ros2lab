@@ -7,7 +7,7 @@ const plain = (c) => Object.fromEntries(CONFIG_KEYS.map((k) => [k, c[k]]));
 
 test("no parameters: the defaults (3 rings, a fish, a camera, all keys, the normal pool)", () => {
   assert.deepEqual(plain(parseConfig("")), DEFAULTS);
-  assert.deepEqual(DEFAULTS, { controls: "all", fish: true, rings: 3, poollength: 1, poolwidth: 1, camera: true });
+  assert.deepEqual(DEFAULTS, { controls: "all", fish: true, rings: 3, poollength: 1, poolwidth: 1, camera: true, speed: 1 });
   assert.equal(parseConfig("").explicit.size, 0);
   assert.equal(parseConfig("").open, false);
 });
@@ -58,8 +58,8 @@ test("toQuery: only non-default values, other parameters are kept, config is dro
 
 test("a link made by toQuery reads back as the same settings", () => {
   for (const controls of ["all", "h", "h-hidden"]) for (const fish of [true, false]) for (const rings of [0, 3, 5])
-    for (const poollength of [1, 2]) for (const poolwidth of [1, 2, 3]) for (const camera of [true, false]) {
-      const cfg = { controls, fish, rings, poollength, poolwidth, camera };
+    for (const poollength of [1, 2]) for (const poolwidth of [1, 2, 3]) for (const camera of [true, false]) for (const speed of [0.25, 0.5, 1, 1.75, 4]) {
+      const cfg = { controls, fish, rings, poollength, poolwidth, camera, speed };
       assert.deepEqual(plain(parseConfig(toQuery(cfg))), cfg, JSON.stringify(cfg));
     }
 });
@@ -67,4 +67,16 @@ test("a link made by toQuery reads back as the same settings", () => {
 test("pool size text", () => {
   assert.equal(poolSizeText(1, 1), "6 m × 3 m");
   assert.equal(poolSizeText(2, 3), "12 m × 9 m");
+});
+
+test("speed: any number from 0.25 to 4, rounded to 2 decimals, anything else is ignored", () => {
+  assert.equal(parseConfig("").speed, 1);
+  assert.equal(parseConfig("?speed=0.5").speed, 0.5);
+  assert.equal(parseConfig("?speed=2").speed, 2);
+  assert.equal(parseConfig("?speed=1.234").speed, 1.23);
+  assert.equal(parseConfig("?speed=0.01").speed, 0.25);
+  assert.equal(parseConfig("?speed=100").speed, 4);
+  for (const bad of ["?speed=fast", "?speed=", "?speed=NaN"]) { assert.equal(parseConfig(bad).speed, 1, bad); assert.equal(parseConfig(bad).explicit.has("speed"), false); }
+  assert.equal(toQuery({ ...DEFAULTS, speed: 2 }), "speed=2");
+  assert.equal(toQuery({ ...DEFAULTS, speed: 1 }), "");
 });

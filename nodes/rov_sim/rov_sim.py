@@ -27,7 +27,7 @@
 # PARAMETERS  (ros2 run style:  --ros-args -p max_thrust:=15.0)   read once at startup
 #   port (8000), keys (true: the page's keyboard also works, last new value per thruster wins),
 #   joy (true: publish the on-screen joysticks), tool (claw | nose), rings (3: pick-up rings, 0-5), fish (1: 0-3),
-#   max_thrust (N, 12), mass (kg incl. added mass, 8),
+#   speed (1: power of the red / green thrusters, 0.25 .. 4), max_thrust (N, 12), mass (kg incl. added mass, 8),
 #   buoyancy (N of spare buoyancy, default 1.5: floats; 0 = hovers; negative sinks),
 #   hard_limits (false; true = stop dead at surface/floor, no overshoot/bounce),
 #   imu_noise (0; try 0.05, m/s^2 std-dev), imu_resolution (0 = exact; 0.01 = BNO055-like, m/s^2)
@@ -46,7 +46,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import Imu, Joy
 from std_msgs.msg import Empty, Float32, String
 
-from rov_physics import BUOYANCY, BUOYANCY_MODES, Rov, Shared, apply_keyboard, clamp, start_server
+from rov_physics import BUOYANCY, BUOYANCY_MODES, Rov, Shared, apply_keyboard, apply_ring_drops, clamp, start_server
 
 P = "/sim"          # every channel lives under this short prefix
 
@@ -58,6 +58,7 @@ class RovSim(Node):
         self.declare_parameter("port", 8000)
         self.declare_parameter("keys", True)          # also accept the page's keyboard (last writer wins, per thruster)
         self.declare_parameter("joy", True)           # publish the page's on-screen joysticks
+        self.declare_parameter("speed", 1.0)          # power of the red and green thrusters, 0.25 .. 4 (1 = normal)
         self.declare_parameter("max_thrust", 12.0)
         self.declare_parameter("mass", 8.0)
         self.declare_parameter("buoyancy", BUOYANCY)
@@ -73,7 +74,8 @@ class RovSim(Node):
                        self.get_parameter("hard_limits").value,
                        self.get_parameter("tool").value,
                        self.get_parameter("imu_noise").value,
-                       self.get_parameter("imu_resolution").value)
+                       self.get_parameter("imu_resolution").value,
+                       self.get_parameter("speed").value)
 
         try:                       # optional extras; each works without its file (see the file's header)
             import rov_props
@@ -122,6 +124,7 @@ class RovSim(Node):
         if self.shared.reset_requested:
             self.shared.reset_requested = False
             self.rov.reset()
+        apply_ring_drops(self.shared, self.rov)       # the page's "drop a ring" key
         if self.shared.keys:
             apply_keyboard(self.shared, self.rov)
         self.rov.step(dt)

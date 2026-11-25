@@ -58,7 +58,7 @@ test("the fish does not get stuck in corners while chased", () => {
   const cornerDistance = (x, y) => Math.min(...POOL_REGIONS.flatMap((r) => [r[0], r[1]].flatMap((cx) => [r[2], r[3]].map((cy) => Math.hypot(x - cx, y - cy)))));
   let near = 0, steps = 0, longestStuck = 0;
   for (const seed of [11, 18, 25]) {
-    const [r, fish] = withFish({ buoyancy: 0.0 }, seed);
+    const [r, fish] = withFish({ buoyancy: 0.0, speed: 2.0 }, seed);       // speed 2: a chaser as strong as the ROV used to be (the default was halved)
     r.x = -2.5; r.y = -1.0; r.depth = 1.0;
     let last = [fish.x, fish.y, fish.depth], still = 0;
     for (let i = 0; i < 60 * 80; i++) {

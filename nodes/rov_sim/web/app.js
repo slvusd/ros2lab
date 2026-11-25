@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
 import { GAME_KEYS, SWITCHES, computeCommand, switchValues } from "./controls.js";
-import { parseConfig } from "./config.js";
+import { MAX_RINGS, parseConfig } from "./config.js";
 
 // Which simulation? A Python server answers GET ping -> talk to it; a plain web host (GitHub Pages...) does not -> run the sim in this page.
 // Override with ?mode=local or ?mode=server.
@@ -661,6 +661,7 @@ let lastMsg = 0;
   const f = backend.features, hide = (sel) => document.querySelectorAll(sel).forEach((e) => { e.style.display = "none"; });
   if (!f.joys) { hide("#joys"); hide("#joyval1, #joyval2"); document.querySelectorAll("#joyval1, #joyval2").forEach((e) => { e.parentElement.style.display = "none"; }); }
   if (!f.imu) hide(".imu");
+  if (!f.rings) hide("#help-ring");
   if (!f.claw) { hide("#help-claw"); const t = $("help-tool"); if (t) t.textContent = "B buoyancy   V reset view (or double-click)"; }
   if (!f.claw) { hide("#tool"); const c = $("claw"); if (c && !f.rings) c.parentElement.style.display = "none"; }
 }
@@ -769,6 +770,7 @@ window.addEventListener("keydown", (e) => {
   if (e.code === "KeyV" && !e.repeat) { resetView(); return; }
   if (e.code === "KeyB" && !e.repeat) { nextBuoyancy(); return; }
   if (e.code === "KeyT" && !e.repeat) { if (backend.features.claw) setTool(tool === "claw" ? "nose" : "claw"); return; }
+  if (e.code === "KeyN" && !e.repeat) { if (backend.features.rings) dropRing(); return; }
   if (!state.keys) return;
   if (GAME_KEYS.has(e.code)) { held.add(e.code); e.preventDefault(); }
   else if (e.code === "KeyH" && !e.repeat) { if (!hLocked) setHOnly(!hOnly); return; }
@@ -776,6 +778,31 @@ window.addEventListener("keydown", (e) => {
   else return;
   sendCommand();
 });
+// ---------- N: drop a new pool ring into the water where the mouse is (it sinks) ----------
+let toastTimer = 0;
+function toast(text) {
+  const t = $("toast");
+  t.textContent = text; t.style.display = "block";
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.display = "none"; }, 2600);
+}
+let mouse = null;                                              // where the pointer is over the 3D view (null when it is over a panel or outside the window)
+window.addEventListener("pointermove", (e) => { mouse = e.target === renderer.domElement ? { x: e.clientX, y: e.clientY } : null; });
+document.documentElement.addEventListener("pointerleave", () => { mouse = null; });
+const _ray = new THREE.Raycaster(), _ndc = new THREE.Vector2(), _water = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), _hit = new THREE.Vector3();
+function waterUnderMouse() {                                   // the point of the water surface under the pointer, as sim (x, y), or null if it is not over the pool
+  if (!mouse) return null;
+  const r = renderer.domElement.getBoundingClientRect();
+  _ndc.set(((mouse.x - r.left) / r.width) * 2 - 1, -((mouse.y - r.top) / r.height) * 2 + 1);
+  _ray.setFromCamera(_ndc, camera);
+  if (!_ray.ray.intersectPlane(_water, _hit) || !insidePool(_hit.x, _hit.z)) return null;
+  return { x: _hit.x, y: -_hit.z };                            // three.js z is the sim's -y
+}
+function dropRing() {
+  const p = waterUnderMouse();
+  if (!p) { toast("Point the mouse at the water of the pool, then press N."); return; }
+  if ((state.props || []).filter((q) => q.type === "ring").length >= MAX_RINGS) { toast(`The pool already has ${MAX_RINGS} rings: that is the most. (Reset puts it back.)`); return; }
+  backend.dropRing(p.x, p.y);
+}
 window.addEventListener("keyup", (e) => { if (held.delete(e.code)) sendCommand(); });
 window.addEventListener("blur", () => { held.clear(); sendCommand(); });   // never leave a thruster stuck on
 
@@ -798,7 +825,7 @@ swEls.forEach((el, i) => {
   window.addEventListener("blur", release);
 });
 $("hmode").addEventListener("click", () => { if (!hLocked) setHOnly(!hOnly); });
-if (hLocked) { $("hmode").style.cursor = "default"; $("hmode").title = "Set by the page address (?controls=" + cfg.controls + ")"; }
+if (hLocked) $("hmode").style.cursor = "default";                   // (set by the page address; no tooltip, it would cover the pool)
 setHOnly(hOnly, false);
 function drawSwitches() {
   switchValues(held, pointerSw).forEach((v, i) => {
@@ -1169,13 +1196,28 @@ if (new URLSearchParams(location.search).has("selftest")) {
     const x0 = state.x;
     backend.cmd({ t1: 0.8, t2: 0.8, t3: 0, t4: 0, claw: 0 });
     await wait(2500);
-    if (!(state.x > x0 + 0.3)) return fail(`did not drive forward (${x0.toFixed(2)} -> ${state.x.toFixed(2)})`);
+    if (!(state.x > x0 + 0.08)) return fail(`did not drive forward (${x0.toFixed(2)} -> ${state.x.toFixed(2)})`);
     const d1 = state.depth;
     backend.cmd({ t1: 0, t2: 0, t3: -0.8, t4: -0.8, claw: 0 });
     await wait(2500);
     if (!(state.depth > d1 + 0.2)) return fail(`did not dive (${d1.toFixed(2)} -> ${state.depth.toFixed(2)})`);
     backend.cmd({ t1: 0, t2: 0, t3: 0, t4: 0, claw: 0 });
     if (backend.features.fish && !(state.props || []).some((p) => p.type === "fish")) return fail("no fish in the state");
+    if (backend.features.rings) {                       // the N key: point at the water, press N, a ring appears and sinks
+      const ringsNow = () => (state.props || []).filter((p) => p.type === "ring");
+      const before = ringsNow().length;
+      const c = new THREE.Vector3((bbox.x0 + bbox.x1) / 2, 0, (bbox.z0 + bbox.z1) / 2).project(camera);       // the middle of the pool on screen
+      renderer.domElement.dispatchEvent(new PointerEvent("pointermove", { clientX: (c.x + 1) / 2 * innerWidth, clientY: (1 - c.y) / 2 * innerHeight, bubbles: true }));
+      window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyN", bubbles: true }));
+      await wait(700);
+      if (before < MAX_RINGS && ringsNow().length !== before + 1) return fail(`N did not drop a ring (${before} -> ${ringsNow().length}; ${$("toast").textContent})`);
+      if (before < MAX_RINGS) {
+        const mine = ringsNow().at(-1), d0 = mine.depth;
+        await wait(1500);
+        const d1 = ringsNow().at(-1).depth;
+        if (!(d1 > d0 + 0.05)) return fail(`the dropped ring does not sink (${d0.toFixed(2)} -> ${d1.toFixed(2)})`);
+      }
+    }
     document.title = `PASS (${backend.name}, tool ${tool}, quality ${TIERS[tier].name}, ${lastFps ? lastFps.toFixed(0) + " fps" : "fps not measured"})`;
   })();
 }

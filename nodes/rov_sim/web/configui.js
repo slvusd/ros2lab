@@ -10,11 +10,13 @@ const CSS = `
 #configui legend { padding: 0 6px; font-weight: 600; }
 #configui label { display: flex; gap: 8px; align-items: baseline; margin: 3px 0; cursor: pointer; }
 #configui label small { opacity: .7; }
+#configui .row > label small { display: block; }
 #configui .row { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin: 5px 0; }
 #configui select, #configui input[type=number] { background: #1b4260; color: #fff; border: 1px solid rgba(255,255,255,.3); border-radius: 6px; padding: 3px 6px; font: inherit; }
 #configui input[type=number] { width: 4.5em; }
 #configui .note { font-size: 12px; opacity: .75; margin: 4px 0 0; }
 #configui .off { opacity: .5; }
+#configui .speed { display: flex; gap: 8px; align-items: center; white-space: nowrap; } #configui .speed input { width: 8.5rem; } #configui .speed b { min-width: 2.6em; text-align: right; }
 #configui .link { display: flex; gap: 6px; margin: 4px 0 12px; } #configui .link input { flex: 1; min-width: 0; background: #091c2a; color: #cfe8f7; border: 1px solid rgba(255,255,255,.3); border-radius: 6px; padding: 5px 8px; font: 12px ui-monospace, Menlo, monospace; }
 #configui .buttons { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 #configui button { background: #1d6f9f; color: #fff; border: 0; border-radius: 6px; padding: 6px 14px; font: inherit; cursor: pointer; }
@@ -44,9 +46,11 @@ export function showConfig({ cfg, configurable = {} }) {
       <div class="row ${can("pool") ? "" : "off"}"><label for="cfg-length">Main pool length</label><select id="cfg-length"${can("pool") ? "" : " disabled"}>${[1, 2].map((n) => opt(n, `${n}× (${6 * n} m)`, cur.poollength === n)).join("")}</select></div>
       <div class="row ${can("pool") ? "" : "off"}"><label for="cfg-width">Main pool width</label><select id="cfg-width"${can("pool") ? "" : " disabled"}>${[1, 2, 3].map((n) => opt(n, `${n}× (${3 * n} m)`, cur.poolwidth === n)).join("")}</select></div>
       <div class="note" id="cfg-size"></div>
-      ${can("pool") ? "" : '<div class="note">These four are set by the Python server\'s options (--rings, --fish) and its pool, not by the page.</div>'}
+      ${can("pool") ? "" : '<div class="note">Fish, rings and the pool size are set by the Python server (--fish, --rings, and its pool), not by the page.</div>'}
     </fieldset>
     <fieldset><legend>ROV</legend>
+      <div class="row ${can("speed") ? "" : "off"}"><label for="cfg-speed">Red and green thruster power <small>(1&times; = normal)</small></label>
+        <span class="speed"><input type="range" id="cfg-speed" min="${LIMITS.speed[0]}" max="${LIMITS.speed[1]}" step="0.25" value="${cur.speed}"${can("speed") ? "" : " disabled"}> <b id="cfg-speedv"></b></span></div>
       <div class="row"><label><input type="checkbox" id="cfg-camera"${cur.camera ? " checked" : ""}> Camera: its housing on the ROV, the camera window, and the fish coming to look at it</label></div>
     </fieldset>
     <div class="link"><input id="cfg-link" readonly aria-label="Link for this setup"><button class="quiet" id="cfg-copy">Copy link</button></div>
@@ -60,6 +64,7 @@ export function showConfig({ cfg, configurable = {} }) {
   const refresh = () => {
     $("cfg-size").textContent = `Main pool: ${poolSizeText(cur.poollength, cur.poolwidth)}, 2 m deep, plus the shallow end.`;
     $("cfg-link").value = url().href;
+    $("cfg-speedv").textContent = `${Number(cur.speed.toFixed(2))}\u00d7`;
   };
   const read = () => {
     cur.controls = el.querySelector('input[name="cfg-controls"]:checked').value;
@@ -68,11 +73,12 @@ export function showConfig({ cfg, configurable = {} }) {
     cur.rings = Number.isFinite(n) ? Math.max(LIMITS.rings[0], Math.min(LIMITS.rings[1], n)) : DEFAULTS.rings;
     cur.poollength = Number($("cfg-length").value); cur.poolwidth = Number($("cfg-width").value);
     cur.camera = $("cfg-camera").checked;
+    cur.speed = Math.max(LIMITS.speed[0], Math.min(LIMITS.speed[1], Number($("cfg-speed").value) || DEFAULTS.speed));
     refresh();
   };
   const write = () => {                                          // push `cur` back into the form (after Defaults)
     el.querySelectorAll('input[name="cfg-controls"]').forEach((r) => { r.checked = r.value === cur.controls; });
-    $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-length").value = cur.poollength; $("cfg-width").value = cur.poolwidth; $("cfg-camera").checked = cur.camera;
+    $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-length").value = cur.poollength; $("cfg-width").value = cur.poolwidth; $("cfg-camera").checked = cur.camera; $("cfg-speed").value = cur.speed;
     refresh();
   };
   el.addEventListener("input", read); el.addEventListener("change", read);

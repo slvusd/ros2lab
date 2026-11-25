@@ -84,6 +84,8 @@
   button.on { background: #f2b705; color: #111; }
   /* ?controls=h-hidden: only the switch box (and the camera window) are left */
   body.bare #btns, body.bare #hud, body.bare #keyhelp, body.bare #topics, body.bare #seriallog, body.bare #hmode, body.bare #joys { display: none !important; }
+  #toast { position: fixed; left: 50%; bottom: 70px; transform: translateX(-50%); z-index: 40; max-width: min(90vw, 28rem); text-align: center;
+           background: rgba(8, 30, 50, .9); color: #fff; padding: 8px 14px; border-radius: 8px; pointer-events: none; }
   button.off { opacity: .55; }
   a.btnlink { background: #1d6f9f; color: #fff; border-radius: 6px; padding: 5px 10px; text-decoration: none; cursor: pointer; }
   a.btnlink:hover { filter: brightness(1.15); }
@@ -114,7 +116,7 @@
   </div>
 </div>
 <div id="rightcol">
-<div id="switchbox" class="panel" title="Three momentary switches, like a scout ROV controller. Red = the left thruster (keys 1 and 2), green = the right thruster (arrow keys left / right), bottom = both up/down thrusters (arrow keys up / down). Click and hold with the mouse, or use the keys.">
+<div id="switchbox" class="panel">
   <div class="swrow">
     <div class="sw red" data-i="0"><div class="swname">red</div><div class="swslot h"><span class="swend l">1</span><div class="swlever"></div><span class="swend r">2</span></div></div>
     <div class="sw green" data-i="1"><div class="swname">green</div><div class="swslot h"><div class="swlever"></div></div></div>
@@ -122,7 +124,7 @@
   <div class="swrow">
     <div class="sw" data-i="2"><div class="swname">up / down</div><div class="swslot"><div class="swlever"></div></div></div>
   </div>
-  <div id="hmode" class="hmode" role="button" title="H key. On: only these three switches work, like the real controller (full power, no mixing). Off: the extra keys (W A S D, R F, Z C, I K) work too.">all keys</div>
+  <div id="hmode" class="hmode" role="button">all keys</div>
 </div>
 <div id="joys">
   <div class="panel joy" title="joy1: drag with the mouse. Publishes sensor_msgs/Joy on /sim/joy1 (axes[0] left +, axes[1] up +)">
@@ -149,12 +151,14 @@
   <a id="help" class="btnlink" href="help.html" target="_blank" rel="noopener" title="How it works: the controls, the pool, and the micro:bit / Pico protocol">Help</a>
 </div>
 <pre id="seriallog" class="panel" style="display:none; right: 8px; bottom: 8px; margin: 0; font: 11px/1.4 ui-monospace, Menlo, monospace; max-width: 300px; white-space: pre-wrap;"></pre>
+<div id="toast" role="status" style="display:none"></div>
 <div id="keyhelp" class="panel" style="display:none; bottom: 8px; left: 8px; font: 12px/1.5 ui-monospace, Menlo, monospace;">
   <div style="font: 600 12px -apple-system, system-ui, sans-serif">Keyboard (click the page first)</div>
   <div>Switch box: &nbsp;1 / 2 red &nbsp;&nbsp;&larr; / &rarr; green &nbsp;&nbsp;&darr; / &uarr; down / up</div>
   <div class="nonh">W/S forward / reverse &nbsp;&nbsp;A/D turn &nbsp;&nbsp;R/Space up &nbsp;&nbsp;F/Shift down</div>
   <div class="nonh">I/K nose up/down &nbsp;&nbsp;Z / C one thruster only</div>
   <div>H: H-bridge only (just the switch box) &nbsp;&nbsp;X stop all</div>
+  <div id="help-ring">N drop a new ring where the mouse is</div>
   <div id="help-claw">[ ] claw closer / wider</div>
   <div id="help-tool">T claw/nose &nbsp;&nbsp;B buoyancy &nbsp;&nbsp;V reset view (or double-click)</div>
 </div>

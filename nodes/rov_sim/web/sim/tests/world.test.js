@@ -44,3 +44,13 @@ test("the Tool button switches between claw and nose", () => {
   w.setTool("nose"); assert.equal(w.state().tool, "nose");
   w.setTool("hook"); assert.equal(w.state().tool, "nose", "an unknown tool must be ignored");
 });
+
+test("the N key reaches the world: a ring appears, unless the rings add-on is missing", async () => {
+  const { dropRing } = await import("../rings.js");
+  const w = new World();
+  assert.equal(w.dropRing(0, 0), null, "no rings add-on: nothing happens");
+  w.ringDropper = dropRing;
+  const ring = w.dropRing(0.5, 0.25);
+  assert.ok(ring);
+  assert.equal(w.state().props.filter((p) => p.type === "ring").length, 1);
+});
