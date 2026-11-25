@@ -37,3 +37,10 @@ test("state() has everything the page reads", () => {
     assert.ok(k in s, `missing ${k}`);
   assert.equal(s.tool, "nose");
 });
+
+test("the Tool button switches between claw and nose", () => {
+  const w = new World();
+  w.setTool("claw"); assert.equal(w.state().tool, "claw");
+  w.setTool("nose"); assert.equal(w.state().tool, "nose");
+  w.setTool("hook"); assert.equal(w.state().tool, "nose", "an unknown tool must be ignored");
+});

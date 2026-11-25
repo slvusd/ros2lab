@@ -4,8 +4,8 @@ import { World } from "./sim/world.js";
 import { Rov } from "./sim/physics.js";
 
 export const name = "local sim";
-export const features = { keys: true, joys: false, claw: false, imu: false, rings: true, fish: true };
-const rov = new Rov({ tool: "nose" });
+export const features = { keys: true, joys: false, claw: true, imu: false, rings: true, fish: true };
+const rov = new Rov({ tool: "claw" });
 try { (await import("./sim/rings.js")).addTo(rov, 3); } catch (e) { /* optional add-on: no rings without rings.js */ }
 try { (await import("./sim/fishbrain.js")).addTo(rov, 1); } catch (e) { /* optional add-on: no fish without fishbrain.js */ }
 const world = new World(rov);
@@ -17,7 +17,7 @@ export function connect(onState) {
   document.addEventListener("visibilitychange", () => { if (document.hidden) world.pause(); });
 }
 export const cmd = (obj) => world.command(obj);
-export const tool = () => {};                 // fixed nose in the browser version
+export const tool = (name) => world.setTool(name);
 export const buoyancy = (mode) => world.setBuoyancy(mode);
 export const joy = () => {};
 export const reset = () => world.reset();
