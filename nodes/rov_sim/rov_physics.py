@@ -102,6 +102,46 @@ BODY_HX, BODY_HY, TOOL_TIP = 0.26, 0.33, 0.60
 T_LEFT, T_RIGHT, T_FRONT, T_REAR = "t1", "t2", "t3", "t4"      # thruster channel names (see the table above)
 
 
+# THRUSTER LAYOUTS: 3, 4 (the original), 6 or 8 thrusters. Each thruster is a dict:
+#   name   the channel (t1 ... t8)             kind  "h" horizontal (pushes along (dx, dy)) or "v" vertical (pushes up for a + command)
+#   x, y   its LEVER ARM for the torques: metres ahead of / to the LEFT of the ROV's middle
+#   gx, gy where it is drawn and where its solid parts are for collisions (metres, same axes)
+#   dx, dy for a horizontal one: the direction a + command pushes the ROV (a unit vector)
+#   label  a short name for the page; color  "red" (left) / "green" (right) / "white" for the page's model
+# 3:  t1 left, t2 right (horizontal, on the sides), t3 one vertical in the middle
+# 4:  t1 left, t2 right, t3 front vertical, t4 rear vertical (the original; what a scout ROV often has)
+# 6:  t1-t4 horizontal on the four vertical posts, angled 45 degrees in an "X" (front left, front right, rear left, rear right: so it can also slide
+#     sideways), t5 front vertical, t6 rear vertical (where t3 and t4 are in the 4-thruster layout)
+# 8:  t1-t4 as in the 6-thruster layout, t5-t8 vertical on the four corners (front left, front right, rear left, rear right: also controls roll)
+# Every thruster is the same size: a horizontal one gives max_thrust * SIDE_THRUST * speed newtons at a command of 1.0, a vertical one max_thrust / 2.
+_C = math.sqrt(0.5)
+
+
+def _h(name, x, y, gx, gy, dx, dy, label, color):
+    return {"name": name, "kind": "h", "x": x, "y": y, "gx": gx, "gy": gy, "dx": dx, "dy": dy, "label": label, "color": color}
+
+
+def _v(name, x, y, gx, gy, label):
+    return {"name": name, "kind": "v", "x": x, "y": y, "gx": gx, "gy": gy, "dx": 0.0, "dy": 0.0, "label": label, "color": "white"}
+
+
+_SIDES = [_h("t1", 0.0, 0.22, 0.0, 0.32, 1.0, 0.0, "left", "red"), _h("t2", 0.0, -0.22, 0.0, -0.32, 1.0, 0.0, "right", "green")]
+_POSTS = [_h("t1", 0.25, 0.25, 0.30, 0.30, _C, -_C, "front left", "red"), _h("t2", 0.25, -0.25, 0.30, -0.30, _C, _C, "front right", "green"),
+          _h("t3", -0.25, 0.25, -0.30, 0.30, _C, _C, "rear left", "red"), _h("t4", -0.25, -0.25, -0.30, -0.30, _C, -_C, "rear right", "green")]
+THRUSTER_LAYOUTS = {
+    3: _SIDES + [_v("t3", 0.0, 0.0, 0.0, 0.0, "vertical")],
+    4: _SIDES + [_v("t3", 0.2, 0.0, 0.17, 0.0, "front"), _v("t4", -0.2, 0.0, -0.17, 0.0, "rear")],
+    6: _POSTS + [_v("t5", 0.2, 0.0, 0.17, 0.0, "front vertical"), _v("t6", -0.2, 0.0, -0.17, 0.0, "rear vertical")],
+    8: _POSTS + [_v("t5", 0.2, 0.2, 0.17, 0.17, "front left vertical"), _v("t6", 0.2, -0.2, 0.17, -0.17, "front right vertical"),
+                 _v("t7", -0.2, 0.2, -0.17, 0.17, "rear left vertical"), _v("t8", -0.2, -0.2, -0.17, -0.17, "rear right vertical")],
+}
+
+
+def layout_for(n):
+    """The thruster layout for n thrusters (3, 4, 6 or 8); anything else gives the original 4."""
+    return THRUSTER_LAYOUTS.get(int(n), THRUSTER_LAYOUTS[4])
+
+
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
@@ -129,7 +169,7 @@ def nearest_in(regions, x, y, margin=0.0):
 class Rov:
     """The vehicle. Set .cmd / .claw_target, call step(dt) ~60 times a second."""
 
-    def __init__(self, max_thrust=12.0, mass=8.0, buoyancy=BUOYANCY, hard_limits=False, tool="claw", imu_noise=0.0, imu_resolution=0.0, speed=1.0):
+    def __init__(self, max_thrust=12.0, mass=8.0, buoyancy=BUOYANCY, hard_limits=False, tool="claw", imu_noise=0.0, imu_resolution=0.0, speed=1.0, thrusters=4):
         self.max_thrust, self.mass, self.buoyancy = max_thrust, mass, buoyancy
         self.speed_mult = clamp(float(speed), 0.25, 4.0)    # multiplies the red / green thrusters' power (1.0 = normal)
         self.hard_limits = hard_limits
@@ -147,7 +187,8 @@ class Rov:
         # event counters (never reset): the page splashes / puffs silt when they change
         self.splash_n = self.floor_n = 0
         self.splash_v = self.floor_v = 0.0
-        self.cmd = {T_LEFT: 0.0, T_RIGHT: 0.0, T_FRONT: 0.0, T_REAR: 0.0}   # thruster commands, each -1..1
+        self.cmd = {}                   # thruster commands, each -1..1, by channel name (t1 ... t3, t4, t6 or t8: see THRUSTER_LAYOUTS)
+        self.set_layout(thrusters)
         self.claw_target = 0.0          # servo command: 0 closed .. 1 fully open
         self.reset()
 
@@ -167,28 +208,47 @@ class Rov:
         for p in self.props:
             p.reset()
 
+    def set_layout(self, n):
+        """Switch to 3, 4, 6 or 8 thrusters (any other number gives 4). The commands go back to zero; nothing else changes."""
+        self.layout = layout_for(n)
+        self.thrusters = len(self.layout)
+        self.cmd = {th["name"]: 0.0 for th in self.layout}
+
     def set_cmd(self, name, value):
+        """A thruster command, -1..1. A channel this layout does not have (t5 with 4 thrusters) is ignored: returns False."""
+        if name not in self.cmd:
+            return False
         self.cmd[name] = clamp(float(value), -1.0, 1.0)
+        return True
 
     def step(self, dt):
         mt, m = self.max_thrust, self.mass
-        side = mt * SIDE_THRUST * self.speed_mult                  # what a command of 1.0 gives the red and green thrusters (N)
-        fl, fr = self.cmd[T_LEFT] * side, self.cmd[T_RIGHT] * side
-        # the two vertical thrusters share the vertical thrust budget: each is half of max_thrust
-        ff, fb = self.cmd[T_FRONT] * mt / 2, self.cmd[T_REAR] * mt / 2
-        # a propeller only pushes water while it is under the surface (heights allow for pitch)
+        side = mt * SIDE_THRUST * self.speed_mult                  # what a command of 1.0 gives a horizontal thruster (N)
         h0 = -self.depth + self.thruster_up * math.cos(self.pitch)
-        ff *= clamp(0.5 - (h0 - VERT_ARM * math.sin(self.pitch)) / 0.08, 0.0, 1.0)   # nose down: front is lower
-        fb *= clamp(0.5 - (h0 + VERT_ARM * math.sin(self.pitch)) / 0.08, 0.0, 1.0)
-        fv = ff + fb
+        sp_, sr_ = math.sin(self.pitch), math.sin(self.roll)
+        fx = fy = yaw_t = 0.0                                      # the horizontal thrusters: force along and across the ROV, and the twist about the vertical
+        fv = pitch_t = roll_t = 0.0                                # the vertical ones: total push up, and the twists (nose DOWN +, top-to-the-right +)
+        for th in self.layout:
+            if th["kind"] == "h":
+                f = self.cmd[th["name"]] * side
+                fx += f * th["dx"]
+                fy += f * th["dy"]
+                yaw_t += th["x"] * f * th["dy"] - th["y"] * f * th["dx"]
+            else:
+                # each vertical thruster is half of max_thrust; a propeller only pushes water while it is under the surface (heights allow for pitch and roll)
+                f = self.cmd[th["name"]] * mt / 2
+                f *= clamp(0.5 - (h0 - th["x"] * sp_ + th["y"] * sr_) / 0.08, 0.0, 1.0)        # nose down: the front is lower; right side down: the right is lower
+                fv += f
+                pitch_t -= f * th["x"]                                                         # a push up ahead of the middle lifts the nose (nose DOWN is positive)
+                roll_t += f * th["y"]                                                          # a push up on the left lifts the left side (the top goes to the right)
         # the water itself may be moving (a current from the optional jets, rov_current.py): drag works on the speed RELATIVE to the water.
         # With no current this is exactly the old behaviour (the water is still: wx = wy = wd = 0).
         wx, wy, wd = self._water()
         c0, s0 = math.cos(self.yaw), math.sin(self.yaw)
         ur, vr, wr = self.u - (wx * c0 + wy * s0), self.v - (-wx * s0 + wy * c0), self.w - wd
         # forces in the vehicle's own frame
-        surge = fl + fr - LIN_DRAG * ur - QUAD_DRAG * ur * abs(ur)
-        torque = (fr - fl) * TURN_ARM - YAW_LIN * self.r - YAW_QUAD * self.r * abs(self.r)
+        surge = fx - LIN_DRAG * ur - QUAD_DRAG * ur * abs(ur)
+        torque = yaw_t - YAW_LIN * self.r - YAW_QUAD * self.r * abs(self.r)
         # thrust up (+) reduces depth. w = d(depth)/dt, so drag pushes against w
         heave_up = fv + self.buoyancy + LIN_DRAG * wr + QUAD_DRAG * wr * abs(wr)
         if not self.hard_limits:      # cube poking out of the water: less buoyancy, so it sinks back
@@ -196,7 +256,7 @@ class Rov:
             heave_up -= EMERGE_K1 * min(out, EMERGE_SOFT) + EMERGE_K2 * max(0.0, out - EMERGE_SOFT)
             if out > 0:
                 heave_up += EMERGE_DAMP * self.w
-        sway = -LIN_DRAG * 2 * vr                # side-slip dies quickly (keel-like frame)
+        sway = fy - LIN_DRAG * 2 * vr            # side-slip dies quickly (keel-like frame); the angled thrusters of the 6 and 8 layouts can push sideways
 
         self.u += surge / m * dt
         self.v += sway / m * dt
@@ -236,10 +296,10 @@ class Rov:
         for p in self.props:
             p.step(self, dt)
         tp, tr = self._water_torque()                               # what a current does to the tilt (exactly 0, 0 with no current)
-        tilt = (fb - ff) * VERT_ARM + self.pitch_torque + tp        # rear pushing up = nose down
+        tilt = pitch_t + self.pitch_torque + tp                     # rear pushing up = nose down
         self.pitch_rate += (tilt - PITCH_KS * self.pitch - PITCH_DS * self.pitch_rate) / PITCH_I * dt
         self.pitch = clamp(self.pitch + self.pitch_rate * dt, -MAX_PITCH, MAX_PITCH)
-        self.roll_rate += (tr - ROLL_KS * self.roll - ROLL_DS * self.roll_rate) / ROLL_I * dt
+        self.roll_rate += (tr + roll_t - ROLL_KS * self.roll - ROLL_DS * self.roll_rate) / ROLL_I * dt
         self.roll = clamp(self.roll + self.roll_rate * dt, -MAX_ROLL, MAX_ROLL)
         self._accelerometer(dt)
 
@@ -357,8 +417,7 @@ class Rov:
 
     def state(self, keys=False):
         return {"x": self.x, "y": self.y, "depth": self.depth, "yaw": self.yaw,
-                "t1": self.cmd[T_LEFT], "t2": self.cmd[T_RIGHT],
-                "t3": self.cmd[T_FRONT], "t4": self.cmd[T_REAR], "claw": self.claw,
+                **self.cmd, "thrusters": self.thrusters, "layout": self.layout, "claw": self.claw,
                 "speed": math.sqrt(self.u ** 2 + self.v ** 2 + self.w ** 2),
                 "splash_n": self.splash_n, "splash_v": self.splash_v,
                 "floor_n": self.floor_n, "floor_v": self.floor_v,

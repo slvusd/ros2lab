@@ -99,10 +99,7 @@
 <body>
 <div id="hud" class="panel">
   <h1><span id="dot"></span><span id="status">waiting for sim...</span></h1>
-  <div class="row"><span class="lbl">t1 left</span><div class="bar"><b></b><i id="b-t1"></i></div><span class="num" id="n-t1">0.00</span></div>
-  <div class="row"><span class="lbl">t2 right</span><div class="bar"><b></b><i id="b-t2"></i></div><span class="num" id="n-t2">0.00</span></div>
-  <div class="row"><span class="lbl">t3 front</span><div class="bar"><b></b><i id="b-t3"></i></div><span class="num" id="n-t3">0.00</span></div>
-  <div class="row"><span class="lbl">t4 rear</span><div class="bar"><b></b><i id="b-t4"></i></div><span class="num" id="n-t4">0.00</span></div>
+  <div id="thrusters"></div>                       <!-- one bar per thruster, built by app.js from the layout (3, 4, 6 or 8) -->
   <div class="row"><span class="lbl">tool</span><span id="claw">closed</span></div>
   <div class="row"><span class="lbl">depth</span><span id="depth">0.00 m</span></div>
   <div class="row"><span class="lbl">heading</span><span id="heading">0&deg;</span></div>
@@ -158,7 +155,9 @@
   <div style="font: 600 12px -apple-system, system-ui, sans-serif">Keyboard (click the page first)</div>
   <div>Switch box: &nbsp;1 / 2 red &nbsp;&nbsp;&larr; / &rarr; green &nbsp;&nbsp;&darr; / &uarr; down / up</div>
   <div class="nonh">W/Shift forward &nbsp;&nbsp;S/Space reverse &nbsp;&nbsp;A/D turn &nbsp;&nbsp;R/F up/down</div>
-  <div class="nonh">I/K nose up/down &nbsp;&nbsp;Z / C one thruster only</div>
+  <div class="nonh">I/K nose up/down &nbsp;&nbsp;Z / C one side only</div>
+  <div class="nonh" id="help-t6">Q / E slide left / right</div>
+  <div class="nonh" id="help-t8">U / O roll left / right</div>
   <div>H: H-bridge only (just the switch box) &nbsp;&nbsp;X stop all</div>
   <div id="help-ring">N drop a new ring where the mouse is</div>
   <div id="help-jets">J change how the running water is drawn</div>
@@ -168,7 +167,7 @@
 </div>
 <div id="topics" class="panel">
   <div class="h">Send commands to:</div>
-  <div>/sim/t1 .. /sim/t4 &nbsp;Float32 -1..1</div>
+  <div>/sim/t1 .. /sim/t4 (to t8) &nbsp;Float32 -1..1</div>
   <div>/sim/claw &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Float32 0 closed .. 1 open</div>
   <div class="h" style="margin-top:3px">Read from:</div>
   <div>/sim/imu &nbsp;/sim/depth &nbsp;/sim/heading</div>

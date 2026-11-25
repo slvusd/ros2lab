@@ -4,7 +4,7 @@
 //               (app.js gives this file a `live` object that does the work).
 //   RESTART     the controls mode, the fish, rings, crabs and the camera are built when the page starts: they apply when you press Restart,
 //               which reloads the page with the new address.
-import { DEFAULTS, LIMITS, CONFIG_KEYS, FLOW_LOOKS, POOL_PRESETS, toQuery, poolSizeText } from "./config.js";
+import { DEFAULTS, LIMITS, CONFIG_KEYS, FLOW_LOOKS, THRUSTER_MODES, POOL_PRESETS, toQuery, poolSizeText } from "./config.js";
 
 const CSS = `
 #configui { position: fixed; inset: 0; z-index: 50; background: rgba(4, 16, 26, .3); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
@@ -38,13 +38,14 @@ const CSS = `
 #configui a { color: #8fd0f5; }
 `;
 
-/** `live` (from app.js) has { tool, current, flow, pool, speed } each either null (this version cannot change it now) or { get(), set(...) }, and changed(cur). */
+/** `live` (from app.js) has { tool, current, flow, pool, speed, thrusters } each either null (this version cannot change it now) or { get(), set(...) }, and changed(cur). */
 export function showConfig({ cfg, configurable = {}, live = {} }) {
   if (document.getElementById("configui")) return;
   const cur = {}; for (const k of CONFIG_KEYS) cur[k] = cfg[k];
   if (live.current) cur.current = live.current.get();
   if (live.flow) cur.flow = live.flow.get();
   if (live.speed) cur.speed = live.speed.get();
+  if (live.thrusters) cur.thrusters = live.thrusters.get();
   if (live.pool) [cur.poollength, cur.poolwidth] = live.pool.get();
   let tool = live.tool ? live.tool.get() : "nose";
   const style = document.createElement("style"); style.textContent = CSS; document.head.appendChild(style);
@@ -69,6 +70,7 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
       <div class="row ${off(live.flow)}"><label for="cfg-flow">How the water is drawn <small>(J does this too)</small></label><select id="cfg-flow"${dis(live.flow)}>${FLOW_LOOKS.map((v) => `<option value="${v}"${cur.flow === v ? " selected" : ""}>${{ bubbles: "bubbles", streaks: "streaks (tracer lines)", rings: "ripple rings", mix: "rings and bubbles" }[v]}</option>`).join("")}</select></div>
       <div class="row ${off(live.speed)}"><label for="cfg-speed">Red and green thruster power <small>(1&times; = normal)</small></label>
         <span class="speed"><input type="range" id="cfg-speed" min="${LIMITS.speed[0]}" max="${LIMITS.speed[1]}" step="0.25" value="${cur.speed}"${dis(live.speed)}> <b id="cfg-speedv"></b></span></div>
+      <div class="row ${off(live.thrusters)}"><label for="cfg-thrusters">Thrusters <small>(the ROV starts over)</small></label><select id="cfg-thrusters"${dis(live.thrusters)}>${THRUSTER_MODES.map((n) => `<option value="${n}"${cur.thrusters === n ? " selected" : ""}>${{ 3: "3: red, green, one up/down", 4: "4: red, green, front and rear up/down", 6: "6: four on the posts, two up/down", 8: "8: four on the posts, four up/down" }[n]}</option>`).join("")}</select></div>
       <div class="note" id="cfg-size"></div>
       ${live.pool && live.current ? "" : '<div class="note">With the Python server the pool size, the water and the thruster power are set when it starts (--current, --speed, its pool).</div>'}
     </fieldset>
@@ -108,11 +110,13 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
     cur.current = $("cfg-current").checked;
     cur.flow = $("cfg-flow").value;
     cur.speed = Math.max(LIMITS.speed[0], Math.min(LIMITS.speed[1], Number($("cfg-speed").value) || DEFAULTS.speed));
+    cur.thrusters = Number($("cfg-thrusters").value) || DEFAULTS.thrusters;
     const [L, W] = $("cfg-pool").value.split("x").map(Number);
     cur.poollength = L; cur.poolwidth = W;
     if (which === "cfg-current" && live.current) live.current.set(cur.current);
     if (which === "cfg-flow" && live.flow) live.flow.set(cur.flow);
     if (which === "cfg-speed" && live.speed) live.speed.set(cur.speed);
+    if (which === "cfg-thrusters" && live.thrusters && cur.thrusters !== was.thrusters) live.thrusters.set(cur.thrusters);
     if (which === "cfg-pool" && live.pool && (L !== was.poollength || W !== was.poolwidth)) live.pool.set(L, W);
     if (which && which.startsWith("cfg-tool") && live.tool) { tool = el.querySelector('input[name="cfg-tool"]:checked').value; live.tool.set(tool); }
     if (which && live.changed) live.changed(cur);
@@ -124,8 +128,8 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
     Object.assign(cur, DEFAULTS);
     el.querySelectorAll('input[name="cfg-controls"]').forEach((r) => { r.checked = r.value === cur.controls; });
     $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-crabs").value = cur.crabs; $("cfg-camera").checked = cur.camera;
-    $("cfg-current").checked = cur.current; $("cfg-flow").value = cur.flow; $("cfg-speed").value = cur.speed; $("cfg-pool").value = `${cur.poollength}x${cur.poolwidth}`;
-    for (const id of ["cfg-current", "cfg-flow", "cfg-speed", "cfg-pool"]) read(id);
+    $("cfg-current").checked = cur.current; $("cfg-flow").value = cur.flow; $("cfg-speed").value = cur.speed; $("cfg-thrusters").value = cur.thrusters; $("cfg-pool").value = `${cur.poollength}x${cur.poolwidth}`;
+    for (const id of ["cfg-current", "cfg-flow", "cfg-speed", "cfg-thrusters", "cfg-pool"]) read(id);
   });
   $("cfg-go").addEventListener("click", () => { location.href = url().href; });
   const close = () => {

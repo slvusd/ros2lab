@@ -27,7 +27,7 @@
 # PARAMETERS  (ros2 run style:  --ros-args -p max_thrust:=15.0)   read once at startup
 #   port (8000), keys (true: the page's keyboard also works, last new value per thruster wins),
 #   joy (true: publish the on-screen joysticks), tool (claw | nose), rings (3: pick-up rings, 0-5), fish (1: 0-3), crabs (1: green crabs on the shallow end, 0-5), current (false: two water outlets make a current),
-#   speed (1: power of the red / green thrusters, 0.25 .. 4), max_thrust (N, 12), mass (kg incl. added mass, 8),
+#   thrusters (4: 3, 4, 6 or 8: the channels are /sim/t1 .. /sim/t<n>), speed (1: power of the horizontal thrusters, 0.25 .. 4), max_thrust (N, 12), mass (kg incl. added mass, 8),
 #   buoyancy (N of spare buoyancy, default 1.5: floats; 0 = hovers; negative sinks),
 #   hard_limits (false; true = stop dead at surface/floor, no overshoot/bounce),
 #   imu_noise (0; try 0.05, m/s^2 std-dev), imu_resolution (0 = exact; 0.01 = BNO055-like, m/s^2)
@@ -58,6 +58,7 @@ class RovSim(Node):
         self.declare_parameter("port", 8000)
         self.declare_parameter("keys", True)          # also accept the page's keyboard (last writer wins, per thruster)
         self.declare_parameter("joy", True)           # publish the page's on-screen joysticks
+        self.declare_parameter("thrusters", 4)       # 3 (one up/down), 4 (the original), 6 (four on the posts + two up/down) or 8 (four on the posts + four up/down): channels /sim/t1 .. /sim/t<n>
         self.declare_parameter("speed", 1.0)          # power of the red and green thrusters, 0.25 .. 4 (1 = normal)
         self.declare_parameter("max_thrust", 12.0)
         self.declare_parameter("mass", 8.0)
@@ -77,7 +78,8 @@ class RovSim(Node):
                        self.get_parameter("tool").value,
                        self.get_parameter("imu_noise").value,
                        self.get_parameter("imu_resolution").value,
-                       self.get_parameter("speed").value)
+                       self.get_parameter("speed").value,
+                       self.get_parameter("thrusters").value)
 
         try:                       # optional extras; each works without its file (see the file's header)
             import rov_props

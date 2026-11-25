@@ -105,3 +105,26 @@ for (const [name, sc] of Object.entries(golden.current_scenarios)) {
     assert.equal(row, sc.rows.length);
   });
 }
+
+// ---- the 3, 6 and 8 thruster layouts: same idea, with roll and the IMU, from rov_physics.py ----
+for (const [name, sc] of Object.entries(golden.thruster_scenarios)) {
+  test(`thruster layout matches Python: ${name}`, () => {
+    const rov = new Rov({ buoyancy: 0.0, tool: "nose", thrusters: sc.n });
+    rov.depth = 1.0;
+    let n = 0, row = 0;
+    for (const [secs, cmd] of sc.segments) {
+      for (const k of Object.keys(rov.cmd)) rov.set_cmd(k, cmd[k] ?? 0.0);
+      for (let i = 0, steps = Math.round(secs / golden.dt); i < steps; i++) {
+        rov.step(golden.dt);
+        n++;
+        if (n % golden.every === 0) {
+          const s = rov.state(), im = s.imu;
+          const got = [s.x, s.y, s.depth, s.yaw, s.pitch, s.roll, s.speed, im.ax, im.ay, im.az, im.gx, im.gy, im.gz];
+          const want = sc.rows[row++];
+          got.forEach((g, c) => assert.ok(Math.abs(g - want[c]) <= 1e-6, `${name} row ${row - 1} column ${c}: JS ${g} vs Python ${want[c]}`));
+        }
+      }
+    }
+    assert.equal(row, sc.rows.length);
+  });
+}

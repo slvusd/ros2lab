@@ -11,12 +11,14 @@
 //   crabs        0 .. 5               green crabs crawling on the floor of the shallow end (default 1; the 2026 task has two)
 //   current      on | off             two water outlets in the shallow end's side wall make a current across the pool (default off)
 //   flow         bubbles | streaks | rings | mix   how the running water is drawn (default mix: rings and a few bubbles; J cycles)
+//   thrusters    3 | 4 | 6 | 8         how many thrusters: 3 (one up/down), 4 (the original), 6 (four on the posts + two up/down), 8 (four on the posts + four up/down) (default 4)
 //   camera       on | off             the ROV has a camera: its housing on the model, the camera window, and the fish coming to look at it (default on)
 // When `controls` is given, it is LOCKED: the H key and the badge no longer switch modes (the link decides, not the student).
-export const DEFAULTS = { controls: "all", fish: true, rings: 3, poollength: 1, poolwidth: 1, camera: true, speed: 1, crabs: 1, current: false, flow: "mix" };
+export const DEFAULTS = { controls: "all", fish: true, rings: 3, poollength: 1, poolwidth: 1, camera: true, speed: 1, crabs: 1, current: false, flow: "mix", thrusters: 4 };
 export const LIMITS = { rings: [0, 5], poollength: [1, 2], poolwidth: [1, 3], speed: [0.25, 4], crabs: [0, 5] };
 export const MAX_RINGS = 10;      // the most rings the pool can hold, counting the ones dropped with the N key (rov_props.py MAX_RINGS is the same number)
 export const CONTROL_MODES = ["all", "h", "h-hidden"];
+export const THRUSTER_MODES = [3, 4, 6, 8];               // how many thrusters the ROV has (see THRUSTER_LAYOUTS in sim/physics.js)
 export const FLOW_LOOKS = ["bubbles", "streaks", "rings", "mix"];       // how the water from the outlets is drawn (the J key cycles them)
 export const CONFIG_KEYS = Object.keys(DEFAULTS);
 
@@ -44,6 +46,7 @@ export function parseConfig(search = "") {
     speed: decimal(q.get("speed"), LIMITS.speed),
     crabs: whole(q.get("crabs"), LIMITS.crabs),
     current: bool(q.get("current")),
+    thrusters: q.has("thrusters") && THRUSTER_MODES.includes(Number(q.get("thrusters"))) ? Number(q.get("thrusters")) : undefined,
     flow: q.has("flow") && FLOW_LOOKS.includes(q.get("flow").trim().toLowerCase()) ? q.get("flow").trim().toLowerCase() : undefined,
   };
   const cfg = { ...DEFAULTS }, explicit = new Set();

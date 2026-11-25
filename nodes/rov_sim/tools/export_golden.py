@@ -80,6 +80,33 @@ CURRENT_SCENARIOS = {
 }
 
 
+# Scenarios for the 3, 6 and 8 thruster layouts (rov_physics.THRUSTER_LAYOUTS): a neutral ROV, scripted commands on t1 ... t<n>. The IMU is recorded too.
+_FWD6 = {"t1": 1, "t2": 1, "t3": 1, "t4": 1}
+THRUSTER_SCENARIOS = {
+    "layout3":        dict(n=3, segments=[(2, {"t1": .8, "t2": .8}), (2, {"t3": 1}), (1.5, {"t1": 1, "t2": -1}), (2, {})]),
+    "layout6_posts":  dict(n=6, segments=[(2, _FWD6), (1.5, {"t1": 1, "t4": 1, "t2": -1, "t3": -1}), (1.5, {"t1": 1, "t3": 1, "t2": -1, "t4": -1}), (1.5, {"t5": 1, "t6": 1}), (1.5, {"t5": 1, "t6": -1}), (2, {})]),
+    "layout8_corners": dict(n=8, segments=[(1.5, {"t5": 1, "t6": 1, "t7": 1, "t8": 1}), (1.5, {"t5": 1, "t7": 1, "t6": -1, "t8": -1}), (1.5, {"t5": 1, "t6": 1, "t7": -1, "t8": -1}),
+                                           (2, {"t1": .8, "t2": .8, "t3": .8, "t4": .8}), (2, {})]),
+}
+
+
+def run_thrusters(sc):
+    rov = P.Rov(buoyancy=0.0, tool="nose", thrusters=sc["n"])
+    rov.depth = 1.0
+    rows, n = [], 0
+    for secs, cmd in sc["segments"]:
+        for k in rov.cmd:
+            rov.set_cmd(k, cmd.get(k, 0.0))
+        for _ in range(int(round(secs / DT))):
+            rov.step(DT)
+            n += 1
+            if n % EVERY == 0:
+                s = rov.state()
+                im = s["imu"]
+                rows.append([s["x"], s["y"], s["depth"], s["yaw"], s["pitch"], s["roll"], s["speed"], im["ax"], im["ay"], im["az"], im["gx"], im["gy"], im["gz"]])
+    return rows
+
+
 def run_current(sc):
     rov = P.Rov(buoyancy=0.0, tool="nose")
     rov_current.add_to(rov)
@@ -128,6 +155,7 @@ def build():
     return {"dt": DT, "every": EVERY, "columns": ["x", "y", "depth", "yaw", "pitch", "speed", "splash_n", "floor_n", "ax", "ay", "az", "gy", "gz"],
             "scenarios": {name: {"buoyancy": sc[0], "speed": sc[2] if len(sc) > 2 else 1.0, "segments": [[t, c] for t, c in sc[1]], "rows": run(sc[0], sc[1], sc[2] if len(sc) > 2 else 1.0)}
                           for name, sc in SCENARIOS.items()},
+            "thruster_scenarios": {name: {**sc, "segments": [[t, c] for t, c in sc["segments"]], "rows": run_thrusters(sc)} for name, sc in THRUSTER_SCENARIOS.items()},
             "current_scenarios": {name: {**sc, "segments": [[t, c] for t, c in sc["segments"]], "rows": run_current(sc)} for name, sc in CURRENT_SCENARIOS.items()},
             "ring_scenarios": {name: {**sc, "ringset": {str(k): v for k, v in sc["ringset"].items()}, "segments": [[s, c] for s, c in sc["segments"]], "rows": run_ring(sc)}
                                for name, sc in RING_SCENARIOS.items()}}

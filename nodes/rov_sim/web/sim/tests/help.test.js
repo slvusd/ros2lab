@@ -19,7 +19,7 @@ test("every reading the pool can send is documented (with its s: line and its m:
 });
 
 test("every command the board can send is documented", () => {
-  for (const name of ["t1", "t2", "t3", "t4", "claw", "tool", "reset"]) assert.ok(md.includes(`\`p:${name},`), `help.md does not document p:${name}`);
+  for (const name of ["t1", "t2", "t3", "t4", "t5", "t8", "claw", "tool", "reset"]) assert.ok(md.includes(`\`p:${name},`), `help.md does not document p:${name}`);
 });
 
 test("the documented limits match the code", async () => {
@@ -43,6 +43,7 @@ test("every internal link points at a heading that exists", () => {
 
 test("every example line in the help is understood by the real protocol code", () => {
   const world = new World(), link = new DeviceLink(world);
+  world.rov.set_layout(8);                                  // (t5 ... t8 only exist with 8 thrusters)
   const quoted = [...md.matchAll(/["`]((?:p|s):[a-z0-9_]+(?:,[^"`]*)?)["`]/g)].map((m) => m[1]).filter((l) => !l.endsWith(","));   // ("p:t1," + str(power) is built at run time)
   assert.ok(quoted.length >= 10, `expected many example lines, found ${quoted.length}`);
   for (const line of quoted) assert.ok(link.onLine(line, 0), `the example line ${JSON.stringify(line)} is not understood`);

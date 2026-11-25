@@ -95,7 +95,7 @@ def capsules(rov):
     """The ROV's solid parts in WORLD coordinates, as (a, b, radius, tag): a and b are (x, y, up) end points.
     tag is "frame", "thruster", "nose" or "claw" so callers can ignore the parts that are meant to touch something
     (the nose hooking a ring, the jaws gripping one)."""
-    key = (rov.x, rov.y, rov.depth, rov.yaw, rov.pitch, rov.claw, rov.tool)
+    key = (rov.x, rov.y, rov.depth, rov.yaw, rov.pitch, rov.claw, rov.tool, rov.thrusters)
     cached = getattr(rov, "_shape_cache", None)
     if cached and cached[0] == key:
         return cached[1]
@@ -123,13 +123,18 @@ def capsules(rov):
     add((0, -H, -H), (0, H, -H), PIPE_R, "frame")                                # bottom crossbars
     add((-H, 0, -H), (H, 0, -H), PIPE_R, "frame")
 
-    for sgn in (-1, 1):                                  # t1 (left) and t2 (right): body and rear shroud
-        add((-0.065, sgn * 0.32, 0), (0.065, sgn * 0.32, 0), 0.036, "thruster")
-        add((-0.075, sgn * 0.32, 0), (-0.06, sgn * 0.32, 0), 0.053, "thruster")
-    for sx in (0.17, -0.17):                             # t3 (front) and t4 (rear): body, shroud, propeller
-        add((sx, 0, -0.215), (sx, 0, -0.085), 0.036, "thruster")
-        add((sx, 0, -0.09), (sx, 0, -0.07), 0.056, "thruster")
-        add((sx, 0, -0.078), (sx, 0, -0.072), 0.08, "thruster")
+    # the thrusters, from the layout (rov_physics.THRUSTER_LAYOUTS): a horizontal one is a body and a rear shroud along its direction, a vertical one is
+    # a body, a shroud and a propeller. (Horizontal ones in the order of their gy, then gx: for the original layout that is the order this file always had.)
+    layout = getattr(rov, "layout", None) or []
+    for th in sorted((t for t in layout if t["kind"] == "h"), key=lambda t: (t["gy"], t["gx"])):
+        gx, gy, dx, dy = th["gx"], th["gy"], th["dx"], th["dy"]
+        add((gx - dx * 0.065, gy - dy * 0.065, 0), (gx + dx * 0.065, gy + dy * 0.065, 0), 0.036, "thruster")
+        add((gx - dx * 0.075, gy - dy * 0.075, 0), (gx - dx * 0.06, gy - dy * 0.06, 0), 0.053, "thruster")
+    for th in (t for t in layout if t["kind"] == "v"):
+        gx, gy = th["gx"], th["gy"]
+        add((gx, gy, -0.215), (gx, gy, -0.085), 0.036, "thruster")
+        add((gx, gy, -0.09), (gx, gy, -0.07), 0.056, "thruster")
+        add((gx, gy, -0.078), (gx, gy, -0.072), 0.08, "thruster")
 
     if rov.tool == "nose":
         pts = NOSE_PTS

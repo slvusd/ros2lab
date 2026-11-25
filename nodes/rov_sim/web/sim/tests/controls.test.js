@@ -69,3 +69,35 @@ test("every switch key is a game key (so the page grabs it) and none clashes wit
   for (const k of keys) assert.ok(!["KeyV", "KeyB", "KeyT", "KeyH", "KeyX", "BracketLeft", "BracketRight"].includes(k), `${k} clashes`);
   assert.ok(GAME_KEYS.has("BracketLeft") && GAME_KEYS.has("BracketRight"), "[ ] still move the claw");
 });
+
+test("6 and 8 thrusters: W drives all four posts, A/D turn, Q/E slide, and the vertical ones take R/F, I/K (and U/O with 8)", async () => {
+  const { computeCommand, switchTargets } = await import("../../controls.js");
+  const c = (keys, n, o = {}) => computeCommand(new Set(keys), [0, 0, 0], 0, { thrusters: n, ...o });
+  for (const n of [6, 8]) {
+    const f = c(["KeyW"], n);
+    assert.deepEqual([f.t1, f.t2, f.t3, f.t4], [0.8, 0.8, 0.8, 0.8]);
+    const d = c(["KeyD"], n);
+    assert.deepEqual([d.t1, d.t2, d.t3, d.t4], [0.8, -0.8, 0.8, -0.8]);          // turn right: the left pair forward, the right pair back
+    const e = c(["KeyE"], n);
+    assert.deepEqual([e.t1, e.t2, e.t3, e.t4], [0.8, -0.8, -0.8, 0.8]);          // slide right: the diagonals
+    assert.equal(c(["KeyR"], n).t5, 0.8); assert.equal(c(["KeyR"], n).t6, 0.8);
+    const ni = c(["KeyI"], n);
+    assert.ok(ni.t5 > 0 && (n === 6 ? ni.t6 : ni.t7) < 0);                    // nose up: the front pushes up, the rear down
+  }
+  const r = c(["KeyO"], 8);
+  assert.deepEqual([r.t5, r.t6, r.t7, r.t8], [0.8, -0.8, 0.8, -0.8]);
+  assert.equal(c(["KeyR"], 8).t8, 0.8);
+  assert.equal("t7" in c([], 6), false);
+  assert.deepEqual(Object.keys(c([], 8)).filter((k) => k !== "claw"), ["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"]);
+  assert.deepEqual(switchTargets(8), [["t1", "t3"], ["t2", "t4"], ["t5", "t6", "t7", "t8"]]);
+  const sw = computeCommand(new Set(["Digit2", "ArrowRight", "ArrowUp"]), [0, 0, 0], 0, { thrusters: 6, hOnly: true });   // the switches at full power
+  assert.deepEqual([sw.t1, sw.t3, sw.t2, sw.t4, sw.t5, sw.t6], [1, 1, 1, 1, 1, 1]);
+});
+
+test("3 thrusters: one vertical thruster (t3) takes R/F, there is no t4 and no trim", async () => {
+  const { computeCommand } = await import("../../controls.js");
+  const c = computeCommand(new Set(["KeyR", "KeyI"]), [0, 0, 0], 0, { thrusters: 3 });
+  assert.equal(c.t3, 0.8); assert.equal("t4" in c, false);
+  const sw = computeCommand(new Set(["ArrowUp"]), [0, 0, 0], 0, { thrusters: 3, hOnly: true });
+  assert.equal(sw.t3, 1); assert.equal("t4" in sw, false);
+});

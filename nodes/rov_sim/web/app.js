@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
 import { GAME_KEYS, SWITCHES, computeCommand, switchValues } from "./controls.js";
 import { MAX_RINGS, parseConfig, toQuery } from "./config.js";
+import { layoutFor } from "./sim/physics.js";                      // (the thruster layouts: the same table the server uses; the state carries its own)
 
 // Which simulation? A Python server answers GET ping -> talk to it; a plain web host (GitHub Pages...) does not -> run the sim in this page.
 // Override with ?mode=local or ?mode=server.
@@ -459,16 +460,43 @@ function makeThruster(shroudMat) {
   g.userData.prop = prop;
   return g;
 }
-// left (port, red) and right (starboard, green): axis along the ROV's forward x
-const left = makeThruster(PORT), right = makeThruster(STBD);
-const vfront = makeThruster(PVC), vrear = makeThruster(PVC);       // vertical thrusters, near the nose and the tail
-left.rotation.z = right.rotation.z = -Math.PI / 2;     // local +Y -> ROV +x
-left.position.set(0, 0, -H - 0.07);                     // sim "left" is three -z
-right.position.set(0, 0, H + 0.07);
-vfront.position.set(0.17, -H + 0.1, 0);     // low on the frame (THRUSTER_UP / VERT_ARM in rov_physics.py)
-vrear.position.set(-0.17, -H + 0.1, 0);
-vfront.rotation.x = vrear.rotation.x = Math.PI;       // propeller end up, so it clears the bar below
-rov.add(left, right, vfront, vrear);
+// The thrusters are built from the layout (3, 4, 6 or 8 of them: THRUSTER_LAYOUTS in sim/physics.js) and rebuilt when the layout changes.
+// A horizontal one (red = left, green = right) points along its thrust direction; a vertical (white) one hangs low on the frame with its propeller up.
+const SHROUD = { red: PORT, green: STBD, white: PVC };
+const thrusterGroup = new THREE.Group();
+rov.add(thrusterGroup);
+let rig = [], rigN = 0;                                  // [{ name, kind, node, axis }]: what is built now
+function buildThrusters(layout) {
+  thrusterGroup.clear();
+  rig = layout.map((t) => {
+    const node = makeThruster(SHROUD[t.color] || PVC);
+    let axis;
+    if (t.kind === "h") {                                // sim (x ahead, y left) -> three (x, -depth, -y)
+      axis = new THREE.Vector3(t.dx, 0, -t.dy);
+      node.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis);   // local +Y -> its thrust direction
+      node.position.set(t.gx, 0, -t.gy);
+      if (Math.abs(t.gx) > 0.2) bar([Math.sign(t.gx) * H, 0, -Math.sign(t.gy) * H], [t.gx, 0, -t.gy], 0.012, thrusterGroup);   // a short strut from the corner post
+    } else {
+      axis = new THREE.Vector3(0, 1, 0);
+      node.position.set(t.gx, -H + 0.1, -t.gy);          // low on the frame (THRUSTER_UP / VERT_ARM in rov_physics.py)
+      node.rotation.x = Math.PI;                          // propeller end up, so it clears the bar below
+      if (Math.abs(t.gx) > 0.1 && Math.abs(t.gy) > 0.1) bar([Math.sign(t.gx) * H, -H, -Math.sign(t.gy) * H], [t.gx, -H, -t.gy], 0.012, thrusterGroup);   // (corner mounts)
+    }
+    thrusterGroup.add(node);
+    if (t.kind === "h" && t.gx === 0) {                  // the original side thrusters: a mid-height rail along the frame, two pipes to two clamps round the thruster
+      const sz = -Math.sign(t.gy);
+      bar([-H, 0, sz * H], [H, 0, sz * H], 0.013, thrusterGroup);
+      for (const dx of [-0.045, 0.045]) { bar([dx, 0, sz * H], [dx, 0, sz * (H + 0.05)], 0.013, thrusterGroup); collar(dx, 0, sz * (H + 0.07), 0.026, 0.085, 0.085); }
+    }
+    if (t.kind === "v" && t.gy === 0) {                  // vertical thrusters sit on the bottom bar, clamped to it
+      collar(t.gx, -H + 0.025, 0, 0.085, 0.04, 0.085);   // saddle between the bar and the thruster body
+      collar(t.gx, -H, 0, 0.03, 0.03, 0.07);             // clamp round the bar itself
+    }
+    return { name: t.name, kind: t.kind, node, axis };
+  });
+  rigN = layout.length;
+}
+buildThrusters(layoutFor(4));
 
 // ---- camera: a small housing on a short pipe under the top-front edge, looking forward and tilted down so the
 // front of the claw is in view. rovCam is the actual three.js camera (its picture goes to the window under joy2). ----
@@ -494,18 +522,7 @@ rov.add(rovCam);
 function collar(x, y, z, sx, sy, sz) {              // a dark clamp block
   const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), DARK);
   m.position.set(x, y, z);
-  rov.add(m);
-}
-for (const sz of [-1, 1]) {
-  bar([-H, 0, sz * H], [H, 0, sz * H], 0.013);         // a mid-height rail along each side of the frame
-  for (const dx of [-0.045, 0.045]) {                  // two pipes from the rail to two clamps round the thruster
-    bar([dx, 0, sz * H], [dx, 0, sz * (H + 0.05)], 0.013);
-    collar(dx, 0, sz * (H + 0.07), 0.026, 0.085, 0.085);
-  }
-}
-for (const x of [-0.17, 0.17]) {                       // vertical thrusters sit on the bottom bar, clamped to it
-  collar(x, -H + 0.025, 0, 0.085, 0.04, 0.085);        // saddle between the bar and the thruster body
-  collar(x, -H, 0, 0.03, 0.03, 0.07);                  // clamp round the bar itself
+  thrusterGroup.add(m);
 }
 
 // ---- front tool, two modes (button / T key): a fixed curved-up "nose", or a claw that opens and closes ----
@@ -563,7 +580,8 @@ function makeBubbles() {
   scene.add(pts);
   return { pts, vel: new Float32Array(NB * 3), life: new Float32Array(NB), next: 0, acc: 0 };
 }
-const bubbles = { t1: makeBubbles(), t2: makeBubbles(), t3: makeBubbles(), t4: makeBubbles() };   // t1 left, t2 right, t3 front, t4 rear
+const bubbles = {};                                    // one stream of bubbles per thruster, made when it is first used (t1 ... t8)
+for (let i = 1; i <= 8; i++) bubbles["t" + i] = makeBubbles();
 
 const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
 function emit(b, thruster, localAxis, cmd, dt) {
@@ -656,7 +674,7 @@ let jets = null;                      // optional add-on: jets.js draws the wate
 import("./jets.js").then((m) => { jets = new m.Jets(scene, THREE, { look: cfg.flow, ripple: (x, z, r, k) => { if (fx) drop(x, z, r, k); } }); }).catch(() => { /* no jets */ });
 
 // ---------- state from the sim ----------
-const state = { x: -1.5, y: 0, depth: 0.8, yaw: 0, t1: 0, t2: 0, t3: 0, t4: 0, claw: 0, speed: 0, pitch: 0, roll: 0, imu: null, buoyancy: 1.5, joys: [[0, 0], [0, 0]], joy_topics: [] };
+const state = { x: -1.5, y: 0, depth: 0.8, yaw: 0, thrusters: 4, t1: 0, t2: 0, t3: 0, t4: 0, claw: 0, speed: 0, pitch: 0, roll: 0, imu: null, buoyancy: 1.5, joys: [[0, 0], [0, 0]], joy_topics: [] };
 const seen = { splash: null, floor: null };
 const shown = { ...state };
 let lastMsg = 0;
@@ -700,14 +718,27 @@ function handleState(s) {
   }
 }
 
-const bars = ["t1", "t2", "t3", "t4"];
+let hudN = 0;                                           // the thruster bars on show
+function buildHud(layout) {
+  $("thrusters").innerHTML = layout.map((t) => `<div class="row"><span class="lbl">${t.name} ${t.label}</span><div class="bar"><b></b><i id="b-${t.name}"></i></div><span class="num" id="n-${t.name}">0.00</span></div>`).join("");
+  hudN = layout.length;
+  $("help-t6").style.display = layout.length > 4 ? "" : "none";
+  $("help-t8").style.display = layout.length > 6 ? "" : "none";
+}
+buildHud(layoutFor(4));
+function syncRig() {                                    // the sim's layout changed (Config, or the server's --thrusters): rebuild the model and the bars
+  const n = state.thrusters || 4;
+  if (n !== rigN) { buildThrusters(state.layout || layoutFor(n)); for (const k in bubbles) bubbles[k].life.fill(0); }
+  if (n !== hudN) buildHud(state.layout || layoutFor(n));
+}
 function updateHud() {
+  syncRig();
   drawSwitches();
   const live = performance.now() - lastMsg < 1000;
   $("dot").className = live ? "ok" : "";
   $("status").textContent = live ? backend.name : "waiting for sim...";
-  for (const n of bars) {
-    const v = state[n], el = $("b-" + n);
+  for (const { name: n } of rig) {
+    const v = state[n] || 0, el = $("b-" + n);
     el.style.width = Math.abs(v) * 50 + "%";
     el.style.transform = v < 0 ? "translateX(-100%)" : "none";
     el.style.background = v < 0 ? "#f95" : "#4d8";
@@ -770,7 +801,7 @@ function setHOnly(on, send = true) {
 }
 const pointerSw = [0, 0, 0];                                  // the on-screen switch box: -1 / 0 / +1 per switch while the mouse holds it
 function sendCommand() {
-  const body = JSON.stringify(computeCommand(held, pointerSw, clawCmd, { hOnly }));
+  const body = JSON.stringify(computeCommand(held, pointerSw, clawCmd, { hOnly, thrusters: state.thrusters || 4 }));
   if (body === lastSent) return;
   lastSent = body;
   backend.cmd(JSON.parse(body));
@@ -1010,10 +1041,8 @@ function frame(now) {
   rov.rotation.z = -shown.pitch + 0.06 * wobble * Math.sin(t * 5.3 + 1);   // pitch > 0 = nose down (a hanging ring)
   rov.updateMatrixWorld(true);
   // spin props (visual speed ~ command)
-  left.userData.prop.rotation.y += -state.t1 * 40 * dt;
-  right.userData.prop.rotation.y += -state.t2 * 40 * dt;
-  vfront.userData.prop.rotation.y += -state.t3 * 40 * dt;
-  vrear.userData.prop.rotation.y += -state.t4 * 40 * dt;
+  syncRig();
+  for (const t of rig) t.node.userData.prop.rotation.y += -(state[t.name] || 0) * 40 * dt;
   // claw jaws swing outward to open (0 closed .. 0.7 rad open)
   for (const { jaw, sgn } of jaws) jaw.rotation.y = -sgn * shown.claw * 0.7;
 
@@ -1023,11 +1052,8 @@ function frame(now) {
     clawCmd = clamp01(clawCmd + dClaw * 0.8 * dt);
     if (now - lastClawSend > 50) { lastClawSend = now; sendCommand(); }
   }
-  emit(bubbles.t1, left, ex, state.t1, dt);
-  emit(bubbles.t2, right, ex, state.t2, dt);
-  emit(bubbles.t3, vfront, ey, state.t3, dt);
-  emit(bubbles.t4, vrear, ey, state.t4, dt);
-  for (const k of bars) stepBubbles(bubbles[k], dt);
+  for (const t of rig) emit(bubbles[t.name], t.node, t.axis, state[t.name] || 0, dt);
+  for (const k in bubbles) stepBubbles(bubbles[k], dt);
 
   const floorD = floorAt(rov.position.x, rov.position.z);
   shadow.position.set(rov.position.x, -floorD + 0.01, rov.position.z);
@@ -1236,6 +1262,21 @@ if (new URLSearchParams(location.search).has("selftest")) {
         if (!(d1 > d0 + 0.05)) return fail(`the dropped ring does not sink (${d0.toFixed(2)} -> ${d1.toFixed(2)})`);
       }
     }
+    if (backend.setThrusters) {                                       // the Config dialog's thruster modes: the model, the bars and the keys follow the layout
+      for (const n of [3, 6, 8, 4]) {
+        backend.setThrusters(n);
+        for (let k = 0; k < 40 && state.thrusters !== n; k++) await wait(100);   // (the new layout arrives with the next state)
+        syncRig(); updateHud();                                                    // (a slow computer draws frames late: do not wait for one)
+        if (rig.length !== n || thrusterGroup.children.length < n) return fail(`${n} thrusters: the model has ${rig.length} (state ${state.thrusters}, layout ${(state.layout || []).length}, rov ${(window.__rov || {}).thrusters})`);
+        if ($("thrusters").querySelectorAll(".bar").length !== n) return fail(`${n} thrusters: the HUD has ${$("thrusters").querySelectorAll(".bar").length} bars`);
+        backend.reset(); await wait(300);                                         // (back at the start, away from the wall)
+        const x1 = state.x;
+        backend.cmd(computeCommand(new Set(["KeyW"]), [0, 0, 0], 0, { thrusters: n }));
+        await wait(1200);
+        backend.cmd(computeCommand(new Set(), [0, 0, 0], 0, { thrusters: n }));
+        if (!(state.x > x1 + 0.05)) return fail(`${n} thrusters: W did not drive forward (${x1.toFixed(2)} -> ${state.x.toFixed(2)})`);
+      }
+    }
     if (backend.setPoolSize && jets && jets.sys) {                    // the drawn outlets must follow the wall when the pool is resized
       for (const [L, W] of [[1, 3], [2, 2], [1, 1]]) {
         backend.setPoolSize(L, W);
@@ -1304,7 +1345,8 @@ const live = {
   flow: { get: () => (jets ? jets.look : liveCfg.flow), set: (v) => { if (jets) jets.setLook(v); } },
   pool: backend.setPoolSize ? { get: mainPoolSize, set: (L, W) => { backend.setPoolSize(L, W); userMoved = false; } } : null,   // (puts everything back at the start; the camera refits)
   speed: backend.setSpeed ? { get: () => liveCfg.speed, set: (v) => backend.setSpeed(v) } : null,
-  changed: (c) => { for (const k of ["current", "flow", "speed", "poollength", "poolwidth"]) liveCfg[k] = c[k]; syncAddress(); },
+  thrusters: backend.setThrusters ? { get: () => state.thrusters || 4, set: (n) => backend.setThrusters(n) } : null,
+  changed: (c) => { for (const k of ["current", "flow", "speed", "thrusters", "poollength", "poolwidth"]) liveCfg[k] = c[k]; syncAddress(); },
 };
 async function openConfig() {
   try { (await import("./configui.js")).showConfig({ cfg: liveCfg, configurable: backend.configurable || {}, live }); }

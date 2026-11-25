@@ -79,7 +79,7 @@ and stays inside its rectangle); the crab only adds the walking. A rock or a lob
 
 **Settings (`?config`):** add `?config` to the page address (or use *Set up the pool* in the Help page) for a panel that sets the options and gives you a link to share;
 each setting is also a plain address option: `controls=all|h|h-hidden` (all keys / H-circuit only, locked / H-circuit only with every other control hidden),
-`fish=on|off`, `rings=0..5` (3), `speed=0.25..4` (1: the red and green thrusters' power), `poollength=1|2` (x 6 m), `poolwidth=1|2|3` (x 3 m), `camera=on|off`. They live in `web/config.js` (parsing and limits, tested) and
+`fish=on|off`, `rings=0..5` (3), `speed=0.25..4` (1: the red and green thrusters' power), `thrusters=3|4|6|8` (4), `poollength=1|2` (x 6 m), `poolwidth=1|2|3` (x 3 m), `camera=on|off`. They live in `web/config.js` (parsing and limits, tested) and
 `web/configui.js` (the panel); `physics.js` `setPool()` resizes the main pool. The pool size is a browser-version feature for now: Python's pool is still the fixed
 6 x 3 m plus shelf (`POOL_REGIONS` in `rov_physics.py`), and with the Python server only `controls` and `camera` apply (use `--rings` / `--fish` there).
 
@@ -211,7 +211,7 @@ the water you look up at the rippling surface. `?view=follow`, `?cam=x,y,z`, `?t
 **Keyboard** (click the page once first). It's for playing by hand; it works alongside your ROS code, and per thruster **the last new value wins**
 (a key you aren't touching never overwrites what your code sent; releasing a key sets that thruster to 0). `-p keys:=false` turns it off.
 The **switch box** (see below) is driven by `1` `2` (red), the left and right arrow keys (green) and the up and down arrow keys. The extra keys
-W or Shift forward, S or Space reverse, A/D turn, R/F both vertical thrusters up/down, I/K tilt nose up/down, Z/C left/right thruster only
+W or Shift forward, S or Space reverse, A/D turn, R/F all vertical thrusters up/down, I/K tilt nose up/down, Z/C left/right side only (with 6 or 8 thrusters also Q/E slide left/right, and with 8 U/O roll)
 work too unless you press H (H-bridge only: just the switch box). `[` `]` close/open the claw gradually, T claw/nose, B buoyancy, V reset the view, X stop.
 (These keys mix `t1`..`t4` for you.
 Your ROS code only has the individual thrusters, by design.)
@@ -368,6 +368,7 @@ Read once at startup. `ros2 run`-style for `rov_sim.py`: `--ros-args -p name:=va
 | `fish` | 1 | how many fish, 0 to 3 (`--fish`) |
 | `crabs` | 1 | how many green crabs on the shallow end's floor, 0 to 5 (`--crabs`); the 2026 scout task has two |
 | `current` | false | make the water run out of the two wall outlets, a current across the pool (`--current`): see *The water outlets and the current* |
+| `thrusters` | 4 | how many thrusters (`--thrusters` / ROS `thrusters:=`): **3** one up/down thruster (no nose trim); **4** the original (t1 left, t2 right, t3 front and t4 rear up/down); **6** t1-t4 horizontal on the four vertical posts, angled 45 degrees in an X (front left, front right, rear left, rear right: forward, turn **and slide sideways**, Q / E), plus t5 and t6 up/down; **8** the same with four up/down thrusters on the corners (t5-t8; they also trim the roll, U / O). The layouts live in `THRUSTER_LAYOUTS` (`rov_physics.py`, `web/sim/physics.js`); the state carries the layout, so the page and the serial link follow it. In the browser the Config dialog changes it live |
 | `speed` | 1 | power of the red and green (horizontal) thrusters, 0.25 to 4 (`--speed`). **1 is the normal speed, which is half of what these thrusters used to give** (`SIDE_THRUST = 0.5` in `rov_physics.py`); 2 is the old strength |
 | `max_thrust` | 12 | newtons the thrusters could give at full command; the horizontal ones give `SIDE_THRUST x speed` of it (6 N at the normal speed), the two vertical thrusters share one such budget (6 N each) |
 | `mass` | 8 | kg including added mass |

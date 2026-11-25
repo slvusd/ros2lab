@@ -93,6 +93,7 @@ Channel names are lower case letters, digits and `_`. The value is everything af
 | `p:t2,0.5` | thruster 2, the **green** one (right), from -1 to 1 |
 | `p:t3,0.5` | thruster 3, the front up/down thruster (+ is up) |
 | `p:t4,0.5` | thruster 4, the rear up/down thruster (+ is up) |
+| `p:t5,0.5` … `p:t8,0.5` | thrusters 5 to 8, only with `thrusters=6` or `8` (up/down, + is up); with 6 or 8 thrusters `t1` to `t4` are the four horizontal ones. A thruster the ROV does not have is ignored |
 | `p:claw,1` | the claw servo: 0 closed to 1 fully open |
 | `p:tool,nose` | choose `nose` or `claw` |
 | `p:reset,1` | back to the start position |
@@ -186,6 +187,7 @@ for anyone you send it to. Every setting is also a plain option you can add to t
 | `poollength=1` or `2` | the main pool is 6 m times this long (normally 1, so 6 m; 2 is 12 m) |
 | `poolwidth=1`, `2` or `3` | the main pool is 3 m times this wide (normally 1, so 3 m; 3 is 9 m) |
 | `speed=0.25` to `4` | the power of the red and green thrusters (normally 1). **1 is the normal speed, half of what these thrusters used to give**; 2 is the old strength. The up/down thrusters do not change |
+| `thrusters=3`, `4`, `6` or `8` | how many thrusters the ROV has (normally 4: red, green and two up/down). **3**: one up/down thruster, so no nose trim. **6**: four angled thrusters on the corner posts (`t1` front left, `t2` front right, `t3` rear left, `t4` rear right) that can also slide the ROV sideways (**`Q`** left, **`E`** right), plus two up/down (`t5`, `t6`). **8**: the same four on the posts plus four up/down thrusters on the corners (`t5` to `t8`), which can also roll the ROV (**`U`** / **`O`**). The red switch drives the left thrusters, the green one the right ones, up/down all the vertical ones |
 | `crabs=0` to `5` | how many green crabs crawl on the shallow end (normally 1; the 2026 scout task has two) |
 | `flow=bubbles`, `streaks`, `rings` or `mix` | how the running water is drawn: small bubbles in a narrow plume, thin tracer lines along the flow, ripple rings that expand as they travel out, or rings with a few bubbles (normally `mix`). **`J`** changes it while the page runs. The picture is a little narrower than the real flow: the water moves more gently over a wider area |
 | `current=on` or `off` | run the water out of the two outlets in the pool wall on the shallow-end side (the outlets are always there): a current that pushes and tilts the ROV (normally off) |

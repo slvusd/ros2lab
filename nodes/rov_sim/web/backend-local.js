@@ -10,7 +10,7 @@ export const config = parseConfig(typeof location !== "undefined" ? location.sea
 export const defaultTool = "nose";               // scout ROVs mostly use a nose (hook); T switches to the claw
 export const configurable = { controls: true, camera: true, fish: true, rings: true, pool: true, speed: true, crabs: true, current: true };   // what the ?config panel may change here
 setPool(config.poollength, config.poolwidth);    // the pool first: rings and fish stand on its floor
-const rov = new Rov({ tool: defaultTool });
+const rov = new Rov({ tool: defaultTool, thrusters: config.thrusters });
 rov.speed_mult = Math.max(0.25, Math.min(4, config.speed));   // ?speed= : the red / green thrusters' power (1 = normal)
 let ringsMod = null;
 try { ringsMod = await import("./sim/rings.js"); if (config.rings > 0) ringsMod.addTo(rov, config.rings); } catch (e) { /* optional add-on: no rings without rings.js */ }
@@ -40,6 +40,11 @@ export const buoyancy = (mode) => world.setBuoyancy(mode);
 export const joy = () => {};
 export const reset = () => world.reset();
 export const dropRing = (x, y) => world.dropRing(x, y);          // the N key
+/** The Config dialog's thruster mode: 3, 4, 6 or 8 thrusters (the commands go back to zero). */
+export function setThrusters(n) {
+  rov.set_layout(n);
+  world._prev = {};                                // (the keyboard command the world remembers belongs to the old layout)
+}
 /** The Config dialog's thruster power: the red and green thrusters' power, 0.25 to 4 (1 = normal). */
 export function setSpeed(v) { rov.speed_mult = Math.max(0.25, Math.min(4, Number(v) || 1)); }
 /** The Config dialog's pool size: resize the main pool (length 1-2 times 6 m, width 1-3 times 3 m) while the sim runs. Everything that stands in the pool (the ROV,

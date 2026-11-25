@@ -4,7 +4,7 @@
 # =============================================================================
 # Run (plain Python 3, nothing to install):
 #   python3 nodes/rov_sim/keyboard_sim.py            then open http://localhost:8000
-# Options:  --port 8000  --speed 1  --max-thrust 12  --mass 8  --buoyancy 1.5  --imu-noise 0  --hard-limits  --rings 3  --fish 1  --crabs 1  --current  --tool claw|nose
+# Options:  --port 8000  --speed 1  --thrusters 4  --max-thrust 12  --mass 8  --buoyancy 1.5  --imu-noise 0  --hard-limits  --rings 3  --fish 1  --crabs 1  --current  --tool claw|nose
 #
 # Click the page once so it has keyboard focus, then:
 #   Switch box (top right of the page, like a scout controller, full power):
@@ -14,7 +14,9 @@
 #     W or Shift  both horizontal thrusters forward / S or Space reverse    A / D   turn left / right
 #     R / F       both vertical thrusters up / down (the Up / Down arrows do too)
 #     I / K       tilt nose up / down (front thruster up + rear down, or the reverse)
-#     Z / C       left / right thruster ONLY (hold)
+#     Z / C       left / right side ONLY (hold)
+#     Q / E       slide left / right   (6 or 8 thrusters)
+#     U / O       roll left / right    (8 thrusters)
 #   [ / ]       close / open the claw gradually (a servo)
 #   N           drop a new pool ring into the water where the mouse is (it sinks; Reset removes it)
 #   T           claw <-> nose tool         V  reset the camera view          X           stop everything
@@ -34,6 +36,7 @@ def main():
     ap = argparse.ArgumentParser(description="ROV pool, keyboard-driven, no ROS")
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--max-thrust", type=float, default=12.0)
+    ap.add_argument("--thrusters", type=int, choices=[3, 4, 6, 8], default=4, help="how many thrusters: 3 (one up/down), 4 (the original), 6 (four on the posts + two up/down) or 8 (four on the posts + four up/down at the corners)")
     ap.add_argument("--speed", type=float, default=1.0, help="power of the red and green thrusters, 0.25 .. 4 (1 = normal)")
     ap.add_argument("--mass", type=float, default=8.0)
     ap.add_argument("--buoyancy", type=float, default=BUOYANCY, help="spare buoyancy in N (+ floats up; 0 hovers)")
@@ -49,7 +52,7 @@ def main():
                     help="stop dead at the surface/floor (no overshoot or bounce)")
     a = ap.parse_args()
 
-    rov = Rov(a.max_thrust, a.mass, a.buoyancy, a.hard_limits, a.tool, a.imu_noise, a.imu_resolution, a.speed)
+    rov = Rov(a.max_thrust, a.mass, a.buoyancy, a.hard_limits, a.tool, a.imu_noise, a.imu_resolution, a.speed, a.thrusters)
     try:                           # optional extras; each works without its file (see the file's header)
         import rov_props
         rov_props.add_to(rov, 0 if a.no_ring else a.rings)
