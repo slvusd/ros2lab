@@ -14,3 +14,7 @@ network-config
 user-data
 meta-data
 *.psk
+
+# Python bytecode
+__pycache__/
+*.pyc

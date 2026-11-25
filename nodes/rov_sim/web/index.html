@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ROV Pool</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #bfe3f5;
+               font: 13px/1.35 -apple-system, system-ui, sans-serif; color: #fff; }
+  canvas { display: block; }
+  .panel { position: fixed; background: rgba(8, 30, 50, .72); border-radius: 8px;
+           padding: 8px 10px; backdrop-filter: blur(4px); }
+  #hud { top: 8px; left: 8px; min-width: 215px; }
+  #hud h1 { margin: 0 0 6px; font-size: 13px; letter-spacing: .04em; }
+  #dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+         background: #e55; margin-right: 6px; }
+  #dot.ok { background: #4d8; }
+  .row { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+  .row .lbl { width: 54px; }
+  .bar { position: relative; flex: 1; height: 10px; background: rgba(255,255,255,.15);
+         border-radius: 5px; overflow: hidden; }
+  .bar i { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; background: #4d8; }
+  .bar b { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: #fff8; }
+  .imu { margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,.2); }
+  .imu .lbl { width: 54px; }
+  #accel, #accel0, #gyro { font: 12px ui-monospace, Menlo, monospace; white-space: pre; }
+  .num { width: 38px; text-align: right; font-variant-numeric: tabular-nums; }
+  #btns { top: 8px; right: 8px; display: flex; gap: 6px; }
+  @media (max-width: 640px) {      /* narrow window (VS Code side panel): buttons go under the status box */
+    #btns { top: 190px; right: auto; left: 8px; flex-wrap: wrap; max-width: 300px; }
+  }
+  button { background: #1d6f9f; color: #fff; border: 0; border-radius: 6px;
+           padding: 5px 10px; font: inherit; cursor: pointer; }
+  button.on { background: #f2b705; color: #111; }
+  button:hover { filter: brightness(1.15); }
+  #topics.side { left: auto; right: 8px; }          /* with the keyboard help also showing, topics go bottom-right */
+  #topics { bottom: 8px; left: 8px; font: 12px/1.4 ui-monospace, Menlo, monospace; }
+  #topics div { opacity: .9; }
+  #topics .h { font: 600 12px -apple-system, system-ui, sans-serif; opacity: 1; margin-bottom: 2px; }
+</style>
+</head>
+<body>
+<div id="hud" class="panel">
+  <h1><span id="dot"></span><span id="status">waiting for sim...</span></h1>
+  <div class="row"><span class="lbl">left</span><div class="bar"><b></b><i id="b-left"></i></div><span class="num" id="n-left">0.00</span></div>
+  <div class="row"><span class="lbl">right</span><div class="bar"><b></b><i id="b-right"></i></div><span class="num" id="n-right">0.00</span></div>
+  <div class="row"><span class="lbl">v. front</span><div class="bar"><b></b><i id="b-front"></i></div><span class="num" id="n-front">0.00</span></div>
+  <div class="row"><span class="lbl">v. rear</span><div class="bar"><b></b><i id="b-rear"></i></div><span class="num" id="n-rear">0.00</span></div>
+  <div class="row"><span class="lbl">claw</span><span id="claw">closed</span></div>
+  <div class="row"><span class="lbl">depth</span><span id="depth">0.00 m</span></div>
+  <div class="row"><span class="lbl">heading</span><span id="heading">0&deg;</span></div>
+  <div class="imu">
+    <div class="row"><span class="lbl">tilt</span><svg width="40" height="20" viewBox="0 0 40 20"><g id="tilt"><line x1="4" y1="10" x2="36" y2="10" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="36" cy="10" r="3" fill="#f2b705"/></g></svg><span id="pitch">level</span></div>
+    <div class="row"><span class="lbl">accel</span><span id="accel">+0.000 +0.000 +9.810</span></div>
+    <div class="row"><span class="lbl">minus g</span><span id="accel0">+0.000 +0.000 +0.000</span></div>
+    <div class="row"><span class="lbl">gyro</span><span id="gyro">+0.000 +0.000 +0.000</span></div>
+  </div>
+</div>
+<div id="btns" class="panel">
+  <button data-view="orbit" class="on">Orbit</button>
+  <button data-view="follow">Follow</button>
+  <button data-view="top">Top</button>
+  <button id="buoy" title="Pool setting: ROV floats / neutral (hovers) / sinks (B)">Buoyancy: floats</button>
+  <button id="tool" title="Front tool: claw or fixed nose (T)">Tool: Claw</button>
+  <button id="fx" title="Refraction + water ripples (experimental)">Water FX</button>
+  <button id="reset">Reset</button>
+</div>
+<div id="keyhelp" class="panel" style="display:none; bottom: 8px; left: 8px; font: 12px/1.5 ui-monospace, Menlo, monospace;">
+  <div style="font: 600 12px -apple-system, system-ui, sans-serif">Keyboard (click the page first)</div>
+  <div>W/S &nbsp;forward / reverse &nbsp;&nbsp;A/D turn left / right</div>
+  <div>R/Space up &nbsp;&nbsp;F/Shift down &nbsp;&nbsp;I/K nose up/down</div>
+  <div>Z / C &nbsp;left / right thruster only</div>
+  <div>H claw open/close &nbsp;&nbsp;[ ] claw closer/wider &nbsp;&nbsp;X stop all</div>
+  <div>T claw/nose &nbsp;&nbsp;B buoyancy &nbsp;&nbsp;V reset view (or double-click)</div>
+</div>
+<div id="topics" class="panel">
+  <div class="h">Publish to:</div>
+  <div>/rov/thruster/left &nbsp;&nbsp;&nbsp;Float32 -1..1</div>
+  <div>/rov/thruster/right &nbsp;&nbsp;Float32 -1..1</div>
+  <div>/rov/thruster/front, /rear Float32 -1..1</div>
+  <div>/rov/thruster/vertical sets both</div>
+  <div class="h" style="margin-top:3px">Read from:</div>
+  <div>/rov/imu &nbsp;sensor_msgs/Imu</div>
+  <div>/rov/claw &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Float32 0 closed .. 1 open</div>
+  <div>T claw/nose &nbsp;&nbsp;B buoyancy &nbsp;&nbsp;V reset view</div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
