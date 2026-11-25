@@ -427,6 +427,23 @@ vrear.position.set(-0.17, -H + 0.1, 0);
 vfront.rotation.x = vrear.rotation.x = Math.PI;       // propeller end up, so it clears the bar below
 rov.add(left, right, vfront, vrear);
 
+// ---- camera: a small housing on a short pipe under the top-front edge, looking forward and tilted down so the
+// front of the claw is in view. rovCam is the actual three.js camera (its picture goes to the window under joy2). ----
+bar([0.25, H, 0], [0.19, H - 0.045, 0], 0.012);                                  // mount: a pipe from the top-front edge
+{
+  const housing = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.042, 0.052), DARK);
+  housing.position.set(0.18, H - 0.05, 0);
+  const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.012, 16).rotateZ(Math.PI / 2),
+    new THREE.MeshStandardMaterial({ color: 0x1d4f7a, roughness: 0.1, metalness: 0.6 }));
+  lens.position.set(0.2225, H - 0.05, 0);
+  rov.add(housing, lens);
+}
+const rovCam = new THREE.PerspectiveCamera(64, 4 / 3, 0.03, 40);
+rovCam.rotation.order = "YXZ";
+rovCam.rotation.set(-0.5, -Math.PI / 2, 0);        // look along the ROV's +x (yaw -90 deg), tilted down 0.5 rad (~29 deg)
+rovCam.position.set(0.23, H - 0.05, 0);
+rov.add(rovCam);
+
 // ---- mounts: every thruster is clamped to a real frame member, with pipes where needed ----
 function collar(x, y, z, sx, sy, sz) {              // a dark clamp block
   const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), DARK);
@@ -899,10 +916,14 @@ function frame(now) {
 
   updateHud();
   renderScene();
+  if (now - lastCamDraw > 66) { lastCamDraw = now; drawRovCamera(); }       // ~15 pictures a second
 }
 
 const clipPlane = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0.004);
-function renderScene() {
+const _wp = new THREE.Vector3();
+// Draw `cam` into `outRT` (null = the screen). With Water FX on this is two passes: first the part of the scene on the far
+// side of the water surface into `refractRT` (with its depth), then everything, the surface bending what pass 1 saw.
+function renderView(cam, refractRT, outRT, size) {
   const showFx = fx && water.fx;
   water.fx.visible = showFx; water.simple.visible = !showFx; water.under.visible = !showFx;
   if (showFx) {
@@ -913,23 +934,74 @@ function renderScene() {
     // Keep only what is on the far side of the water surface (below it if we look down into the pool,
     // above it if we look up from underwater). Otherwise a part of the ROV that sticks out of the water is
     // drawn once for real and once more, displaced, inside the refracted picture: a double image.
-    const lookingDown = camera.position.y >= 0;
-    clipPlane.normal.set(0, lookingDown ? -1 : 1, 0); clipPlane.constant = 0.004;
+    cam.getWorldPosition(_wp);
+    clipPlane.normal.set(0, _wp.y >= 0 ? -1 : 1, 0); clipPlane.constant = 0.004;
     renderer.clippingPlanes = [clipPlane];
-    renderer.setRenderTarget(rt);
-    renderer.render(scene, camera);
+    renderer.setRenderTarget(refractRT);
+    renderer.render(scene, cam);
     renderer.setRenderTarget(null);
     renderer.clippingPlanes = [];
     scene.background = bg; scene.fog = fog;
     water.fx.visible = true;
-    water.mat.uniforms.tScene.value = rt.texture;
-    camera.updateMatrixWorld();
-    water.mat.uniforms.uVP.value.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-    water.mat.uniforms.uInvVP.value.copy(water.mat.uniforms.uVP.value).invert();
-    water.mat.uniforms.tDepth.value = rt.depthTexture;
-    renderer.getDrawingBufferSize(water.mat.uniforms.uScreen.value);
+    const u = water.mat.uniforms;
+    u.tScene.value = refractRT.texture;
+    u.tDepth.value = refractRT.depthTexture;
+    cam.updateMatrixWorld();
+    u.uVP.value.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
+    u.uInvVP.value.copy(u.uVP.value).invert();
+    u.uScreen.value.copy(size);
   }
-  renderer.render(scene, camera);          // pass 2: everything, the surface bending what pass 1 saw
+  renderer.setRenderTarget(outRT);
+  renderer.render(scene, cam);             // pass 2
+  renderer.setRenderTarget(null);
+}
+const _screen = new THREE.Vector2();
+function renderScene() {
+  renderer.getDrawingBufferSize(_screen);
+  renderView(camera, rt, null, _screen);
+}
+
+// ---------- the ROV camera's picture, in the window under joy2 ----------
+// Rendered off-screen at 320 x 240 (about 15 times a second), turned into ordinary sRGB bytes, and copied into a small canvas.
+const CAM_W = 320, CAM_H = 240;
+const camDepth = new THREE.DepthTexture(CAM_W, CAM_H);
+const camRefract = new THREE.WebGLRenderTarget(CAM_W, CAM_H, { type: THREE.HalfFloatType, depthTexture: camDepth });
+const camOut = new THREE.WebGLRenderTarget(CAM_W, CAM_H, { type: THREE.HalfFloatType });
+const camBytes = new THREE.WebGLRenderTarget(CAM_W, CAM_H, { type: THREE.UnsignedByteType, depthBuffer: false });
+const camSize = new THREE.Vector2(CAM_W, CAM_H);
+const blitScene = new THREE.Scene(), blitCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const blitMat = new THREE.ShaderMaterial({         // linear -> sRGB: rendering to a target leaves colours linear
+  uniforms: { tex: { value: null } },
+  vertexShader: "varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }",
+  fragmentShader: `uniform sampler2D tex; varying vec2 vUv;
+    void main() {
+      vec3 c = clamp(texture2D(tex, vUv).rgb, 0.0, 1.0);
+      gl_FragColor = vec4(mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)), 1.0);
+    }`, depthTest: false, depthWrite: false });
+blitScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), blitMat));
+const camPixels = new Uint8Array(CAM_W * CAM_H * 4), camImage = new ImageData(CAM_W, CAM_H);
+const camCtx = $("camview").getContext("2d");
+let lastCamDraw = 0;
+function drawRovCamera() {
+  rov.updateMatrixWorld(true);
+  rovCam.getWorldPosition(_wp);
+  const under = _wp.y < 0 && insidePool(_wp.x, _wp.z);
+  // the camera sees solid walls: undo the x-ray fading (set for the main camera) while we draw, then put it back
+  const saved = solids.map((m) => [m.material.opacity, m.material.depthWrite]);
+  for (const m of solids) { m.material.opacity = 1; m.material.depthWrite = true; }
+  const bg = scene.background, fog = scene.fog;
+  scene.background = under ? WATER : SKY; scene.fog = under ? UNDER_FOG : null;
+  renderView(rovCam, camRefract, camOut, camSize);
+  blitMat.uniforms.tex.value = camOut.texture;
+  renderer.setRenderTarget(camBytes);
+  renderer.render(blitScene, blitCam);
+  renderer.readRenderTargetPixels(camBytes, 0, 0, CAM_W, CAM_H, camPixels);
+  renderer.setRenderTarget(null);
+  for (let y = 0; y < CAM_H; y++)                  // pixel rows come back bottom-up: flip them
+    camImage.data.set(camPixels.subarray((CAM_H - 1 - y) * CAM_W * 4, (CAM_H - y) * CAM_W * 4), y * CAM_W * 4);
+  camCtx.putImageData(camImage, 0, 0);
+  solids.forEach((m, k) => { m.material.opacity = saved[k][0]; m.material.depthWrite = saved[k][1]; });
+  scene.background = bg; scene.fog = fog;
 }
 const UNDER_FOG = new THREE.FogExp2(0x0b5f8a, 0.22);
 const clamp01 =(v) => Math.max(0, Math.min(1, v));

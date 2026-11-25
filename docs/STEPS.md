@@ -115,3 +115,6 @@
   3 rings by default (`rings`/`--rings`), the claw holds one at a time. A coy fish (`rov_fish.py` + `web/fish.js`, `fish`/`--fish`) wanders, looks, bolts,
   and cannot be caught (early flee + rehearsed escapes + faster than the ROV + hard 55 cm exclusion with a dart fallback). `test_physics.py` has
   19 plain-Python checks and runs from install.sh. Floor limit now only counts regions open to the ROV (hardening against a shelf-depth "bounce").
+- ROV camera: a small camera on a short pipe under the top-front edge (housing + lens in the model, a capsule in rov_shape.py), looking forward and down
+  ~29 deg so the front of the claw is in view; its picture (320x240, ~15 fps) goes through the same water pipeline from its own position, with solid
+  walls, and is shown in a window under joy2. Page-only (not a ROS image topic). renderScene was generalised to renderView(camera, targets).

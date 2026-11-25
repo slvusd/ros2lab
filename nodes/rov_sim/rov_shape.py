@@ -106,6 +106,7 @@ def capsules(rov):
             add((s1 * H, s2 * H, -H), (s1 * H, s2 * H, H), PIPE_R, "frame")      # vertical
     for sgn in (-1, 1):
         add((-H, sgn * H, 0), (H, sgn * H, 0), PIPE_R, "frame")                  # the side rails
+    add((0.15, 0, H - 0.05), (0.21, 0, H - 0.05), 0.026, "frame")             # the camera housing, top front
     add((0, -H, -H), (0, H, -H), PIPE_R, "frame")                                # bottom crossbars
     add((-H, 0, -H), (H, 0, -H), PIPE_R, "frame")
 

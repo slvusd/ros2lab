@@ -128,7 +128,7 @@ data: 0.191
 ## The page
 
 Buttons (top right): **Orbit** (drag to rotate, scroll to zoom), **Follow** (chase camera), **Top**, **Buoyancy**, **Tool**, **Water FX**, **Reset**.
-Under them, the two joysticks. The left panel shows the thruster commands, claw, depth, heading, the IMU, and the joysticks, so you can check a
+Under them, the two joysticks, and under those the [**ROV camera**](#the-rov-camera). The left panel shows the thruster commands, claw, depth, heading, the IMU, and the joysticks, so you can check a
 channel is doing what your code thinks. Press **V** (or double-click the pool) to reset the camera; it re-fits itself if the window is resized
 (until you orbit by hand yourself). Orbit all the way round: walls, floor or deck that are between you and the pool fade to see-through, and under
 the water you look up at the rippling surface. `?view=follow`, `?cam=x,y,z`, `?target=x,y,z` in the URL set a view directly.
@@ -161,6 +161,16 @@ off to the left (+y) at the far end:
 - **Reshaping it.** The pool is a list of rectangles with floor depths, `POOL_REGIONS` at the top of `rov_physics.py`. The physics and the page both
   read that list, so editing it (adding a rectangle, changing a depth) reshapes everything: walls, steps, floors, deck, waves. The rectangles must
   touch along their edges to form one connected pool. A sloped shallow end (a ramp) isn't supported yet: floors are flat per rectangle.
+
+## The ROV camera
+
+A small camera sits on a short pipe under the **top front edge** of the frame, looking forward and tilted down about 29° so the front half of the claw is
+always at the bottom of the picture (jaws open and closing; or the tip of the nose). Its picture is in the small window **under joy2**: 320 × 240, about
+15 frames a second, drawn from the camera's own position, so it sees the water surface from underneath, refraction, bubbles, rings and the fish. It sees
+solid walls (the see-through "x-ray" walls are only for your own camera). It tilts with the ROV, for example under a hanging ring.
+
+The picture is drawn by the page, so it is **not a ROS topic** (no `sensor_msgs/Image`). Publishing a live image to ROS would be a further step, if you
+want students to run image-processing nodes on it. To move or re-aim the camera, change `rovCam` in `web/app.js` (and the housing capsule in `rov_shape.py`).
 
 ## The vehicle and its thrusters
 

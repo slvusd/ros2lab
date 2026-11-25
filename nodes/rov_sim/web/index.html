@@ -27,7 +27,10 @@
   .num { width: 38px; text-align: right; font-variant-numeric: tabular-nums; }
   #btns { top: 8px; right: 8px; display: flex; gap: 6px; }
   /* two on-screen joysticks side by side under the toolbar (top right): drag with the mouse, they spring back to centre */
-  #joys { position: fixed; top: 58px; right: 8px; display: flex; gap: 8px; }
+  #rightcol { position: fixed; top: 58px; right: 8px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  #joys { display: flex; gap: 8px; }
+  #cam { position: static; text-align: center; padding: 6px 8px 4px; }
+  #camview { display: block; width: 192px; height: 144px; border-radius: 4px; background: #000; }
   .joy { position: static; text-align: center; padding: 6px 8px 4px; }
   .joypad { position: relative; width: 92px; height: 92px; border-radius: 50%; cursor: grab; touch-action: none;
             border: 1px solid rgba(255,255,255,.4);
@@ -38,7 +41,7 @@
              background: radial-gradient(circle at 35% 30%, #ffe27a, #f2b705); box-shadow: 0 2px 5px #0006; }
   .joycap { font: 11px ui-monospace, Menlo, monospace; opacity: .85; margin-top: 3px; }
   @media (max-width: 640px) {
-    #joys { top: 8px; }             /* the toolbar moves left in a narrow window, so the pads can take the corner */
+    #rightcol { top: 8px; }         /* the toolbar moves left in a narrow window, so the pads can take the corner */
   }
   @media (max-width: 640px) {      /* narrow window (VS Code side panel): buttons go under the status box */
     #btns { top: 190px; right: auto; left: 8px; flex-wrap: wrap; max-width: 300px; }
@@ -72,6 +75,7 @@
     <div class="row"><span class="lbl">joy2</span><span id="joyval2">+0.00 +0.00</span></div>
   </div>
 </div>
+<div id="rightcol">
 <div id="joys">
   <div class="panel joy" title="joy1: drag with the mouse. Publishes sensor_msgs/Joy on /sim/joy1 (axes[0] left +, axes[1] up +)">
     <div class="joypad" data-n="1"><div class="joyknob"></div></div><div class="joycap" id="joycap1">joy1</div>
@@ -79,6 +83,10 @@
   <div class="panel joy" title="joy2: drag with the mouse. Publishes sensor_msgs/Joy on /sim/joy2 (axes[0] left +, axes[1] up +)">
     <div class="joypad" data-n="2"><div class="joyknob"></div></div><div class="joycap" id="joycap2">joy2</div>
   </div>
+</div>
+<div id="cam" class="panel" title="The ROV's own camera: top front, looking forward, with the front of the claw in view">
+  <canvas id="camview" width="320" height="240"></canvas><div class="joycap">ROV camera</div>
+</div>
 </div>
 <div id="btns" class="panel">
   <button data-view="orbit" class="on">Orbit</button>
