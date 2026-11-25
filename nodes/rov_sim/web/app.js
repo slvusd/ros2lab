@@ -625,6 +625,7 @@ let lastMsg = 0;
   const f = backend.features, hide = (sel) => document.querySelectorAll(sel).forEach((e) => { e.style.display = "none"; });
   if (!f.joys) { hide("#joys"); hide("#joyval1, #joyval2"); document.querySelectorAll("#joyval1, #joyval2").forEach((e) => { e.parentElement.style.display = "none"; }); }
   if (!f.imu) hide(".imu");
+  if (!f.claw) { const h = $("help-claw"); if (h) h.textContent = "X stop all"; const t = $("help-tool"); if (t) t.textContent = "B buoyancy   V reset view (or double-click)"; }
   if (!f.claw) { hide("#tool"); const c = $("claw"); if (c) c.parentElement.style.display = "none"; }
 }
 backend.connect(handleState);
@@ -723,10 +724,10 @@ window.addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.code === "KeyV" && !e.repeat) { resetView(); return; }
   if (e.code === "KeyB" && !e.repeat) { nextBuoyancy(); return; }
-  if (e.code === "KeyT" && !e.repeat) { setTool(tool === "claw" ? "nose" : "claw"); return; }
+  if (e.code === "KeyT" && !e.repeat) { if (backend.features.claw) setTool(tool === "claw" ? "nose" : "claw"); return; }
   if (!state.keys) return;
   if (GAME_KEYS.has(e.code)) { held.add(e.code); e.preventDefault(); }
-  else if (e.code === "KeyH" && !e.repeat) clawCmd = clawCmd > 0.5 ? 0 : 1;
+  else if (e.code === "KeyH" && !e.repeat) { if (backend.features.claw) clawCmd = clawCmd > 0.5 ? 0 : 1; }
   else if (e.code === "KeyX") held.clear();
   else return;
   sendCommand();
@@ -743,7 +744,7 @@ function setTool(t, send = true) {
   if (send) { toolAsked = performance.now(); backend.tool(t); }
 }
 $("tool").addEventListener("click", () => setTool(tool === "claw" ? "nose" : "claw"));
-setTool(tool, false);
+setTool(backend.features.claw ? tool : "nose", false);       // no claw in this backend: the fixed nose
 
 // ---------- buoyancy: floats -> neutral -> sinks (a pool setting, not a ROS topic) ----------
 function nextBuoyancy() {
@@ -888,7 +889,7 @@ function frame(now) {
 
   const ex = new THREE.Vector3(1, 0, 0), ey = new THREE.Vector3(0, 1, 0);
   const dClaw = (held.has("BracketRight") ? 1 : 0) - (held.has("BracketLeft") ? 1 : 0);   // [ ] nudge the servo
-  if (dClaw && state.keys) {
+  if (dClaw && state.keys && backend.features.claw) {
     clawCmd = clamp01(clawCmd + dClaw * 0.8 * dt);
     if (now - lastClawSend > 50) { lastClawSend = now; sendCommand(); }
   }

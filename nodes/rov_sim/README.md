@@ -22,6 +22,17 @@ Then in VS Code: **Cmd+Shift+P → "Simple Browser: Show" → `http://localhost:
 No ROS set up, or just want to play? `python3 nodes/rov_sim/keyboard_sim.py` is the same pool without ROS (see [Nodes](#nodes)).
 Check an install: `source mac/env.sh && ./nodes/rov_sim/install.sh` (prints a PASS line per check).
 
+## Browser-only version (no Python, no ROS: Chromebooks)
+
+`web/` is a complete page. Serve that folder from any static web host (GitHub Pages, `python3 -m http.server` inside `web/`)
+and open it: when no sim server answers, the page runs its own copy of the physics (`web/sim/physics.js`) and you drive with the
+keyboard. `?mode=local` forces this, `?mode=server` forces the Python server. In this version the tool is the fixed nose,
+and the claw, rings, fish, IMU readout and joysticks are not there yet (see the plan in the repo history).
+
+Python is the reference: `physics.js` is a line-by-line port of `rov_physics.py`. After changing `rov_physics.py`,
+run `python3 tools/export_golden.py` (rewrites `web/sim/tests/golden/physics.json`), port the change to `physics.js`,
+then `node --test web/sim/tests/`. `python3 tools/export_golden.py --check` fails if the committed golden file is stale.
+
 ## Nodes
 
 | Program | ROS node | What it is |
