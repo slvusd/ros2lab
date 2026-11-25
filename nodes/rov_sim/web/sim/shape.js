@@ -85,6 +85,11 @@ export function capsules(rov) {
     add([gx - dx * 0.065, gy - dy * 0.065, 0], [gx + dx * 0.065, gy + dy * 0.065, 0], 0.036, "thruster");
     add([gx - dx * 0.075, gy - dy * 0.075, 0], [gx - dx * 0.06, gy - dy * 0.06, 0], 0.053, "thruster");
   }
+  for (const th of layout.filter((t) => t.kind === "c")) {                      // a tilted corner thruster: a body and a rear shroud along its direction
+    const { gx, gy, gz, dx, dy, dz } = th;
+    add([gx - dx * 0.065, gy - dy * 0.065, gz - dz * 0.065], [gx + dx * 0.065, gy + dy * 0.065, gz + dz * 0.065], 0.036, "thruster");
+    add([gx - dx * 0.075, gy - dy * 0.075, gz - dz * 0.075], [gx - dx * 0.06, gy - dy * 0.06, gz - dz * 0.06], 0.053, "thruster");
+  }
   for (const th of layout.filter((t) => t.kind === "v")) {
     const { gx, gy } = th;
     add([gx, gy, -0.215], [gx, gy, -0.085], 0.036, "thruster");

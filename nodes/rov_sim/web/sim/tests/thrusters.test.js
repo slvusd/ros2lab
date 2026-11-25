@@ -16,14 +16,15 @@ function drive(n, cmds, secs = 2.0, depth = 1.0, opts = {}) {
 const near = (a, b, tol = 1e-9) => Math.abs(a - b) <= tol;
 
 test("each layout has the right thrusters", () => {
-  const counts = { 3: [2, 1], 4: [2, 2], 6: [4, 2], 8: [4, 4] };
-  for (const [n, [nh, nv]] of Object.entries(counts)) {
+  const counts = { 3: [2, 1, 0], 4: [2, 2, 0], 6: [4, 2, 0], 8: [0, 0, 8] };      // [horizontal, vertical, tilted corner]
+  for (const [n, [nh, nv, nc]] of Object.entries(counts)) {
     const lay = THRUSTER_LAYOUTS[n];
     assert.deepEqual(lay.map((t) => t.name), Array.from({ length: Number(n) }, (_, i) => `t${i + 1}`));
-    assert.equal(lay.filter((t) => t.kind === "h").length, nh); assert.equal(lay.filter((t) => t.kind === "v").length, nv);
+    assert.equal(lay.filter((t) => t.kind === "h").length, nh); assert.equal(lay.filter((t) => t.kind === "v").length, nv); assert.equal(lay.filter((t) => t.kind === "c").length, nc);
     for (const t of lay) {
-      for (const k of ["name", "kind", "x", "y", "gx", "gy", "dx", "dy", "label", "color"]) assert.ok(k in t, `${n}: ${t.name} has no ${k}`);
+      for (const k of ["name", "kind", "x", "y", "z", "gx", "gy", "gz", "dx", "dy", "dz", "label", "color"]) assert.ok(k in t, `${n}: ${t.name} has no ${k}`);
       if (t.kind === "h") assert.ok(near(Math.hypot(t.dx, t.dy), 1.0, 1e-12), "a horizontal thruster points along a unit vector");
+      if (t.kind === "c") assert.ok(near(Math.hypot(t.dx, t.dy, t.dz), 1.0, 1e-12), "a corner thruster points along a unit vector");
     }
   }
   const four = Object.fromEntries(THRUSTER_LAYOUTS[4].map((t) => [t.name, t]));
@@ -32,7 +33,7 @@ test("each layout has the right thrusters", () => {
 });
 
 test("six and eight put the horizontal thrusters on the four posts, angled 45 degrees; the vertical ones are where asked", () => {
-  for (const n of [6, 8]) {
+  for (const n of [6]) {
     const h = THRUSTER_LAYOUTS[n].filter((t) => t.kind === "h");
     assert.deepEqual(h.map((t) => [t.x, t.y]).sort().map((p) => p.map((v) => +v.toFixed(3))), [[-0.25, -0.25], [-0.25, 0.25], [0.25, -0.25], [0.25, 0.25]]);
     assert.ok(h.every((t) => near(Math.abs(t.dx), Math.SQRT1_2, 1e-12) && near(Math.abs(t.dy), Math.SQRT1_2, 1e-12)));
@@ -40,7 +41,14 @@ test("six and eight put the horizontal thrusters on the four posts, angled 45 de
     assert.ok(h.filter((t) => t.y > 0).every((t) => t.color === "red") && h.filter((t) => t.y < 0).every((t) => t.color === "green"));
   }
   assert.deepEqual(THRUSTER_LAYOUTS[6].filter((t) => t.kind === "v").map((t) => [t.x, t.y]), [[VERT_ARM, 0], [-VERT_ARM, 0]], "two vertical thrusters where t3 and t4 are in the 4 layout");
-  assert.deepEqual(THRUSTER_LAYOUTS[8].filter((t) => t.kind === "v").map((t) => [t.x, t.y]).sort(), [[-0.2, -0.2], [-0.2, 0.2], [0.2, -0.2], [0.2, 0.2]], "four vertical thrusters on the corners");
+  const keys = THRUSTER_LAYOUTS[8].map((t) => [t.x, t.y, t.z].join()).sort();
+  const want = []; for (const x of [-0.25, 0.25]) for (const y of [-0.25, 0.25]) for (const z of [-0.25, 0.25]) want.push([x, y, z].join());
+  assert.deepEqual(keys, want.sort(), "one thruster at each of the 8 corners");
+  for (const t of THRUSTER_LAYOUTS[8]) {
+    assert.ok(near(Math.abs(t.dx), 0.5, 1e-12) && near(Math.abs(t.dy), 0.5, 1e-12) && near(Math.abs(t.dz), Math.SQRT1_2, 1e-12), "tilted 45 degrees from the horizontal diagonal");
+    assert.ok(t.dz * t.z > 0 && t.gx * t.x > 0, "top corners lean up, bottom ones down; just outside the corner");
+    assert.equal(t.color, t.y > 0 ? "red" : "green");
+  }
   const v3 = THRUSTER_LAYOUTS[3].filter((t) => t.kind === "v");
   assert.equal(v3.length, 1); assert.deepEqual([v3[0].x, v3[0].y], [0, 0]);
 });
@@ -76,11 +84,26 @@ test("six thrusters: forward, a pure turn and a sideways slide come from the vec
   assert.ok(Math.abs(pivot.y) < 1e-6 && Math.abs(pivot.x + 2) < 1e-6 && pivot.yaw < -0.5, "the 4 layout can only pivot, never slide");
 });
 
-test("eight has the same horizontal control as six", () => {
-  for (const cmds of [{ t1: 1, t2: 1, t3: 1, t4: 1 }, { t1: 1, t3: 1, t2: -1, t4: -1 }, { t1: 1, t4: 1, t2: -1, t3: -1 }]) {
-    const a = drive(6, cmds), b = drive(8, cmds);
-    assert.ok(near(a.x, b.x) && near(a.y, b.y) && near(a.yaw, b.yaw), JSON.stringify(cmds));
-  }
+const CORNER_SIGNS = [[1, 1, 1], [1, -1, 1], [-1, 1, 1], [-1, -1, 1], [1, 1, -1], [1, -1, -1], [-1, 1, -1], [-1, -1, -1]];
+const UP_A = 2 - Math.SQRT2, UP_B = Math.SQRT2 - 1;      // "up" with a little nose trim mixed in: no pitch, no thruster above 1
+const mix8 = ({ f = 0, strafe = 0, turn = 0, up = 0, trim = 0, roll = 0 } = {}) => Object.fromEntries(CORNER_SIGNS.map(([sx, sy, sz], i) =>
+  ["t" + (i + 1), f + strafe * sx * sy + turn * sy + up * (UP_A * sz + UP_B * sx * sz) + trim * sx * sz + roll * sy * sz]));
+
+test("eight corners: each of the six movements moves only that way", () => {
+  const base = (secs) => drive(8, {}, secs, 2.0);
+  const f = drive(8, mix8({ f: 0.5 }), 2.0, 2.0);
+  assert.ok(f.x > -2 + 0.3 && Math.abs(f.y) < 1e-9 && Math.abs(f.yaw) < 1e-9 && Math.abs(f.pitch) < 1e-9 && Math.abs(f.roll) < 1e-9 && near(f.depth, base(2.0).depth), "forward");
+  const s = drive(8, mix8({ strafe: 0.5 }), 2.0, 2.0);
+  assert.ok(s.y < -0.3 && Math.abs(s.x + 2) < 1e-9 && Math.abs(s.yaw) < 1e-9 && Math.abs(s.pitch) < 1e-9 && Math.abs(s.roll) < 1e-9, "slide right");
+  const t = drive(8, mix8({ turn: 0.5 }), 2.0, 2.0);
+  assert.ok(t.yaw < -0.2 && Math.abs(t.x + 2) < 1e-9 && Math.abs(t.y) < 1e-9 && Math.abs(t.pitch) < 1e-9 && Math.abs(t.roll) < 1e-9, "turn right");
+  const u = drive(8, mix8({ up: 0.5 }), 1.0, 2.0);
+  assert.ok(u.depth < base(1.0).depth - 0.2 && Math.abs(u.x + 2) < 1e-9 && Math.abs(u.pitch) < 1e-9 && Math.abs(u.roll) < 1e-9 && Math.abs(u.yaw) < 1e-9, "up");
+  const n = drive(8, mix8({ trim: 0.5 }), 1.0, 2.0);
+  assert.ok(n.pitch < -0.05 && Math.abs(n.roll) < 1e-9 && Math.abs(n.yaw) < 1e-9, `nose up (${deg(n.pitch)} deg)`);
+  assert.ok(Math.abs(n.x + 2) < 1e-3 && Math.abs(n.depth - base(1.0).depth) < 1e-2, "the trim alone does not push the ROV about");
+  const r = drive(8, mix8({ roll: 0.5 }), 1.0, 2.0);
+  assert.ok(r.roll > 0.05 && Math.abs(r.pitch) < 1e-9 && Math.abs(r.yaw) < 1e-9, `right side down (${deg(r.roll)} deg)`);
 });
 
 test("three thrusters: one vertical is half the vertical push and cannot pitch", () => {
@@ -91,34 +114,21 @@ test("three thrusters: one vertical is half the vertical push and cannot pitch",
   assert.ok(near(drive(3, { t1: 1, t2: 1 }).x, drive(4, { t1: 1, t2: 1 }).x), "the side thrusters are the same as in the 4 layout");
 });
 
-test("eight: four corner vertical thrusters lift more, and pitch and roll the ROV", () => {
-  const up8 = drive(8, { t5: 1, t6: 1, t7: 1, t8: 1 }, 1.0), up4 = drive(4, { t3: 1, t4: 1 }, 1.0);
-  assert.ok(1.0 - up8.depth > 1.3 * (1.0 - up4.depth));
-  assert.ok(Math.abs(up8.pitch) < 1e-12 && Math.abs(up8.roll) < 1e-12, "a level push does not tilt");
-  const roll = drive(8, { t5: 1, t7: 1, t6: -1, t8: -1 }, 1.0);
-  assert.ok(roll.roll > 0.1 && Math.abs(roll.pitch) < 1e-9, `left side up: roll positive (${deg(roll.roll)} deg)`);
-  const rev = drive(8, { t6: 1, t8: 1, t5: -1, t7: -1 }, 1.0);
-  assert.ok(rev.roll < -0.1 && near(rev.roll, -roll.roll));
-  const nose = drive(8, { t5: 1, t6: 1, t7: -1, t8: -1 }, 1.0);
-  assert.ok(nose.pitch < -0.1 && Math.abs(nose.roll) < 1e-9, `front up, rear down: nose UP (${deg(nose.pitch)} deg)`);
-  assert.ok(Math.abs(drive(6, { t5: 1, t6: -1 }, 1.0).roll) < 1e-12, "the 6 layout cannot roll the ROV");
-});
-
 test("a corner propeller out of the water loses its push", () => {
-  const levels = [];
-  for (const depth of [1.0, -0.15]) {
+  const pushes = [];
+  for (const depth of [1.0, 0.05]) {
     const r = new Rov({ buoyancy: 0.0, tool: "nose", thrusters: 8 });
-    r.depth = depth; r.roll = 0.1;
-    for (const k of ["t5", "t6", "t7", "t8"]) r.set_cmd(k, 1.0);
+    r.depth = depth;
+    for (const [k, v] of Object.entries(mix8({ f: 1.0 }))) r.set_cmd(k, v);
     r.step(DT);
-    levels.push(r.roll_rate);
+    pushes.push(r.u);
   }
-  assert.ok(levels[1] < levels[0] - 0.001, `near the surface the raised side pushes less: ${levels}`);
+  assert.ok(pushes[1] < pushes[0] - 1e-4, `near the surface the top thrusters are partly out of the water: ${pushes}`);
 });
 
 test("the collision shape follows the layout", () => {
   const count = (n) => capsules(new Rov({ thrusters: n })).filter((c) => c[3] === "thruster").length;
-  assert.deepEqual([3, 4, 6, 8].map(count), [4 + 3, 4 + 6, 8 + 6, 8 + 12]);
+  assert.deepEqual([3, 4, 6, 8].map(count), [4 + 3, 4 + 6, 8 + 6, 16]);
   const r6 = new Rov({ thrusters: 6 });
   const th = capsules(r6).filter((c) => c[3] === "thruster");
   const xs = th.flatMap((c) => [c[0][0] - r6.x, c[1][0] - r6.x]), ys = th.flatMap((c) => [c[0][1] - r6.y, c[1][1] - r6.y]);

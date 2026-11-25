@@ -11,7 +11,7 @@
 //   crabs        0 .. 5               green crabs crawling on the floor of the shallow end (default 1; the 2026 task has two)
 //   current      on | off             two water outlets in the shallow end's side wall make a current across the pool (default off)
 //   flow         bubbles | streaks | rings | mix   how the running water is drawn (default mix: rings and a few bubbles; J cycles)
-//   thrusters    3 | 4 | 6 | 8         how many thrusters: 3 (one up/down), 4 (the original), 6 (four on the posts + two up/down), 8 (four on the posts + four up/down) (default 4)
+//   thrusters    3 | 4 | 6 | 8         how many thrusters: 3 (one up/down), 4 (the original), 6 (four on the posts + two up/down), 8 (one tilted thruster at each of the 8 corners) (default 4)
 //   camera       on | off             the ROV has a camera: its housing on the model, the camera window, and the fish coming to look at it (default on)
 // When `controls` is given, it is LOCKED: the H key and the badge no longer switch modes (the link decides, not the student).
 export const DEFAULTS = { controls: "all", fish: true, rings: 3, poollength: 1, poolwidth: 1, camera: true, speed: 1, crabs: 1, current: false, flow: "mix", thrusters: 4 };

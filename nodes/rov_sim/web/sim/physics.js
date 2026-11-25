@@ -29,6 +29,7 @@ export const START = { x: -1.5, y: 0.0, depth: 0.8, yaw: 0.0 };
 // The red (t1) and green (t2) thrusters give this fraction of max_thrust at a command of 1.0: the normal ("1x") speed. The `speed` setting
 // (0.25 .. 4, the page's ?speed=) multiplies it. It was 1.0 before; halved so the ROV is easier to drive. (Same constant as rov_physics.py.)
 export const SIDE_THRUST = 0.5;
+export const CORNER_SHARE = 0.75;     // a tilted corner thruster (8 layout) gives this fraction of what a horizontal one gives
 export const TURN_ARM = 0.22;
 const INERTIA = 1.2;
 const LIN_DRAG = 6.0, QUAD_DRAG = 10.0, YAW_LIN = 1.6, YAW_QUAD = 1.0, HEAVE_MASS_BOOST = 1.5;
@@ -60,10 +61,16 @@ export const T_LEFT = "t1", T_RIGHT = "t2", T_FRONT = "t3", T_REAR = "t4";
 //   label  a short name for the page; color "red" (left) / "green" (right) / "white"
 // 3: t1 left, t2 right (on the sides), t3 one vertical in the middle.   4: t1 left, t2 right, t3 front vertical, t4 rear vertical (the original).
 // 6: t1-t4 horizontal on the four vertical posts, angled 45 degrees in an "X" (so it can also slide sideways), t5 front vertical, t6 rear vertical.
-// 8: t1-t4 as in 6, t5-t8 vertical on the four corners (also controls roll). Every thruster is the same size.
+// 8: one thruster just outside EACH of the cube's 8 corners, tilted 45 degrees: t1-t4 on the top corners, t5-t8 on the bottom ones (front left, front right,
+//    rear left, rear right). Seen from above each points along the same "X" diagonal as the 6 layout's posts, and it leans up (top) or down (bottom) by 45 degrees
+//    (so 45 / 135 degrees to the PVC). Kind "c": it also has a z lever arm and dz. Eight directions give all six movements.
 const _C = Math.sqrt(0.5);
-const _h = (name, x, y, gx, gy, dx, dy, label, color) => ({ name, kind: "h", x, y, gx, gy, dx, dy, label, color });
-const _v = (name, x, y, gx, gy, label) => ({ name, kind: "v", x, y, gx, gy, dx: 0.0, dy: 0.0, label, color: "white" });
+const _h = (name, x, y, gx, gy, dx, dy, label, color) => ({ name, kind: "h", x, y, z: 0.0, gx, gy, gz: 0.0, dx, dy, dz: 0.0, label, color });
+const _v = (name, x, y, gx, gy, label) => ({ name, kind: "v", x, y, z: 0.0, gx, gy, gz: 0.0, dx: 0.0, dy: 0.0, dz: 0.0, label, color: "white" });
+/** A thruster at the corner (sx, sy, sz = +-1: ahead/behind, left/right, top/bottom), 45 degrees up or down from the 6-layout's horizontal diagonal. */
+const _c = (name, sx, sy, sz, label) => ({ name, kind: "c", x: 0.25 * sx, y: 0.25 * sy, z: 0.25 * sz, gx: 0.30 * sx, gy: 0.30 * sy, gz: 0.30 * sz,
+  dx: 0.5, dy: -0.5 * sx * sy, dz: sz * _C, label, color: sy > 0 ? "red" : "green" });
+const _CORNERS = [[1, 1, "front left"], [1, -1, "front right"], [-1, 1, "rear left"], [-1, -1, "rear right"]];
 const _SIDES = [_h("t1", 0.0, TURN_ARM, 0.0, 0.32, 1.0, 0.0, "left", "red"), _h("t2", 0.0, -TURN_ARM, 0.0, -0.32, 1.0, 0.0, "right", "green")];
 const _POSTS = [_h("t1", 0.25, 0.25, 0.30, 0.30, _C, -_C, "front left", "red"), _h("t2", 0.25, -0.25, 0.30, -0.30, _C, _C, "front right", "green"),
   _h("t3", -0.25, 0.25, -0.30, 0.30, _C, _C, "rear left", "red"), _h("t4", -0.25, -0.25, -0.30, -0.30, _C, -_C, "rear right", "green")];
@@ -71,8 +78,8 @@ export const THRUSTER_LAYOUTS = {
   3: [..._SIDES, _v("t3", 0.0, 0.0, 0.0, 0.0, "vertical")],
   4: [..._SIDES, _v("t3", VERT_ARM, 0.0, 0.17, 0.0, "front"), _v("t4", -VERT_ARM, 0.0, -0.17, 0.0, "rear")],
   6: [..._POSTS, _v("t5", VERT_ARM, 0.0, 0.17, 0.0, "front vertical"), _v("t6", -VERT_ARM, 0.0, -0.17, 0.0, "rear vertical")],
-  8: [..._POSTS, _v("t5", 0.2, 0.2, 0.17, 0.17, "front left vertical"), _v("t6", 0.2, -0.2, 0.17, -0.17, "front right vertical"),
-    _v("t7", -0.2, 0.2, -0.17, 0.17, "rear left vertical"), _v("t8", -0.2, -0.2, -0.17, -0.17, "rear right vertical")],
+  8: [..._CORNERS.map(([sx, sy, lab], i) => _c("t" + (i + 1), sx, sy, 1, lab + " top")),
+    ..._CORNERS.map(([sx, sy, lab], i) => _c("t" + (i + 5), sx, sy, -1, lab + " bottom"))],
 };
 /** The thruster layout for n thrusters (3, 4, 6 or 8); anything else gives the original 4. */
 export const layoutFor = (n) => THRUSTER_LAYOUTS[Math.trunc(Number(n))] ?? THRUSTER_LAYOUTS[4];
@@ -173,6 +180,16 @@ export class Rov {
         const f = this.cmd[th.name] * side;
         fx += f * th.dx; fy += f * th.dy;
         yawT += th.x * f * th.dy - th.y * f * th.dx;
+      } else if (th.kind === "c") {
+        // a corner thruster tilted 45 degrees: its force has all three parts, at 3/4 of a horizontal one (CORNER_SHARE); a propeller only pushes water
+        // while it is under the surface (its height allows for pitch and roll too)
+        let f = this.cmd[th.name] * side * CORNER_SHARE;
+        f *= clamp(0.5 - (-this.depth + th.z * Math.cos(this.pitch) - th.x * sp_ + th.y * sr_) / 0.08, 0.0, 1.0);
+        const tx = f * th.dx, ty = f * th.dy, tz = f * th.dz;
+        fx += tx; fy += ty; fv += tz;
+        yawT += th.x * ty - th.y * tx;
+        pitchT += th.z * tx - th.x * tz;                       // forward above the middle tips the nose down; up ahead lifts it
+        rollT += th.y * tz - th.z * ty;                        // up on the left lifts the left side; left at the top leans the top left
       } else {
         // each vertical thruster is half of max_thrust; a propeller only pushes water while it is under the surface (heights allow for pitch and roll)
         let f = this.cmd[th.name] * mt / 2;

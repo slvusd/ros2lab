@@ -476,6 +476,11 @@ function buildThrusters(layout) {
       node.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis);   // local +Y -> its thrust direction
       node.position.set(t.gx, 0, -t.gy);
       if (Math.abs(t.gx) > 0.2) bar([Math.sign(t.gx) * H, 0, -Math.sign(t.gy) * H], [t.gx, 0, -t.gy], 0.012, thrusterGroup);   // a short strut from the corner post
+    } else if (t.kind === "c") {                         // a corner thruster tilted 45 degrees: sim (x ahead, y left, z up) -> three (x, z, -y)
+      axis = new THREE.Vector3(t.dx, t.dz, -t.dy);
+      node.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), axis);
+      node.position.set(t.gx, t.gz, -t.gy);
+      bar([Math.sign(t.gx) * H, Math.sign(t.gz) * H, -Math.sign(t.gy) * H], [t.gx, t.gz, -t.gy], 0.012, thrusterGroup);   // a short strut from the corner joint
     } else {
       axis = new THREE.Vector3(0, 1, 0);
       node.position.set(t.gx, -H + 0.1, -t.gy);          // low on the frame (THRUSTER_UP / VERT_ARM in rov_physics.py)

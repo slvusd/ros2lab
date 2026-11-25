@@ -32,22 +32,24 @@ def drive(n, cmds, secs=2.0, depth=1.0, **kw):
 
 
 def test_layouts_have_the_right_thrusters():
-    counts = {3: (2, 1), 4: (2, 2), 6: (4, 2), 8: (4, 4)}                # (horizontal, vertical)
-    for n, (nh, nv) in counts.items():
+    counts = {3: (2, 1, 0), 4: (2, 2, 0), 6: (4, 2, 0), 8: (0, 0, 8)}             # (horizontal, vertical, tilted corner)
+    for n, (nh, nv, nc) in counts.items():
         lay = THRUSTER_LAYOUTS[n]
         assert [t["name"] for t in lay] == [f"t{i}" for i in range(1, n + 1)], n
-        assert sum(t["kind"] == "h" for t in lay) == nh and sum(t["kind"] == "v" for t in lay) == nv, f"{n}: {nh} horizontal and {nv} vertical"
+        assert (sum(t["kind"] == "h" for t in lay), sum(t["kind"] == "v" for t in lay), sum(t["kind"] == "c" for t in lay)) == (nh, nv, nc), f"{n}: {nh} horizontal, {nv} vertical, {nc} corner"
         for t in lay:
-            assert {"name", "kind", "x", "y", "gx", "gy", "dx", "dy", "label", "color"} <= set(t)
+            assert {"name", "kind", "x", "y", "z", "gx", "gy", "gz", "dx", "dy", "dz", "label", "color"} <= set(t)
             if t["kind"] == "h":
                 assert abs(math.hypot(t["dx"], t["dy"]) - 1.0) < 1e-12, "a horizontal thruster points along a unit vector"
+            if t["kind"] == "c":
+                assert abs(math.sqrt(t["dx"] ** 2 + t["dy"] ** 2 + t["dz"] ** 2) - 1.0) < 1e-12, "a corner thruster points along a unit vector"
     four = {t["name"]: t for t in THRUSTER_LAYOUTS[4]}
     assert (four["t1"]["y"], four["t2"]["y"]) == (P.TURN_ARM, -P.TURN_ARM) and (four["t3"]["x"], four["t4"]["x"]) == (P.VERT_ARM, -P.VERT_ARM), "the original layout is unchanged"
     assert P.layout_for(5) is THRUSTER_LAYOUTS[4] and P.layout_for(7) is THRUSTER_LAYOUTS[4], "any other number gives the original four"
 
 
 def test_six_and_eight_put_the_horizontal_thrusters_on_the_four_posts_and_the_vertical_ones_where_asked():
-    for n in (6, 8):
+    for n in (6,):
         h = [t for t in THRUSTER_LAYOUTS[n] if t["kind"] == "h"]
         assert sorted((round(t["x"], 3), round(t["y"], 3)) for t in h) == [(-0.25, -0.25), (-0.25, 0.25), (0.25, -0.25), (0.25, 0.25)], "on the four vertical posts"
         assert all(abs(abs(t["dx"]) - math.sqrt(0.5)) < 1e-12 and abs(abs(t["dy"]) - math.sqrt(0.5)) < 1e-12 for t in h), "angled 45 degrees"
@@ -55,8 +57,13 @@ def test_six_and_eight_put_the_horizontal_thrusters_on_the_four_posts_and_the_ve
         assert all(t["color"] == "green" for t in h if t["y"] < 0)
     v6 = [t for t in THRUSTER_LAYOUTS[6] if t["kind"] == "v"]
     assert [(t["x"], t["y"]) for t in v6] == [(P.VERT_ARM, 0.0), (-P.VERT_ARM, 0.0)], "two vertical thrusters on the centre line, where t3 and t4 are in the 4 layout"
-    v8 = [t for t in THRUSTER_LAYOUTS[8] if t["kind"] == "v"]
-    assert sorted((t["x"], t["y"]) for t in v8) == [(-0.2, -0.2), (-0.2, 0.2), (0.2, -0.2), (0.2, 0.2)], "four vertical thrusters on the corners"
+    c8 = THRUSTER_LAYOUTS[8]
+    assert sorted((round(t["x"], 3), round(t["y"], 3), round(t["z"], 3)) for t in c8) == sorted((x, y, z) for x in (-0.25, 0.25) for y in (-0.25, 0.25) for z in (-0.25, 0.25)), "one thruster at each of the 8 corners"
+    for t in c8:
+        assert abs(abs(t["dx"]) - 0.5) < 1e-12 and abs(abs(t["dy"]) - 0.5) < 1e-12 and abs(abs(t["dz"]) - math.sqrt(0.5)) < 1e-12, "tilted 45 degrees from the horizontal diagonal"
+        assert t["dz"] * t["z"] > 0, "top corners lean up, bottom ones down"
+        assert abs(math.hypot(t["gx"], t["gy"], t["gz"]) - math.hypot(0.30, 0.30, 0.30)) < 1e-9 and t["gx"] * t["x"] > 0, "just outside the corner"
+        assert t["color"] == ("red" if t["y"] > 0 else "green")
     v3 = [t for t in THRUSTER_LAYOUTS[3] if t["kind"] == "v"]
     assert len(v3) == 1 and (v3[0]["x"], v3[0]["y"]) == (0.0, 0.0), "the 3 layout has one up/down thruster in the middle"
 
@@ -93,10 +100,33 @@ def test_six_thrusters_forward_turn_and_strafe_come_from_the_vectored_posts():
     assert abs(pivot.y) < 1e-6 and abs(pivot.x + 2.0) < 1e-6 and pivot.yaw < -0.5
 
 
-def test_eight_has_the_same_horizontal_control_as_six():
-    for cmds in (dict(t1=1, t2=1, t3=1, t4=1), dict(t1=1, t3=1, t2=-1, t4=-1), dict(t1=1, t4=1, t2=-1, t3=-1)):
-        a, b = drive(6, cmds), drive(8, cmds)
-        assert abs(a.x - b.x) < 1e-9 and abs(a.y - b.y) < 1e-9 and abs(a.yaw - b.yaw) < 1e-9, cmds
+# the mixing for 8 corner thrusters, by (sx, sy, sz) of each: t1-t4 top FL FR RL RR, t5-t8 bottom
+CORNER_SIGNS = [(1, 1, 1), (1, -1, 1), (-1, 1, 1), (-1, -1, 1), (1, 1, -1), (1, -1, -1), (-1, 1, -1), (-1, -1, -1)]
+
+
+# "up" needs a little nose trim mixed in: the top thrusters lean up and the bottom ones down, so a push on the top (forward) and on the bottom (back) tips the nose by itself
+UP_A, UP_B = 2 - math.sqrt(2), math.sqrt(2) - 1                          # 0.586 and 0.414: no pitch, and no thruster above 1
+
+
+def mix8(f=0, strafe=0, turn=0, up=0, trim=0, roll=0):
+    """Commands for the 8 corner thrusters: forward, slide right, turn right, up, nose up, right side down (the same mixing as web/controls.js)."""
+    return {f"t{i + 1}": f + strafe * sx * sy + turn * sy + up * (UP_A * sz + UP_B * sx * sz) + trim * sx * sz + roll * sy * sz for i, (sx, sy, sz) in enumerate(CORNER_SIGNS)}
+
+
+def test_eight_corners_each_of_the_six_movements_moves_only_that_way():
+    f = drive(8, mix8(f=0.5), 2.0, depth=2.0)
+    assert f.x > -2.0 + 0.3 and abs(f.y) < 1e-9 and abs(f.yaw) < 1e-9 and abs(f.pitch) < 1e-9 and abs(f.roll) < 1e-9 and abs(f.depth - drive(8, {}, 2.0, depth=2.0).depth) < 1e-9, "forward: straight ahead, level, same depth"
+    s = drive(8, mix8(strafe=0.5), 2.0, depth=2.0)
+    assert s.y < -0.3 and abs(s.x + 2.0) < 1e-9 and abs(s.yaw) < 1e-9 and abs(s.pitch) < 1e-9 and abs(s.roll) < 1e-9, "slide right: sideways only (y is LEFT)"
+    t = drive(8, mix8(turn=0.5), 2.0, depth=2.0)
+    assert t.yaw < -0.2 and abs(t.x + 2.0) < 1e-9 and abs(t.y) < 1e-9 and abs(t.pitch) < 1e-9 and abs(t.roll) < 1e-9, "turn right: yaw goes negative, no drift"
+    u = drive(8, mix8(up=0.5), 1.0, depth=2.0)
+    assert u.depth < drive(8, {}, 1.0, depth=2.0).depth - 0.2 and abs(u.x + 2.0) < 1e-9 and abs(u.y) < 1e-9 and abs(u.pitch) < 1e-9 and abs(u.roll) < 1e-9 and abs(u.yaw) < 1e-9, "up: straight up, level"
+    n = drive(8, mix8(trim=0.5), 1.0, depth=2.0)
+    assert n.pitch < -0.05 and abs(n.roll) < 1e-9 and abs(n.yaw) < 1e-9, f"nose up: pitch goes negative ({math.degrees(n.pitch):.1f} deg)"
+    assert abs(n.x + 2.0) < 1e-3 and abs(n.depth - drive(8, {}, 1.0, depth=2.0).depth) < 1e-2, "and the trim alone does not push the ROV about"
+    r = drive(8, mix8(roll=0.5), 1.0, depth=2.0)
+    assert r.roll > 0.05 and abs(r.pitch) < 1e-9 and abs(r.yaw) < 1e-9, f"right side down: roll goes positive ({math.degrees(r.roll):.1f} deg)"
 
 
 def test_three_thrusters_one_vertical_is_half_of_the_vertical_push_and_cannot_pitch():
@@ -111,31 +141,17 @@ def test_three_thrusters_one_vertical_is_half_of_the_vertical_push_and_cannot_pi
     assert abs(fwd.x - ref.x) < 1e-9, "the side thrusters are the same as in the 4 layout"
 
 
-def test_eight_corner_vertical_thrusters_lift_hold_pitch_and_roll():
-    up8, up4 = drive(8, dict(t5=1, t6=1, t7=1, t8=1), 1.0), drive(4, dict(t3=1, t4=1), 1.0)
-    assert (1.0 - up8.depth) > 1.3 * (1.0 - up4.depth), "four vertical thrusters lift more than two"
-    assert abs(up8.pitch) < 1e-12 and abs(up8.roll) < 1e-12, "level push: no tilt"
-    roll = drive(8, dict(t5=1, t7=1, t6=-1, t8=-1), 1.0)
-    assert roll.roll > 0.1 and abs(roll.pitch) < 1e-9, f"left side up: roll positive, the right side goes DOWN ({math.degrees(roll.roll):.1f} deg)"
-    rev = drive(8, dict(t6=1, t8=1, t5=-1, t7=-1), 1.0)
-    assert rev.roll < -0.1 and abs(rev.roll + roll.roll) < 1e-9, "and the mirror image rolls the other way"
-    nose = drive(8, dict(t5=1, t6=1, t7=-1, t8=-1), 1.0)
-    assert nose.pitch < -0.1 and abs(nose.roll) < 1e-9, f"front up, rear down: nose UP (pitch negative, {math.degrees(nose.pitch):.1f} deg)"
-    six = drive(6, dict(t5=1, t6=-1), 1.0)
-    assert abs(six.roll) < 1e-12, "the 6 layout has no way to roll the ROV"
-
-
 def test_a_corner_propeller_that_is_out_of_the_water_loses_its_push():
-    """A ROV near the surface and heeled over: the raised side's propellers come out of the water first, so the push is lopsided."""
-    levels = []
-    for depth in (1.0, -0.15):
+    """The top corner thrusters come out of the water first near the surface, so the same command pushes less."""
+    pushes = []
+    for depth in (1.0, 0.05):
         r = Rov(buoyancy=0.0, tool="nose", thrusters=8)
-        r.depth, r.roll = depth, 0.1
-        for k in ("t5", "t6", "t7", "t8"):
-            r.set_cmd(k, 1.0)
+        r.depth = depth
+        for k, v in mix8(f=1.0).items():
+            r.set_cmd(k, v)
         r.step(DT)
-        levels.append(r.roll_rate)
-    assert levels[1] < levels[0] - 0.001, f"near the surface the raised (left) side pushes less: roll rate {levels}"
+        pushes.append(r.u)
+    assert pushes[1] < pushes[0] - 1e-4, f"near the surface the top thrusters (centre 0.25 m up) are partly out of the water: {pushes}"
 
 
 def test_the_collision_shape_follows_the_layout():
@@ -144,7 +160,7 @@ def test_the_collision_shape_follows_the_layout():
         r = Rov(thrusters=n)
         caps = rov_shape.capsules(r)
         counts[n] = sum(c[3] == "thruster" for c in caps)
-    assert counts == {3: 4 + 3, 4: 4 + 6, 6: 8 + 6, 8: 8 + 12}, counts
+    assert counts == {3: 4 + 3, 4: 4 + 6, 6: 8 + 6, 8: 16}, counts
     r6 = Rov(thrusters=6)
     th = [c for c in rov_shape.capsules(r6) if c[3] == "thruster"]
     xs = [p - r6.x for c in th for p in (c[0][0], c[1][0])]               # (the capsules are in world coordinates: measure from the ROV)
@@ -172,6 +188,8 @@ def test_a_ring_can_be_pushed_by_the_corner_thrusters():
 
 def test_speed_setting_scales_every_horizontal_thruster_but_not_the_vertical_ones():
     a, b = drive(6, dict(t1=1, t2=1, t3=1, t4=1, t5=1), 0.5, speed=1.0), drive(6, dict(t1=1, t2=1, t3=1, t4=1, t5=1), 0.5, speed=2.0)
+    c, d = drive(8, mix8(f=0.5), 0.5, speed=1.0), drive(8, mix8(f=0.5), 0.5, speed=2.0)
+    assert d.u > 1.6 * c.u, "the tilted corner thrusters follow the speed setting too"
     assert b.u > 1.6 * a.u, "speed 2 doubles the horizontal thrust"
     assert abs(a.w - b.w) < 1e-9, "and leaves the vertical ones alone"
 

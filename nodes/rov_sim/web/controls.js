@@ -26,16 +26,21 @@ export function switchValues(held, pointer = [0, 0, 0]) {
   return SWITCHES.map((s, i) => pointer[i] || ((held.has(s.plus) ? 1 : 0) - (held.has(s.minus) ? 1 : 0)));
 }
 
+// The 8 corner thrusters: t1-t4 top, t5-t8 bottom, each front left, front right, rear left, rear right = [ahead +1, left +1, top +1]. They lean 45 degrees up (top) or down
+// (bottom) from the "X" diagonal, so "up" needs a little nose trim mixed in (UP_A, UP_B: no pitch, no thruster above 1). See THRUSTER_LAYOUTS in sim/physics.js.
+const CORNERS = [[1, 1, 1], [1, -1, 1], [-1, 1, 1], [-1, -1, 1], [1, 1, -1], [1, -1, -1], [-1, 1, -1], [-1, -1, -1]];
+const UP_A = 2 - Math.SQRT2, UP_B = Math.SQRT2 - 1;
+
 /** Which thrusters each switch drives for a layout of n thrusters (3, 4, 6 or 8): [red, green, up/down]. */
 export function switchTargets(n) {
   const left = n > 4 ? ["t1", "t3"] : ["t1"], right = n > 4 ? ["t2", "t4"] : ["t2"];
-  const vertical = n === 3 ? ["t3"] : n === 6 ? ["t5", "t6"] : n === 8 ? ["t5", "t6", "t7", "t8"] : ["t3", "t4"];
-  return [left, right, vertical];
+  const vertical = n === 3 ? ["t3"] : n === 6 ? ["t5", "t6"] : n === 8 ? ["t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"] : ["t3", "t4"];
+  return n === 8 ? [["t1", "t3", "t5", "t7"], ["t2", "t4", "t6", "t8"], vertical] : [left, right, vertical];
 }
 
 /** The command for the sim: {t1 ... t<n>, claw}. `hOnly`: ignore the extra keys, only the switches count. `thrusters` is the layout: 3, 4, 6 or 8.
  *  3 and 4: t1 / t2 are the left / right thrusters (the keys mix forward and turn), t3 (and t4) are the vertical ones (up, and nose trim with two).
- *  6 and 8: t1 front left, t2 front right, t3 rear left, t4 rear right, angled 45 degrees: forward is all four, turning is the left pair against the right pair,
+ *  6 and 8: t1 front left, t2 front right, t3 rear left, t4 rear right (with 8: the top corners; t5-t8 the bottom ones), angled 45 degrees: forward is all of them, turning is the left side against the right,
  *  sliding sideways is the diagonals (t1 and t4 against t2 and t3). Then t5, t6 (6) or t5 ... t8 (8, the corners) are vertical: up, nose trim, and roll. */
 export function computeCommand(held, pointer, clawCmd = 0, { power = POWER, hOnly = false, thrusters = 4 } = {}) {
   const k = (c) => (!hOnly && held.has(c) ? 1 : 0);
@@ -47,18 +52,27 @@ export function computeCommand(held, pointer, clawCmd = 0, { power = POWER, hOnl
   const zl = k("KeyZ"), zr = k("KeyC");                                     // one side only
   const c = (v) => Math.max(-1, Math.min(1, v)) * power;
   const cmd = {};
-  if (thrusters <= 4) {
+  if (thrusters === 8) {
+    CORNERS.forEach(([sx, sy, sz], i) => {
+      cmd["t" + (i + 1)] = c(fwd + strafe * sx * sy + turn * sy + up * (UP_A * sz + UP_B * sx * sz) + trim * sx * sz + roll * sy * sz + (sy > 0 ? zl : zr));
+    });
+  } else if (thrusters <= 4) {
     cmd.t1 = c(fwd + turn + zl); cmd.t2 = c(fwd - turn + zr);
     if (thrusters === 3) cmd.t3 = c(up);                                    // one vertical thruster: no way to trim the nose
     else { cmd.t3 = c(up + trim); cmd.t4 = c(up - trim); }
   } else {
     cmd.t1 = c(fwd + turn + strafe + zl); cmd.t2 = c(fwd - turn - strafe + zr);
     cmd.t3 = c(fwd + turn - strafe + zl); cmd.t4 = c(fwd - turn + strafe + zr);
-    if (thrusters === 6) { cmd.t5 = c(up + trim); cmd.t6 = c(up - trim); }
-    else { cmd.t5 = c(up + trim + roll); cmd.t6 = c(up + trim - roll); cmd.t7 = c(up - trim + roll); cmd.t8 = c(up - trim - roll); }
+    cmd.t5 = c(up + trim); cmd.t6 = c(up - trim);
   }
   cmd.claw = Math.round(clawCmd * 100) / 100;
   const targets = switchTargets(thrusters);
-  switchValues(held, pointer).forEach((v, i) => { if (v) for (const t of targets[i]) cmd[t] = v; });
+  switchValues(held, pointer).forEach((v, i) => {
+    if (!v) return;
+    for (const t of targets[i]) {
+      const k = Number(t.slice(1)) - 1;                                     // with 8 corner thrusters the up/down switch pushes the top ones up and the bottom ones down (and trims the nose)
+      cmd[t] = thrusters === 8 && i === 2 ? v * (UP_A * CORNERS[k][2] + UP_B * CORNERS[k][0] * CORNERS[k][2]) : v;
+    }
+  });
   return cmd;
 }

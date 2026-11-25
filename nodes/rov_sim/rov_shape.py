@@ -130,6 +130,10 @@ def capsules(rov):
         gx, gy, dx, dy = th["gx"], th["gy"], th["dx"], th["dy"]
         add((gx - dx * 0.065, gy - dy * 0.065, 0), (gx + dx * 0.065, gy + dy * 0.065, 0), 0.036, "thruster")
         add((gx - dx * 0.075, gy - dy * 0.075, 0), (gx - dx * 0.06, gy - dy * 0.06, 0), 0.053, "thruster")
+    for th in (t for t in layout if t["kind"] == "c"):                           # a tilted corner thruster: a body and a rear shroud along its direction
+        gx, gy, gz, dx, dy, dz = th["gx"], th["gy"], th["gz"], th["dx"], th["dy"], th["dz"]
+        add((gx - dx * 0.065, gy - dy * 0.065, gz - dz * 0.065), (gx + dx * 0.065, gy + dy * 0.065, gz + dz * 0.065), 0.036, "thruster")
+        add((gx - dx * 0.075, gy - dy * 0.075, gz - dz * 0.075), (gx - dx * 0.06, gy - dy * 0.06, gz - dz * 0.06), 0.053, "thruster")
     for th in (t for t in layout if t["kind"] == "v"):
         gx, gy = th["gx"], th["gy"]
         add((gx, gy, -0.215), (gx, gy, -0.085), 0.036, "thruster")

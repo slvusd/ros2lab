@@ -77,6 +77,7 @@ THRUSTER_UP = -0.15     # height of the vertical thruster above the ROV centre (
                         # Its propeller only works while under water, so a high mount stops the ROV rising
                         # as far (try +0.15 to see the old, top-mounted behaviour)
 # Pitch (nose up/down tilt). Torques are nose-DOWN positive (about the ROV's left axis, like REP-103).
+CORNER_SHARE = 0.75   # a tilted corner thruster (8-thruster layout) gives this fraction of what a horizontal one gives
 VERT_ARM = 0.2          # m: front/rear vertical thrusters sit this far ahead of / behind the centre
 PITCH_I = 0.6           # kg m^2, incl. added mass
 PITCH_KS = 16.8         # N m per rad: buoyancy keeps it level (a 1.7 N m load tilts it ~6 degrees)
@@ -112,17 +113,28 @@ T_LEFT, T_RIGHT, T_FRONT, T_REAR = "t1", "t2", "t3", "t4"      # thruster channe
 # 4:  t1 left, t2 right, t3 front vertical, t4 rear vertical (the original; what a scout ROV often has)
 # 6:  t1-t4 horizontal on the four vertical posts, angled 45 degrees in an "X" (front left, front right, rear left, rear right: so it can also slide
 #     sideways), t5 front vertical, t6 rear vertical (where t3 and t4 are in the 4-thruster layout)
-# 8:  t1-t4 as in the 6-thruster layout, t5-t8 vertical on the four corners (front left, front right, rear left, rear right: also controls roll)
-# Every thruster is the same size: a horizontal one gives max_thrust * SIDE_THRUST * speed newtons at a command of 1.0, a vertical one max_thrust / 2.
+# 8:  one thruster just outside EACH of the cube's 8 corners, all tilted 45 degrees: t1-t4 on the top corners and t5-t8 on the bottom ones (front left,
+#     front right, rear left, rear right). Seen from above each points along the same "X" diagonal as the 6-layout's posts; it also leans up (top corners)
+#     or down (bottom corners) by 45 degrees, so it is 45 / 135 degrees to the PVC. Eight directions give all six movements (kind "c": it has a z lever arm and dz)
+# A horizontal thruster gives max_thrust * SIDE_THRUST * speed newtons at a command of 1.0, a vertical one max_thrust / 2, a corner one CORNER_SHARE of a horizontal one.
 _C = math.sqrt(0.5)
 
 
 def _h(name, x, y, gx, gy, dx, dy, label, color):
-    return {"name": name, "kind": "h", "x": x, "y": y, "gx": gx, "gy": gy, "dx": dx, "dy": dy, "label": label, "color": color}
+    return {"name": name, "kind": "h", "x": x, "y": y, "z": 0.0, "gx": gx, "gy": gy, "gz": 0.0, "dx": dx, "dy": dy, "dz": 0.0, "label": label, "color": color}
 
 
 def _v(name, x, y, gx, gy, label):
-    return {"name": name, "kind": "v", "x": x, "y": y, "gx": gx, "gy": gy, "dx": 0.0, "dy": 0.0, "label": label, "color": "white"}
+    return {"name": name, "kind": "v", "x": x, "y": y, "z": 0.0, "gx": gx, "gy": gy, "gz": 0.0, "dx": 0.0, "dy": 0.0, "dz": 0.0, "label": label, "color": "white"}
+
+
+def _c(name, sx, sy, sz, label):
+    """A thruster at the corner (sx, sy, sz = +-1: ahead/behind, left/right, top/bottom), 45 degrees up or down from the 6-layout's horizontal diagonal."""
+    return {"name": name, "kind": "c", "x": 0.25 * sx, "y": 0.25 * sy, "z": 0.25 * sz, "gx": 0.30 * sx, "gy": 0.30 * sy, "gz": 0.30 * sz,
+            "dx": 0.5, "dy": -0.5 * sx * sy, "dz": sz * _C, "label": label, "color": "red" if sy > 0 else "green"}
+
+
+_CORNERS = [(1, 1, "front left"), (1, -1, "front right"), (-1, 1, "rear left"), (-1, -1, "rear right")]
 
 
 _SIDES = [_h("t1", 0.0, 0.22, 0.0, 0.32, 1.0, 0.0, "left", "red"), _h("t2", 0.0, -0.22, 0.0, -0.32, 1.0, 0.0, "right", "green")]
@@ -132,8 +144,8 @@ THRUSTER_LAYOUTS = {
     3: _SIDES + [_v("t3", 0.0, 0.0, 0.0, 0.0, "vertical")],
     4: _SIDES + [_v("t3", 0.2, 0.0, 0.17, 0.0, "front"), _v("t4", -0.2, 0.0, -0.17, 0.0, "rear")],
     6: _POSTS + [_v("t5", 0.2, 0.0, 0.17, 0.0, "front vertical"), _v("t6", -0.2, 0.0, -0.17, 0.0, "rear vertical")],
-    8: _POSTS + [_v("t5", 0.2, 0.2, 0.17, 0.17, "front left vertical"), _v("t6", 0.2, -0.2, 0.17, -0.17, "front right vertical"),
-                 _v("t7", -0.2, 0.2, -0.17, 0.17, "rear left vertical"), _v("t8", -0.2, -0.2, -0.17, -0.17, "rear right vertical")],
+    8: [_c("t%d" % (i + 1), sx, sy, 1, lab + " top") for i, (sx, sy, lab) in enumerate(_CORNERS)]
+       + [_c("t%d" % (i + 5), sx, sy, -1, lab + " bottom") for i, (sx, sy, lab) in enumerate(_CORNERS)],
 }
 
 
@@ -234,6 +246,18 @@ class Rov:
                 fx += f * th["dx"]
                 fy += f * th["dy"]
                 yaw_t += th["x"] * f * th["dy"] - th["y"] * f * th["dx"]
+            elif th["kind"] == "c":
+                # a corner thruster tilted 45 degrees: its force has all three parts. It works at 3/4 of a horizontal one (CORNER_SHARE), and a propeller
+                # only pushes water while it is under the surface (its height allows for pitch and roll too)
+                f = self.cmd[th["name"]] * side * CORNER_SHARE
+                f *= clamp(0.5 - (-self.depth + th["z"] * math.cos(self.pitch) - th["x"] * sp_ + th["y"] * sr_) / 0.08, 0.0, 1.0)
+                tx, ty, tz = f * th["dx"], f * th["dy"], f * th["dz"]
+                fx += tx
+                fy += ty
+                fv += tz
+                yaw_t += th["x"] * ty - th["y"] * tx
+                pitch_t += th["z"] * tx - th["x"] * tz                                         # forward above the middle tips the nose down; up ahead lifts it
+                roll_t += th["y"] * tz - th["z"] * ty                                          # up on the left lifts the left side; left at the top leans the top left
             else:
                 # each vertical thruster is half of max_thrust; a propeller only pushes water while it is under the surface (heights allow for pitch and roll)
                 f = self.cmd[th["name"]] * mt / 2

@@ -5,6 +5,7 @@
 #   python3 tools/export_golden.py --check   fail if the committed file no longer matches what Python produces
 # Python is the reference: if you change rov_physics.py, run this, commit the new golden file, and port the change to JS.
 import json
+import math
 import os
 import sys
 
@@ -82,11 +83,19 @@ CURRENT_SCENARIOS = {
 
 # Scenarios for the 3, 6 and 8 thruster layouts (rov_physics.THRUSTER_LAYOUTS): a neutral ROV, scripted commands on t1 ... t<n>. The IMU is recorded too.
 _FWD6 = {"t1": 1, "t2": 1, "t3": 1, "t4": 1}
+_CORNER_SIGNS = [(1, 1, 1), (1, -1, 1), (-1, 1, 1), (-1, -1, 1), (1, 1, -1), (1, -1, -1), (-1, 1, -1), (-1, -1, -1)]    # t1-t8: (ahead, left, top)
+
+
+def _mix8(f=0, strafe=0, turn=0, up=0, trim=0, roll=0):
+    """Commands for the 8 corner thrusters (the same mixing as web/controls.js)."""
+    ua, ub = 2 - math.sqrt(2), math.sqrt(2) - 1
+    return {f"t{i + 1}": f + strafe * sx * sy + turn * sy + up * (ua * sz + ub * sx * sz) + trim * sx * sz + roll * sy * sz for i, (sx, sy, sz) in enumerate(_CORNER_SIGNS)}
+
+
 THRUSTER_SCENARIOS = {
     "layout3":        dict(n=3, segments=[(2, {"t1": .8, "t2": .8}), (2, {"t3": 1}), (1.5, {"t1": 1, "t2": -1}), (2, {})]),
     "layout6_posts":  dict(n=6, segments=[(2, _FWD6), (1.5, {"t1": 1, "t4": 1, "t2": -1, "t3": -1}), (1.5, {"t1": 1, "t3": 1, "t2": -1, "t4": -1}), (1.5, {"t5": 1, "t6": 1}), (1.5, {"t5": 1, "t6": -1}), (2, {})]),
-    "layout8_corners": dict(n=8, segments=[(1.5, {"t5": 1, "t6": 1, "t7": 1, "t8": 1}), (1.5, {"t5": 1, "t7": 1, "t6": -1, "t8": -1}), (1.5, {"t5": 1, "t6": 1, "t7": -1, "t8": -1}),
-                                           (2, {"t1": .8, "t2": .8, "t3": .8, "t4": .8}), (2, {})]),
+    "layout8_corners": dict(n=8, segments=[(1.5, _mix8(up=1)), (1.5, _mix8(roll=1)), (1.5, _mix8(trim=1)), (2, _mix8(f=.8)), (1.5, _mix8(strafe=.8)), (1.5, _mix8(turn=.8)), (2, {})]),
 }
 
 
