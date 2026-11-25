@@ -411,6 +411,32 @@ for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) { 
 bar([0, -H, -H], [0, -H, H], 0.012);
 bar([-H, -H, 0], [H, -H, 0], 0.012);
 
+// ---- pipe insulation (foam) on the TOP four sticks: that is what makes a real ROV float. Shown by the Buoyancy setting:
+//      floats = a long piece on each stick, neutral = a few short pieces, sinks = none ----
+const FOAM = new THREE.MeshStandardMaterial({ color: 0x3a3f46, roughness: 0.9 });
+const FOAM_R = 0.026;                                  // a bit fatter than the 1.4 cm PVC
+const topSticks = [];                                  // [start, end] of each of the four top sticks (the cube's top face, y = +H)
+for (const sz of [-1, 1]) topSticks.push([[-H, H, sz * H], [H, H, sz * H]]);       // two along x (front to back)
+for (const sx of [-1, 1]) topSticks.push([[sx * H, H, -H], [sx * H, H, H]]);       // two across
+function foamPiece(group, stick, t0, t1) {            // a piece from t0 to t1 metres along the stick (the stick is 0.5 m long)
+  const va = new THREE.Vector3(...stick[0]), vb = new THREE.Vector3(...stick[1]);
+  const dir = vb.clone().sub(va).normalize();
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(FOAM_R, FOAM_R, t1 - t0, 16), FOAM);
+  m.position.copy(va).addScaledVector(dir, (t0 + t1) / 2);
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+  group.add(m);
+}
+const foamFloat = new THREE.Group(), foamNeutral = new THREE.Group();
+topSticks.forEach((st) => foamPiece(foamFloat, st, 0.05, 0.45));                    // floats: most of every top stick
+[[[0.07, 0.16], [0.30, 0.38]], [[0.12, 0.20], [0.33, 0.42]], [[0.20, 0.29]], [[0.15, 0.23]]]      // neutral: a few short pieces
+  .forEach((pieces, i) => pieces.forEach(([t0, t1]) => foamPiece(foamNeutral, topSticks[i], t0, t1)));
+rov.add(foamFloat, foamNeutral);
+function showFoam(buoyancy) {
+  foamFloat.visible = buoyancy > 0.05;
+  foamNeutral.visible = buoyancy >= -0.05 && buoyancy <= 0.05;
+}
+showFoam(1.5);                                         // (the default is "floats"; the real value arrives with the first state)
+
 function makeThruster(shroudMat) {
   const g = new THREE.Group();                         // axis = local +Y
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.13, 20), DARK);
@@ -694,6 +720,7 @@ function updateHud() {
     $("gyro").textContent = `${f(im.gx)} ${f(im.gy)} ${f(im.gz)}`;
   }
   const bu = state.buoyancy ?? 0;
+  showFoam(bu);
   $("buoy").textContent = "Buoyancy: " + (bu > 0.05 ? "floats" : bu < -0.05 ? "sinks" : "neutral");
   joys.forEach((j, i) => {
     const jy = (state.joys && state.joys[i]) || [0, 0];
@@ -867,8 +894,19 @@ setView(new URLSearchParams(location.search).get("view") || "orbit");   // e.g. 
   if (tg) controls.target.set(...tg.split(",").map(Number));
   const tl = new URLSearchParams(location.search).get("tool");              // /?tool=nose
   if (tl) setTool(tl === "nose" ? "nose" : "claw");   // asks the sim to switch
+  const bz = new URLSearchParams(location.search).get("buoyancy");          // /?buoyancy=positive|neutral|negative
+  if (bz) backend.buoyancy(bz);
   if (c) { camera.position.set(...c.split(",").map(Number)); userMoved = true; }   // an explicit camera sticks
   else if (fitFactor() > 1) resetView(); }
+
+// the toolbar can wrap onto two rows in a narrower window: keep the switch box / camera column below whatever height it ends up
+function layoutRightColumn() {
+  const col = $("rightcol"), bar = $("btns");
+  col.style.top = window.innerWidth > 640 ? bar.offsetTop + bar.offsetHeight + 8 + "px" : "";    // (a narrow window has its own layout, see the CSS)
+}
+new ResizeObserver(layoutRightColumn).observe($("btns"));
+window.addEventListener("resize", layoutRightColumn);
+layoutRightColumn();
 
 function resize() {
   renderer.setSize(window.innerWidth, window.innerHeight);

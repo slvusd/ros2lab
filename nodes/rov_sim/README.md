@@ -111,6 +111,8 @@ page's readout (`joy1`, `joy2`).
 
 ### Not channels (page-only settings)
 **Buoyancy** (the **Buoyancy** button / `B`) is a setting of the pool, not a channel: a real ROV has no buoyancy control. See [What the physics does](#what-the-physics-does).
+The model shows it as pipe insulation on the top four sticks: a long dark foam piece on each when it **floats**, a few short pieces when it is **neutral**, none when it **sinks**
+(`/?buoyancy=positive|neutral|negative` in the page address sets it). The foam is only drawn: it is not part of the collision shape.
 
 ## Command-line cheat sheet
 
