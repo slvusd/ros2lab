@@ -2,6 +2,7 @@
 // Coordinates: sim x = forward, y = left, depth = down  ->  three.js (x, -depth, -y).
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
+import * as backend from "./backend-net.js";   // the server connection (M1.2 will let the page pick a local one instead)
 
 const $ = (id) => document.getElementById(id);
 
@@ -611,9 +612,8 @@ const seen = { splash: null, floor: null };
 const shown = { ...state };
 let lastMsg = 0;
 
-const es = new EventSource("/events");
-es.onmessage = (e) => {
-  const s = JSON.parse(e.data);
+backend.connect(handleState);
+function handleState(s) {
   if (!s.regions) return;
   const key = JSON.stringify(s.regions);
   if (key !== regionsKey) {                                  // the pool's shape (first message, or the sim changed it)
@@ -636,7 +636,7 @@ es.onmessage = (e) => {
     puffSilt(state.x, -state.y, s.floor_v);
     wobble = Math.max(wobble, 0.3 + Math.min(0.5, s.floor_v));
   }
-};
+}
 
 const bars = ["t1", "t2", "t3", "t4"];
 function updateHud() {
@@ -699,7 +699,7 @@ function sendCommand() {
   });
   if (body === lastSent) return;
   lastSent = body;
-  fetch("/cmd", { method: "POST", body, keepalive: true });
+  backend.cmd(JSON.parse(body));
 }
 const GAME_KEYS = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "KeyR", "KeyF", "KeyZ", "KeyC", "KeyI", "KeyK",
   "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "ShiftLeft", "ShiftRight",
@@ -725,7 +725,7 @@ function setTool(t, send = true) {
   tool = t;
   claw.visible = t === "claw"; nose.visible = t === "nose";
   $("tool").textContent = "Tool: " + (t === "claw" ? "Claw" : "Nose");
-  if (send) { toolAsked = performance.now(); fetch("/tool", { method: "POST", body: t }); }
+  if (send) { toolAsked = performance.now(); backend.tool(t); }
 }
 $("tool").addEventListener("click", () => setTool(tool === "claw" ? "nose" : "claw"));
 setTool(tool, false);
@@ -734,7 +734,7 @@ setTool(tool, false);
 function nextBuoyancy() {
   const b = state.buoyancy ?? 0;
   const next = b > 0.05 ? "neutral" : b < -0.05 ? "positive" : "negative";   // + -> 0 -> - -> +
-  fetch("/buoyancy", { method: "POST", body: next });
+  backend.buoyancy(next);
 }
 $("buoy").addEventListener("click", nextBuoyancy);
 
@@ -769,7 +769,7 @@ setInterval(() => {                              // send each stick at most ~30 
   for (const j of joys) {
     if (!j.dirty) continue;
     j.dirty = false;
-    fetch("/joy", { method: "POST", body: JSON.stringify({ n: j.n, axes: j.axes }), keepalive: true });
+    backend.joy(j.n, j.axes);
   }
 }, 33);
 
@@ -806,7 +806,7 @@ function setFx(on) {
 $("fx").addEventListener("click", () => setFx(!fx));
 setFx(fx);
 $("reset").addEventListener("click", () => {
-  fetch("/reset", { method: "POST" });
+  backend.reset();
   held.clear(); clawCmd = 0; sendCommand();
 });
 setView(new URLSearchParams(location.search).get("view") || "orbit");   // e.g. /?view=follow

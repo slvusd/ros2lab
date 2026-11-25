@@ -345,6 +345,12 @@ def make_handler(shared):
             super().end_headers()
 
         def do_GET(self):
+            if self.path == "/ping":        # lets the page tell "a sim server is here" from "just a static web host"
+                self.send_response(200)
+                self.send_header("Content-Type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"rov_sim")
+                return
             if self.path != "/events":
                 return super().do_GET()
             self.send_response(200)
