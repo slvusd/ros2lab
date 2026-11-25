@@ -7,8 +7,8 @@
 # 3. Run this (another terminal):        python nodes/rov_sim/student_example.py
 #
 # A thruster takes a number from -1.0 (full reverse) to 1.0 (full forward). 0.0 = off.
-# Topics:  /rov/thruster/left   /rov/thruster/right   /rov/thruster/vertical
-#          /rov/claw (True = open, False = closed; /rov/hook also works)
+# Topics:  /sim/t1 (left)  /sim/t2 (right)  /sim/t3 (front vertical)  /sim/t4 (rear vertical)
+#          /sim/claw (0.0 closed .. 1.0 open)
 # =============================================================================
 import rclpy
 from rclpy.node import Node
@@ -18,8 +18,8 @@ from std_msgs.msg import Float32
 class FirstDive(Node):
     def __init__(self):
         super().__init__("first_dive")
-        self.left = self.create_publisher(Float32, "/rov/thruster/left", 10)
-        self.right = self.create_publisher(Float32, "/rov/thruster/right", 10)
+        self.left = self.create_publisher(Float32, "/sim/t1", 10)
+        self.right = self.create_publisher(Float32, "/sim/t2", 10)
         self.t = 0
         self.create_timer(1.0, self.tick)          # call tick() once a second
 

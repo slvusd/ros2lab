@@ -6,13 +6,13 @@
 # 2. Run this:          python nodes/rov_sim/student_imu_example.py
 # 3. Make things happen: drive, dive, bump the floor, pick up the ring and watch it tilt.
 #
-# /rov/imu is a sensor_msgs/Imu:
+# /sim/imu is a sensor_msgs/Imu:
 #   orientation          a quaternion; we turn it into tilt degrees below
 #   angular_velocity     how fast it is turning (rad/s): x roll, y pitch, z yaw
 #   linear_acceleration  m/s^2 in the ROV's own axes: x forward, y left, z up.
 #                        Like a real accelerometer it includes gravity: sitting level and still it
 #                        reads z = +9.8, and tilting the nose down moves some of that into x.
-# Challenge: use the front and rear thrusters (/rov/thruster/front, /rov/thruster/rear) to keep
+# Challenge: use the front and rear vertical thrusters (/sim/t3, /sim/t4) to keep
 # the ROV level while it carries the ring.
 # =============================================================================
 import math
@@ -26,7 +26,7 @@ from sensor_msgs.msg import Imu
 class ImuReader(Node):
     def __init__(self):
         super().__init__("imu_reader")
-        self.create_subscription(Imu, "/rov/imu", self.on_imu, 10)
+        self.create_subscription(Imu, "/sim/imu", self.on_imu, 10)
         self.n = 0
 
     def on_imu(self, m):

@@ -96,3 +96,11 @@
   writing to the same ROV (left from ROS, front/rear/right from keys, claw from both).
 - Added `student_minimal.py` (~15 lines of code, plain script: publish thruster on, sleep, off). Tested against `rov_sim.py`:
   ROV moves +2.4 m; the 1 s wait is not needed on one machine (8/8 without it) but is kept for network discovery.
+- On-screen joystick (top right, drag with the mouse) publishing sensor_msgs/Joy on /joy (F310-shaped: 8 axes, 11 buttons; LEFT and UP
+  positive), also shown in the page readout. Does not drive the ROV itself: `student_joystick.py` shows how to connect it. Tested:
+  stick -> /joy message -> student node -> thrusters -> ROV moves (+2.09 m in 2 s); install.sh checks /joy.
+- Two on-screen joysticks (joy1 left, joy2 right) publishing sensor_msgs/Joy on /sim/joy1 and /sim/joy2 (replaces the single /joy stick).
+- All channels renamed to a short /sim/ prefix: thrusters /sim/t1../t4 (t1 left, t2 right, t3 front vertical, t4 rear vertical;
+  no "turn"/"vertical-both" shortcuts: students mix them), /sim/claw, /sim/tool, /sim/reset, /sim/imu, /sim/depth, /sim/heading.
+  Old /rov/... names are gone. nodes/rov_sim/README.md rewritten as a reference (nodes, channels, command-line cheat sheet,
+  troubleshooting), with the commands checked against a live sim. install.sh updated and passing (incl. both joysticks).

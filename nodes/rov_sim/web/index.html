@@ -16,16 +16,30 @@
          background: #e55; margin-right: 6px; }
   #dot.ok { background: #4d8; }
   .row { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
-  .row .lbl { width: 54px; }
+  .row .lbl { width: 58px; }
   .bar { position: relative; flex: 1; height: 10px; background: rgba(255,255,255,.15);
          border-radius: 5px; overflow: hidden; }
   .bar i { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; background: #4d8; }
   .bar b { position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: #fff8; }
   .imu { margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255,255,255,.2); }
   .imu .lbl { width: 54px; }
-  #accel, #accel0, #gyro { font: 12px ui-monospace, Menlo, monospace; white-space: pre; }
+  #accel, #accel0, #gyro, #joyval1, #joyval2 { font: 12px ui-monospace, Menlo, monospace; white-space: pre; }
   .num { width: 38px; text-align: right; font-variant-numeric: tabular-nums; }
   #btns { top: 8px; right: 8px; display: flex; gap: 6px; }
+  /* two on-screen joysticks side by side under the toolbar (top right): drag with the mouse, they spring back to centre */
+  #joys { position: fixed; top: 58px; right: 8px; display: flex; gap: 8px; }
+  .joy { position: static; text-align: center; padding: 6px 8px 4px; }
+  .joypad { position: relative; width: 92px; height: 92px; border-radius: 50%; cursor: grab; touch-action: none;
+            border: 1px solid rgba(255,255,255,.4);
+            background: linear-gradient(#fff3, #fff3) center/1px 100% no-repeat, linear-gradient(#fff3, #fff3) center/100% 1px no-repeat,
+                        radial-gradient(circle, rgba(255,255,255,.14), rgba(255,255,255,.04)); }
+  .joypad.drag { cursor: grabbing; }
+  .joyknob { position: absolute; left: 31px; top: 31px; width: 30px; height: 30px; border-radius: 50%; pointer-events: none;
+             background: radial-gradient(circle at 35% 30%, #ffe27a, #f2b705); box-shadow: 0 2px 5px #0006; }
+  .joycap { font: 11px ui-monospace, Menlo, monospace; opacity: .85; margin-top: 3px; }
+  @media (max-width: 640px) {
+    #joys { top: 8px; }             /* the toolbar moves left in a narrow window, so the pads can take the corner */
+  }
   @media (max-width: 640px) {      /* narrow window (VS Code side panel): buttons go under the status box */
     #btns { top: 190px; right: auto; left: 8px; flex-wrap: wrap; max-width: 300px; }
   }
@@ -42,10 +56,10 @@
 <body>
 <div id="hud" class="panel">
   <h1><span id="dot"></span><span id="status">waiting for sim...</span></h1>
-  <div class="row"><span class="lbl">left</span><div class="bar"><b></b><i id="b-left"></i></div><span class="num" id="n-left">0.00</span></div>
-  <div class="row"><span class="lbl">right</span><div class="bar"><b></b><i id="b-right"></i></div><span class="num" id="n-right">0.00</span></div>
-  <div class="row"><span class="lbl">v. front</span><div class="bar"><b></b><i id="b-front"></i></div><span class="num" id="n-front">0.00</span></div>
-  <div class="row"><span class="lbl">v. rear</span><div class="bar"><b></b><i id="b-rear"></i></div><span class="num" id="n-rear">0.00</span></div>
+  <div class="row"><span class="lbl">t1 left</span><div class="bar"><b></b><i id="b-t1"></i></div><span class="num" id="n-t1">0.00</span></div>
+  <div class="row"><span class="lbl">t2 right</span><div class="bar"><b></b><i id="b-t2"></i></div><span class="num" id="n-t2">0.00</span></div>
+  <div class="row"><span class="lbl">t3 front</span><div class="bar"><b></b><i id="b-t3"></i></div><span class="num" id="n-t3">0.00</span></div>
+  <div class="row"><span class="lbl">t4 rear</span><div class="bar"><b></b><i id="b-t4"></i></div><span class="num" id="n-t4">0.00</span></div>
   <div class="row"><span class="lbl">claw</span><span id="claw">closed</span></div>
   <div class="row"><span class="lbl">depth</span><span id="depth">0.00 m</span></div>
   <div class="row"><span class="lbl">heading</span><span id="heading">0&deg;</span></div>
@@ -54,6 +68,16 @@
     <div class="row"><span class="lbl">accel</span><span id="accel">+0.000 +0.000 +9.810</span></div>
     <div class="row"><span class="lbl">minus g</span><span id="accel0">+0.000 +0.000 +0.000</span></div>
     <div class="row"><span class="lbl">gyro</span><span id="gyro">+0.000 +0.000 +0.000</span></div>
+    <div class="row"><span class="lbl">joy1</span><span id="joyval1">+0.00 +0.00</span></div>
+    <div class="row"><span class="lbl">joy2</span><span id="joyval2">+0.00 +0.00</span></div>
+  </div>
+</div>
+<div id="joys">
+  <div class="panel joy" title="joy1: drag with the mouse. Publishes sensor_msgs/Joy on /sim/joy1 (axes[0] left +, axes[1] up +)">
+    <div class="joypad" data-n="1"><div class="joyknob"></div></div><div class="joycap" id="joycap1">joy1</div>
+  </div>
+  <div class="panel joy" title="joy2: drag with the mouse. Publishes sensor_msgs/Joy on /sim/joy2 (axes[0] left +, axes[1] up +)">
+    <div class="joypad" data-n="2"><div class="joyknob"></div></div><div class="joycap" id="joycap2">joy2</div>
   </div>
 </div>
 <div id="btns" class="panel">
@@ -74,15 +98,14 @@
   <div>T claw/nose &nbsp;&nbsp;B buoyancy &nbsp;&nbsp;V reset view (or double-click)</div>
 </div>
 <div id="topics" class="panel">
-  <div class="h">Publish to:</div>
-  <div>/rov/thruster/left &nbsp;&nbsp;&nbsp;Float32 -1..1</div>
-  <div>/rov/thruster/right &nbsp;&nbsp;Float32 -1..1</div>
-  <div>/rov/thruster/front, /rear Float32 -1..1</div>
-  <div>/rov/thruster/vertical sets both</div>
+  <div class="h">Send commands to:</div>
+  <div>/sim/t1 .. /sim/t4 &nbsp;Float32 -1..1</div>
+  <div>/sim/claw &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Float32 0 closed .. 1 open</div>
   <div class="h" style="margin-top:3px">Read from:</div>
-  <div>/rov/imu &nbsp;sensor_msgs/Imu</div>
-  <div>/rov/claw &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Float32 0 closed .. 1 open</div>
-  <div>T claw/nose &nbsp;&nbsp;B buoyancy &nbsp;&nbsp;V reset view</div>
+  <div>/sim/imu &nbsp;/sim/depth &nbsp;/sim/heading</div>
+  <div>/sim/joy1 &nbsp;/sim/joy2 &nbsp;(the pads)</div>
+  <div style="margin-top:3px">T claw/nose &nbsp;&nbsp;B buoyancy &nbsp;&nbsp;V reset view</div>
+</div>
 </div>
 
 <script type="importmap">

@@ -403,7 +403,7 @@ function makeBubbles() {
   scene.add(pts);
   return { pts, vel: new Float32Array(NB * 3), life: new Float32Array(NB), next: 0, acc: 0 };
 }
-const bubbles = { left: makeBubbles(), right: makeBubbles(), front: makeBubbles(), rear: makeBubbles() };
+const bubbles = { t1: makeBubbles(), t2: makeBubbles(), t3: makeBubbles(), t4: makeBubbles() };   // t1 left, t2 right, t3 front, t4 rear
 
 const tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3();
 function emit(b, thruster, localAxis, cmd, dt) {
@@ -489,7 +489,7 @@ let props = null;
 import("./props.js").then((m) => { props = new m.Props(scene, THREE); }).catch(() => { /* no props */ });
 
 // ---------- state from the sim ----------
-const state = { x: -1.5, y: 0, depth: 0.8, yaw: 0, left: 0, right: 0, front: 0, rear: 0, claw: 0, speed: 0, pitch: 0, imu: null, buoyancy: 1.5 };
+const state = { x: -1.5, y: 0, depth: 0.8, yaw: 0, t1: 0, t2: 0, t3: 0, t4: 0, claw: 0, speed: 0, pitch: 0, imu: null, buoyancy: 1.5, joys: [[0, 0], [0, 0]], joy_topics: [] };
 const seen = { splash: null, floor: null };
 const shown = { ...state };
 let lastMsg = 0;
@@ -515,7 +515,7 @@ es.onmessage = (e) => {
   }
 };
 
-const bars = ["left", "right", "front", "rear"];
+const bars = ["t1", "t2", "t3", "t4"];
 function updateHud() {
   const live = performance.now() - lastMsg < 1000;
   $("dot").className = live ? "ok" : "";
@@ -547,6 +547,12 @@ function updateHud() {
   }
   const bu = state.buoyancy ?? 0;
   $("buoy").textContent = "Buoyancy: " + (bu > 0.05 ? "floats" : bu < -0.05 ? "sinks" : "neutral");
+  joys.forEach((j, i) => {
+    const jy = (state.joys && state.joys[i]) || [0, 0];
+    if (!j.down) j.knob.style.transform = `translate(${-jy[0] * JOY_REACH}px, ${-jy[1] * JOY_REACH}px)`;   // show the shared value
+    $("joyval" + j.n).textContent = `${jy[0] >= 0 ? "+" : "-"}${Math.abs(jy[0]).toFixed(2)} ${jy[1] >= 0 ? "+" : "-"}${Math.abs(jy[1]).toFixed(2)}`;
+    $("joycap" + j.n).textContent = state.ros ? (state.joy_topics && state.joy_topics[i]) || `joy${j.n} (not published)` : `joy${j.n} (no ROS)`;
+  });
   $("depth").textContent = state.depth.toFixed(2) + " m";
   $("heading").textContent = Math.round(((state.yaw * 180 / Math.PI) % 360 + 360) % 360) + "°";
 }
@@ -563,8 +569,8 @@ function sendCommand() {
   const trim = k("KeyI") - k("KeyK");                                       // + = nose up: front pushes up, rear down
   const c = (v) => Math.max(-1, Math.min(1, v)) * POWER;
   const body = JSON.stringify({
-    left: c(fwd + turn + k("KeyZ")), right: c(fwd - turn + k("KeyC")),
-    front: c(up + trim), rear: c(up - trim), claw: Math.round(clawCmd * 100) / 100,
+    t1: c(fwd + turn + k("KeyZ")), t2: c(fwd - turn + k("KeyC")),
+    t3: c(up + trim), t4: c(up - trim), claw: Math.round(clawCmd * 100) / 100,
   });
   if (body === lastSent) return;
   lastSent = body;
@@ -606,6 +612,41 @@ function nextBuoyancy() {
   fetch("/buoyancy", { method: "POST", body: next });
 }
 $("buoy").addEventListener("click", nextBuoyancy);
+
+// ---------- two on-screen joysticks (joy1, joy2): drag with the mouse; the sim publishes each as sensor_msgs/Joy ----------
+// Same convention as a real joy_node: axes[0] is LEFT/right with LEFT positive, axes[1] is up/down with UP positive.
+const JOY_REACH = 46 - 15;                       // how far a knob centre can travel (pad radius - knob radius), px
+const joys = [1, 2].map((n) => {
+  const pad = document.querySelector(`.joypad[data-n="${n}"]`), knob = pad.querySelector(".joyknob");
+  const j = { n, pad, knob, axes: [0, 0], dirty: false, down: false };
+  const move = (x, y) => {                       // x right, y down on screen, each -1..1
+    knob.style.transform = `translate(${x * JOY_REACH}px, ${y * JOY_REACH}px)`;
+    const r2 = (v) => Math.round(v * 100) / 100 + 0;   // + 0 turns -0 into 0
+    j.axes = [r2(-x), r2(-y)];                   // screen right = axis 0 negative; screen up = axis 1 positive
+    j.dirty = true;
+  };
+  const fromPointer = (e) => {
+    const r = pad.getBoundingClientRect();
+    let x = (e.clientX - (r.left + r.width / 2)) / JOY_REACH, y = (e.clientY - (r.top + r.height / 2)) / JOY_REACH;
+    const m = Math.hypot(x, y);
+    if (m > 1) { x /= m; y /= m; }               // stay inside the circle
+    move(x, y);
+  };
+  const release = () => { if (!j.down) return; j.down = false; pad.classList.remove("drag"); move(0, 0); };   // springs back
+  pad.addEventListener("pointerdown", (e) => { j.down = true; pad.setPointerCapture(e.pointerId); pad.classList.add("drag"); fromPointer(e); });
+  pad.addEventListener("pointermove", (e) => { if (j.down) fromPointer(e); });
+  pad.addEventListener("pointerup", release);
+  pad.addEventListener("pointercancel", release);
+  window.addEventListener("blur", release);
+  return j;
+});
+setInterval(() => {                              // send each stick at most ~30 times a second, and always the final value
+  for (const j of joys) {
+    if (!j.dirty) continue;
+    j.dirty = false;
+    fetch("/joy", { method: "POST", body: JSON.stringify({ n: j.n, axes: j.axes }), keepalive: true });
+  }
+}, 33);
 
 // ---------- views ----------
 // A narrow window (e.g. VS Code's side panel) sees less of the pool, so back the camera off to fit it.
@@ -694,10 +735,10 @@ function frame(now) {
   rov.rotation.z = -shown.pitch + 0.06 * wobble * Math.sin(t * 5.3 + 1);   // pitch > 0 = nose down (a hanging ring)
   rov.updateMatrixWorld(true);
   // spin props (visual speed ~ command)
-  left.userData.prop.rotation.y += -state.left * 40 * dt;
-  right.userData.prop.rotation.y += -state.right * 40 * dt;
-  vfront.userData.prop.rotation.y += -state.front * 40 * dt;
-  vrear.userData.prop.rotation.y += -state.rear * 40 * dt;
+  left.userData.prop.rotation.y += -state.t1 * 40 * dt;
+  right.userData.prop.rotation.y += -state.t2 * 40 * dt;
+  vfront.userData.prop.rotation.y += -state.t3 * 40 * dt;
+  vrear.userData.prop.rotation.y += -state.t4 * 40 * dt;
   // claw jaws swing outward to open (0 closed .. 0.7 rad open)
   for (const { jaw, sgn } of jaws) jaw.rotation.y = -sgn * shown.claw * 0.7;
 
@@ -707,10 +748,10 @@ function frame(now) {
     clawCmd = clamp01(clawCmd + dClaw * 0.8 * dt);
     if (now - lastClawSend > 50) { lastClawSend = now; sendCommand(); }
   }
-  emit(bubbles.left, left, ex, state.left, dt);
-  emit(bubbles.right, right, ex, state.right, dt);
-  emit(bubbles.front, vfront, ey, state.front, dt);
-  emit(bubbles.rear, vrear, ey, state.rear, dt);
+  emit(bubbles.t1, left, ex, state.t1, dt);
+  emit(bubbles.t2, right, ex, state.t2, dt);
+  emit(bubbles.t3, vfront, ey, state.t3, dt);
+  emit(bubbles.t4, vrear, ey, state.t4, dt);
   for (const k of bars) stepBubbles(bubbles[k], dt);
 
   shadow.position.set(rov.position.x, -D + 0.01, rov.position.z);

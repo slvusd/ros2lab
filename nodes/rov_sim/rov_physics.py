@@ -5,9 +5,15 @@
 # keyboard drives it). Tune the feel of the vehicle here, in one place.
 #
 # PHYSICS  (approximate on purpose — "feels like water", not a research model)
-#   Left + right thrusters both push forward; if they differ the ROV turns
-#   (differential thrust). Two vertical thrusters (front and rear) push straight up/down;
-#   together they heave the ROV, and if they differ they tilt it (pitch).
+#   THRUSTERS (each command is -1.0 .. 1.0):
+#     t1  left,  horizontal, pushes forward   (red, port side)
+#     t2  right, horizontal, pushes forward   (green, starboard side)
+#     t3  front, vertical,   pushes up        (near the nose)
+#     t4  rear,  vertical,   pushes up        (near the tail)
+#   There is no "forward" or "turn" command: if t1 and t2 are equal the ROV drives straight, if they
+#   differ it turns. t3 + t4 heave it up and down, and if they differ it tilts (pitch). A real ROV has
+#   6-8 thrusters; adding t5.. later means extending cmd and step() below.
+#   (internally: T_LEFT, T_RIGHT, T_FRONT, T_REAR)
 #   Water pushes back with linear + quadratic drag, and the vehicle's mass is
 #   increased ("added mass") because it has to shove water out of the way.
 #   Result: speeds up gradually, coasts to a stop, can't go through pool walls.
@@ -67,6 +73,9 @@ G = 9.81
 BODY_HX, BODY_HY, TOOL_TIP = 0.26, 0.33, 0.60
 
 
+T_LEFT, T_RIGHT, T_FRONT, T_REAR = "t1", "t2", "t3", "t4"      # thruster channel names (see the table above)
+
+
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
@@ -89,7 +98,7 @@ class Rov:
         # event counters (never reset): the page splashes / puffs silt when they change
         self.splash_n = self.floor_n = 0
         self.splash_v = self.floor_v = 0.0
-        self.cmd = {"left": 0.0, "right": 0.0, "front": 0.0, "rear": 0.0}   # each -1..1 (front/rear = vertical thrusters)
+        self.cmd = {T_LEFT: 0.0, T_RIGHT: 0.0, T_FRONT: 0.0, T_REAR: 0.0}   # thruster commands, each -1..1
         self.claw_target = 0.0          # servo command: 0 closed .. 1 fully open
         self.reset()
 
@@ -97,7 +106,8 @@ class Rov:
         self.x, self.y, self.depth, self.yaw = (START[k] for k in ("x", "y", "depth", "yaw"))
         self.u = self.v = self.w = self.r = 0.0   # speeds: forward, sideways, down, yaw rate
         self.claw = 0.0
-        self.cmd.update(left=0.0, right=0.0, front=0.0, rear=0.0)
+        for k in self.cmd:
+            self.cmd[k] = 0.0
         self.pitch = self.pitch_rate = 0.0
         self._prev = (0.0, 0.0, 0.0, 0.0)                 # last step's u, v, w, r (for the accelerometer)
         self.imu_acc = (0.0, 0.0, G)
@@ -109,9 +119,9 @@ class Rov:
 
     def step(self, dt):
         mt, m = self.max_thrust, self.mass
-        fl, fr = self.cmd["left"] * mt, self.cmd["right"] * mt
+        fl, fr = self.cmd[T_LEFT] * mt, self.cmd[T_RIGHT] * mt
         # the two vertical thrusters share the vertical thrust budget: each is half of max_thrust
-        ff, fb = self.cmd["front"] * mt / 2, self.cmd["rear"] * mt / 2
+        ff, fb = self.cmd[T_FRONT] * mt / 2, self.cmd[T_REAR] * mt / 2
         # a propeller only pushes water while it is under the surface (heights allow for pitch)
         h0 = -self.depth + self.thruster_up * math.cos(self.pitch)
         ff *= clamp(0.5 - (h0 - VERT_ARM * math.sin(self.pitch)) / 0.08, 0.0, 1.0)   # nose down: front is lower
@@ -215,8 +225,8 @@ class Rov:
 
     def state(self, keys=False):
         return {"x": self.x, "y": self.y, "depth": self.depth, "yaw": self.yaw,
-                "left": self.cmd["left"], "right": self.cmd["right"],
-                "front": self.cmd["front"], "rear": self.cmd["rear"], "claw": self.claw,
+                "t1": self.cmd[T_LEFT], "t2": self.cmd[T_RIGHT],
+                "t3": self.cmd[T_FRONT], "t4": self.cmd[T_REAR], "claw": self.claw,
                 "speed": math.sqrt(self.u ** 2 + self.v ** 2 + self.w ** 2),
                 "splash_n": self.splash_n, "splash_v": self.splash_v,
                 "floor_n": self.floor_n, "floor_v": self.floor_v,
@@ -232,6 +242,7 @@ class Shared:
         self.reset_requested = False
         self.keys = keys            # True: the browser may send keyboard commands
         self.commands = {}          # latest keyboard command from the browser
+        self.joys = [[0.0, 0.0], [0.0, 0.0]]   # the page's two on-screen joysticks (joy1, joy2): each [axis 0 (left +), axis 1 (up +)]
         self.ros = False            # True when a ROS 2 node is also driving this sim (the page shows the topic list)
         self._kb_prev = {}          # the keyboard command we last acted on
         self.tool_request = None    # "claw" / "nose", set when the page's Tool button is pressed
@@ -287,6 +298,15 @@ def make_handler(shared):
                 m = self.rfile.read(min(n, 20)).decode("ascii", "ignore").strip()
                 if m in BUOYANCY_MODES:
                     shared.buoyancy_request = m
+            elif self.path == "/joy":
+                try:
+                    n = int(self.headers.get("Content-Length", 0))
+                    d = json.loads(self.rfile.read(min(n, 200)))
+                    i, ax = int(d["n"]) - 1, d["axes"]                 # n is 1 or 2
+                    if i in (0, 1):
+                        shared.joys[i] = [clamp(float(ax[0]), -1.0, 1.0), clamp(float(ax[1]), -1.0, 1.0)]
+                except (ValueError, KeyError, IndexError, TypeError):
+                    pass
             elif self.path == "/tool":
                 n = int(self.headers.get("Content-Length", 0))
                 t = self.rfile.read(min(n, 20)).decode("ascii", "ignore").strip()

@@ -19,7 +19,7 @@ or a bench controller). The repo is meant to be cloned on both.
 | `launch/` | Launch files. |
 | `docs/STEPS.md` | Plain-English log of exactly what each step changes on your Mac. |
 | `nodes/serial_bridge/`, `nodes/pico/`, `nodes/microbit/` | One generic USB-serial bridge, plus Pico 2 and micro:bit (radio) example programs. Protocol: `docs/PROTOCOL.md`. |
-| `nodes/rov_sim/` | Classroom ROV simulator: 3D pool in a browser tab (VS Code Simple Browser); students publish thruster topics. |
+| `nodes/rov_sim/` | Classroom ROV simulator: 3D pool in a browser tab (VS Code Simple Browser); students publish to `/sim/t1`.. thruster topics and read `/sim/imu`, `/sim/depth`, two on-screen joysticks. **Start with its README.** |
 | `docs/NETWORKING.md` | Ports, VLAN/VPN options and SSH-tunnel notes (research, untested). |
 
 ## Quick start

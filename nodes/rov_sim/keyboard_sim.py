@@ -67,6 +67,7 @@ def main():
             rov.step(dt)
             with shared.lock:
                 shared.state = rov.state(keys=True)
+                shared.state["joys"] = [list(j) for j in shared.joys]   # shown on the page; with no ROS they are not published
             time.sleep(1 / 60)
     except KeyboardInterrupt:
         pass
