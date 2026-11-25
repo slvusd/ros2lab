@@ -1,6 +1,6 @@
 // eel.js — an easter egg (browser version only; not documented on purpose). To remove it: delete this file and ../eel.js, and the eel lines in backend-local.js / app.js.
 // The physics only sees a prop (reset / step / state) that keeps every command at zero while the ROV is stunned.
-//   idle   not there     chase   swims at the ROV     bite   at the ROV for a moment (flash)     leave   swims back into its outlet
+//   idle   not there     chase   swims at the ROV     bite   at the ROV for a moment (flash)     leave   swims back to its outlet     enter   goes into the hole
 // The body is a chain of points: the head leads and every point follows the one in front of it.
 import { POOL_REGIONS, clamp, floorAt, nearestIn } from "./physics.js";
 
@@ -52,8 +52,52 @@ export class Eel {
 
   _head() { return this.segs[0]; }
 
+  /** Is the straight line a-b (x, y) all inside the water? (The pool is an L: from the shallow end a straight line to the deep end can run through the wall.) */
+  _clear(a, b) {
+    for (let k = 0; k <= 16; k++) {
+      const u = k / 16, x = a[0] + (b[0] - a[0]) * u, y = a[1] + (b[1] - a[1]) * u;
+      const [qx, qy] = nearestIn(this._swimmable(), x, y, 0.1);
+      if (Math.hypot(qx - x, qy - y) > 0.03) return false;
+    }
+    return true;
+  }
+
+  /** The pool's rectangles plus a short bridge across every opening (the eel keeps a margin from the walls, which would otherwise close the openings). */
+  _swimmable() {
+    const out = [...POOL_REGIONS];
+    for (const [gx, gy, vertical] of this._gatesFull()) {
+      if (vertical) out.push([gx - 0.3, gx + 0.3, gy[0], gy[1], 99]); else out.push([gx[0], gx[1], gy - 0.3, gy + 0.3, 99]);
+    }
+    return out;
+  }
+
+  /** The openings between the pool's rectangles: the middle of each shared edge. */
+  _gatesFull() {
+    const g = [], R = POOL_REGIONS;
+    for (let i = 0; i < R.length; i++) for (let j = 0; j < R.length; j++) {
+      if (i === j) continue;
+      const p = R[i], q = R[j];
+      if (Math.abs(p[1] - q[0]) < 1e-6) { const lo = Math.max(p[2], q[2]), hi = Math.min(p[3], q[3]); if (hi - lo > 0.25) g.push([p[1], [lo, hi], true]); }          // p's far x edge meets q's near x edge
+      if (Math.abs(p[3] - q[2]) < 1e-6) { const lo = Math.max(p[0], q[0]), hi = Math.min(p[1], q[1]); if (hi - lo > 0.25) g.push([[lo, hi], p[3], false]); }   // ... or the y edges
+    }
+    return g;
+  }
+  _gates() { return this._gatesFull().map(([a, b, vertical]) => (vertical ? [a, (b[0] + b[1]) / 2] : [(a[0] + a[1]) / 2, b])); }
+
+  /** Where to swim now to get to `target`: straight there if the way is clear, else through the opening that makes the shortest trip. */
+  _route(target) {
+    const h = this._head();
+    if (this._clear(h, target)) return target;
+    let best = null, bestCost = 1e9;
+    for (const g of this._gates()) {
+      const cost = Math.hypot(g[0] - h[0], g[1] - h[1]) + Math.hypot(g[0] - target[0], g[1] - target[1]) + (this._clear(h, g) ? 0 : 50);
+      if (cost < bestCost) { bestCost = cost; best = g; }
+    }
+    return best ? [best[0], best[1], target[2]] : target;
+  }
+
   /** Swim the head toward `target` (x, y, depth) at `speed`, turning at most TURN rad/s, and keep it in the water. */
-  _swim(target, speed, dt) {
+  _swim(target, speed, dt, free = false) {
     const h = this._head(), E = Eel;
     let want = [target[0] - h[0], target[1] - h[1], target[2] - h[2]];
     const n = Math.hypot(...want) || 1;
@@ -64,7 +108,7 @@ export class Eel {
     const dn = Math.hypot(...d) || 1;
     this.dir = d = d.map((v) => v / dn);
     h[0] += d[0] * speed * dt; h[1] += d[1] * speed * dt; h[2] += d[2] * speed * dt;
-    [h[0], h[1]] = nearestIn(POOL_REGIONS, h[0], h[1], E.MARGIN);
+    if (!free) [h[0], h[1]] = nearestIn(this._swimmable(), h[0], h[1], E.MARGIN);
     h[2] = clamp(h[2], E.MARGIN, Math.max(E.MARGIN, floorAt(h[0], h[1]) - E.MARGIN));
   }
 
@@ -88,7 +132,7 @@ export class Eel {
     this.t += dt; this.phase += dt;
     if (this.mode === "chase") {
       this.chase_t += dt;
-      this._swim(centre, Math.min(E.SPEED[1], E.SPEED[0] + E.SPEED_UP * this.chase_t), dt);
+      this._swim(this._route(centre), Math.min(E.SPEED[1], E.SPEED[0] + E.SPEED_UP * this.chase_t), dt);
       this._follow();
       const h = this._head();
       if (Math.hypot(h[0] - centre[0], h[1] - centre[1], h[2] - centre[2]) < E.BITE_AT) {
@@ -101,12 +145,17 @@ export class Eel {
       for (let j = 0; j < 3; j++) h[j] += d[j] / n * Math.min(n, 0.5 * dt);   // the head stays on the ROV
       this._follow();
       if (this.t >= E.BITE_TIME) { this.mode = "leave"; this.t = 0.0; }
-    } else if (this.mode === "leave") {
-      const o = this.outlet;
-      this._swim([o.x, o.y + 0.25, o.depth], E.SPEED[1], dt);
+    } else if (this.mode === "leave") {                                    // back to the front of the outlet (round the corner if it is in the shallow end)...
+      const o = this.outlet, front = [o.x, o.y - 0.5, o.depth], h = this._head();
+      this._swim(this._route(front), E.SPEED[1], dt);
       this._follow();
-      const h = this._head();
-      if (Math.hypot(h[0] - o.x, h[1] - o.y, h[2] - o.depth) < 0.3 || this.t > 25) { this.mode = "idle"; this.segs = []; }
+      if (Math.hypot(h[0] - front[0], h[1] - front[1], h[2] - front[2]) < 0.25) { this.mode = "enter"; this.t = 0.0; }
+      else if (this.t > 40) { this.mode = "idle"; this.segs = []; }
+    } else if (this.mode === "enter") {                                    // ... then straight into the hole, the whole body after the head
+      const o = this.outlet;
+      this._swim([o.x, o.y + 3.0, o.depth], E.SPEED[0], dt, true);
+      this._follow();
+      if (this.segs.every((q) => q[1] >= o.y - 0.01) || this.t > 15) { this.mode = "idle"; this.segs = []; }
     }
   }
 
@@ -118,7 +167,7 @@ export class Eel {
 
   state() {
     return { type: "eel", mode: this.mode, t: this.t, locked: this.locked, zap: this.mode === "bite" ? 1 : 0, dead: this.stun > 0,
-      dir: [...this.dir], phase: this.phase, segs: this.segs.map((s) => [...s]) };
+      dir: [...this.dir], phase: this.phase, outlet: this.outlet ? { x: this.outlet.x, y: this.outlet.y, depth: this.outlet.depth } : null, segs: this.segs.map((s) => [...s]) };
   }
 }
 

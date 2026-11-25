@@ -13,7 +13,7 @@ setPool(config.poollength, config.poolwidth);    // the pool first: rings and fi
 const rov = new Rov({ tool: defaultTool, thrusters: config.thrusters });
 rov.speed_mult = Math.max(0.25, Math.min(4, config.speed));   // ?speed= : the red / green thrusters' power (1 = normal)
 let ringsMod = null;
-try { ringsMod = await import("./sim/rings.js"); if (config.rings > 0) ringsMod.addTo(rov, config.rings); } catch (e) { /* optional add-on: no rings without rings.js */ }
+try { ringsMod = await import("./sim/rings.js"); if (config.rings > 0) ringsMod.addTo(rov, config.rings, { intro: true }); } catch (e) { /* optional add-on: no rings without rings.js */ }
 let fishAdded = false;
 if (config.fish) try {
   (await import("./sim/fishbrain.js")).addTo(rov, 1); fishAdded = true;

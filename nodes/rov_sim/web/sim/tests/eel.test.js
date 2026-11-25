@@ -75,7 +75,38 @@ test("the eel stays inside the water and its body keeps together", () => {
     const segs = eel.segs;
     if (!segs.length) continue;
     const [x, y, d] = segs[0];
+    if (y > eel.outlet.y) continue;                                     // (in the hole)
     assert.ok(d >= 0 && d <= floorAt(x, y) + 1e-6, `the head is under water and above the floor (${d.toFixed(2)})`);
     for (let k = 1; k < segs.length; k++) assert.ok(Math.hypot(...segs[k].map((v, j) => v - segs[k - 1][j])) <= Eel.GAP * 1.05 + 0.01, "no gap in the body");
   }
+});
+
+test("a ROV in the shallow end: the eel goes round the corner to get it, and round the corner again to get home", () => {
+  const { rov, world, eel } = make();
+  const shallow = POOL_REGIONS.reduce((a, b) => (b[4] < a[4] ? b : a));
+  rov.x = (shallow[0] + shallow[1]) / 2; rov.y = (shallow[2] + shallow[3]) / 2; rov.depth = Math.max(0.3, shallow[4] - 0.5);
+  eelMod.summon(rov);
+  let t = 0;
+  for (; t < 60 * 60 && eel.mode !== "bite"; t++) rov.step(DT);
+  assert.equal(eel.mode, "bite", `it got to the shallow end (${(t / 60).toFixed(0)} s)`);
+  run(world, 11);
+  assert.equal(eel.locked, false);
+  for (t = 0; t < 60 * 60 && eel.mode !== "idle"; t++) rov.step(DT);
+  assert.equal(eel.mode, "idle", `it got home from the shallow end (${(t / 60).toFixed(0)} s)`);
+});
+
+test("it swims INTO the hole: the body follows the head through the wall, it does not vanish when the head touches", () => {
+  const { rov, world, eel } = make();
+  eelMod.summon(rov);
+  for (let i = 0; i < 60 * 40 && eel.mode !== "enter"; i++) rov.step(DT);
+  assert.equal(eel.mode, "enter");
+  const o = eel.outlet;
+  let seen = false, steps = 0;
+  while (eel.mode === "enter" && steps++ < 60 * 20) {
+    rov.step(DT);
+    if (eel.segs.length && eel.segs[0][1] > o.y + 0.05 && eel.segs.at(-1)[1] < o.y - 0.05) seen = true;
+  }
+  assert.ok(seen, "for a while the head is in the hole and the tail is still out in the pool");
+  assert.ok(steps > 60 * 0.8, `going in takes time (${(steps / 60).toFixed(1)} s)`);
+  assert.equal(eel.mode, "idle");
 });
