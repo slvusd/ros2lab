@@ -122,3 +122,9 @@
   instantly, so it pressed into walls at full speed while the ROV caught up); corners/walls score badly; it peeks into the ROV camera when the ROV has
   been still for 2 s, threads rings, and the hard exclusion is now 30 cm. Corner time while chased 19% -> ~8-11%. Tried reacting earlier to fast
   approaches and looking further ahead: both were worse (kept as a 0-valued knob). 22 plain-Python tests.
+- Fixed: a ring hooked on the nose slid off the TIP within ~10-14 s of manoeuvring (reversing walked it to the SLIDE limit of 0.45 m, and the
+  nose-down tilt under its own weight shortens the nose's reach to ~0.46 m), so the tilt vanished. SLIDE is now (0.31, 0.40): 12 of 12 runs keep the ring
+  for the whole 40 s (was 0 of 12). Fish: now goes to look at a still ROV within seconds (it used to wait for its next random pick; first peek was after
+  82 s on the real server), picks a viewing spot checked against the real ROV shape and its own limits (it used to spook itself), swims around the ROV
+  not through it, and STOPS when it gets there (it used to drift toward the ROV at 4 cm/s until it bolted). Hovers 0.5-0.8 m from the lens (ROV at depth)
+  or ~0.9 m (ROV floating at the surface). HUD: "nose: N rings hooked", "holding 1 ring". 25 tests.

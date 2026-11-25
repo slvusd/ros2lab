@@ -654,9 +654,11 @@ function updateHud() {
   $("keyhelp").style.display = state.keys ? "block" : "none";
   $("topics").style.display = (!state.keys || state.ros) ? "block" : "none";
   $("topics").classList.toggle("side", !!(state.keys && state.ros));
+  const rings = (state.props || []).filter((p) => p.type === "ring");
+  const nHooked = rings.filter((p) => p.hooked).length;
   $("claw").textContent = tool === "nose" ? "(nose: fixed)" :
-    Math.round(state.claw * 100) + "% open" + (state.props?.some((p) => p.held) ? " (holding)" : state.props?.some((p) => p.inJaws) ? " (ring between jaws: close!)" : "");
-  if (tool === "nose") $("claw").textContent = state.props?.some((p) => p.hooked) ? "nose: ring hooked" : "nose: fixed";
+    Math.round(state.claw * 100) + "% open" + (rings.some((p) => p.held) ? " (holding 1 ring)" : rings.some((p) => p.inJaws) ? " (ring between jaws: close!)" : "");
+  if (tool === "nose") $("claw").textContent = nHooked ? `nose: ${nHooked} ring${nHooked > 1 ? "s" : ""} hooked` : "nose: fixed";
   const im = state.imu;
   if (im) {
     const f = (v) => { const r = Math.abs(v) < 0.0005 ? 0 : v; return (r >= 0 ? "+" : "-") + Math.abs(r).toFixed(3).padStart(6, " "); };

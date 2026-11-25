@@ -258,8 +258,10 @@ A little koi swims around the pool. It can **never be caught**, so nothing has t
 - **Wander:** lazy swimming between spots in open water, kept away from walls and corners.
 - **Thread a ring:** now and then it swims through one of the rings: in one side, through the hoop, out the other (the hole is bigger than the fish).
   It gives up if the ring is picked up or pushed.
-- **Peek:** if the ROV has sat still for a couple of seconds, the fish decides it is harmless and drifts over to **hover in view of the ROV camera**
-  (about 0.8 m from the lens), looking into it for 5 to 10 seconds, then wanders off. The moment the ROV moves, that trust is gone.
+- **Peek:** if the ROV has sat still for a couple of seconds, the fish decides it is harmless and **swims over, within a few seconds, to hover in
+  view of the ROV camera** (usually 0.8 to 1.2 m from the lens, just above the claw), looking into it for 8 to 16 seconds. Then it wanders off and
+  comes back for another look about every half minute, for as long as the ROV stays still. It swims *around* the ROV rather than through it. The moment
+  the ROV moves, that trust is gone. (It works with the default floating ROV too: it just takes the spot in the water the fish can use.)
 - **Flee:** if the ROV comes close (about 1.6 m) it bolts, faster than the ROV can swim. It plans its escape **in three dimensions**: for every
   direction, including diving and climbing, it rehearses about 1.8 seconds of swimming (including the time it takes to turn around, speed up and tilt)
   against a ROV chasing flat out, and picks the route that leaves the most distance and the most open water. The ROV is slow going up and down, so a fish

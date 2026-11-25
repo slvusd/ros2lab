@@ -46,7 +46,8 @@ class Ring:
     # --- nose (shared with the collision shape) ---
     NOSE = rov_shape.NOSE_PTS
     NOSE_R = rov_shape.NOSE_R
-    SLIDE = (0.31, 0.45)          # a hanging ring rests on the nose's low part, this far ahead of the ROV centre
+    SLIDE = (0.31, 0.40)          # a hanging ring rests on the nose's low part, this far ahead of the ROV centre. (The nose reaches
+                                  # 0.485 m, but tilting nose-down under the ring shortens that to ~0.46: keep clear of the tip)
     # --- claw (shared with the collision shape): hinged at JAW_X0 ahead of the centre, on the bottom bar ---
     JAW_X0, JAW_X1 = rov_shape.JAW_X0, 0.60   # the jaws cover this stretch ahead of the ROV centre
     JAW_Y0, JAW_HALF = rov_shape.JAW_Y0, rov_shape.JAW_HALF

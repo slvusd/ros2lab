@@ -40,8 +40,12 @@ class Fish:
     # --- how close it lets the ROV get (distances are to the ROV's surface, metres) ---
     SAFE_HARD = 0.30                  # never closer than this, whatever happens
     FLEE_AT, CALM_AT = 1.6, 2.4       # starts fleeing inside the first, calms down outside the second
-    FLEE_AT_TRUST, CALM_AT_TRUST = 0.45, 0.6     # the same, once it trusts a ROV that is sitting still
+    FLEE_AT_TRUST, CALM_AT_TRUST = 0.38, 0.5     # the same, once it trusts a ROV that is sitting still
     IDLE_AFTER = 2.0                  # seconds of a still ROV before it trusts it
+    CURIOUS_DELAY = (1.0, 5.0)        # then it takes a moment to decide to go and look
+    PEEK_FOR = (8.0, 16.0)            # how long it hovers in view of the camera
+    PEEK_COOLDOWN = (8.0, 20.0)       # after a visit it goes away for a while before coming back
+    PEEK_SPEED = 0.55                 # m/s: a purposeful swim over to the ROV
     REACTION = 0.0                    # extra seconds of warning: flees earlier by (ROV closing speed x this). Tried 0.5-1.0:
                                       # it just runs out of pool sooner, so it is off; the knob is here if you want to try
     # --- swimming ---
@@ -53,6 +57,7 @@ class Fish:
     MARGIN = 0.3                      # keeps this far from the walls, floor and surface
     WANDER_MARGIN = 0.8               # ... and wanders at least this far from the walls
     RING_MARGIN = 0.15                # while threading a ring it may get this close to the floor
+    SURFACE_MARGIN = 0.18             # while peeking it may come this close to the surface (so it can reach a ROV floating there)
 
     def __init__(self, seed=1, color=0xff7a2a):
         self.seed = seed
@@ -81,7 +86,10 @@ class Fish:
         self.idle_t = 0.0              # how long the ROV has been still
         self.trusting = False
         self.peek_until = 0.0
+        self.peek_ready = 0.0          # earliest time for the next visit
+        self.curious_in = None         # countdown to going over to the ROV once it has gone still
         self.peek_local = (1.0, 0.0, 0.05)
+        self.peek_via = None           # a waypoint to swim around the ROV on the way to the viewing spot
         self.pinned_t = 0.0            # how long a fleeing fish has been pressed against a wall
         self.dm = self.MARGIN          # depth margin (smaller while threading a ring)
         self.gap = 99.0                # distance to the ROV's surface, after the last step
@@ -179,23 +187,80 @@ class Fish:
         """Choose what to do next while calm."""
         self.cruise = self.rng.uniform(*self.CRUISE)
         roll = self.rng.random()
-        if roll < 0.2 and self._start_route(rov):               # thread a ring now and then
+        if self.trusting and self.clock >= self.peek_ready and roll < 0.8 and self._start_peek(rov):
+            pass                                                # the ROV is sitting still: go and have a look at it
+        elif roll < (0.12 if self.trusting else 0.2) and self._start_route(rov):    # thread a ring now and then
             pass
-        elif self.trusting and roll < 0.7:                      # the ROV is sitting still: go and have a look at it
-            self._start_peek(rov)
         else:
             self.target = self._random_point(avoid=None if self.trusting else rov)
 
     def _start_peek(self, rov):
+        """Go and hover in view of the ROV's camera. Returns False if no good spot exists right now."""
+        local = self._choose_peek_spot(rov)
+        if local is None:
+            return False
         self.mode = "peek"
-        self.peek_until = self.clock + self.rng.uniform(5.0, 10.0)
-        self.peek_local = (1.0 + self.rng.uniform(-0.1, 0.25), self.rng.uniform(-0.18, 0.18), self.rng.uniform(0.0, 0.12))
+        self.peek_local = local
+        self.peek_until = self.clock + self.rng.uniform(*self.PEEK_FOR)
+        self.peek_via = None
         self.target = self._peek_point(rov)
+        return True
+
+    def _route_around(self, rov, spot):
+        """If the straight swim to the viewing spot would pass close to the ROV, return a waypoint beside it to go via."""
+        fx, fy, fz = self.x, self.y, self.depth
+        dx, dy, dz = spot[0] - fx, spot[1] - fy, spot[2] - fz
+        L2 = dx * dx + dy * dy + dz * dz
+        if L2 < 1e-6:
+            return None
+        t = clamp(((rov.x - fx) * dx + (rov.y - fy) * dy + (rov.depth - fz) * dz) / L2, 0.0, 1.0)
+        nearest = (fx + dx * t, fy + dy * t, fz + dz * t)
+        if math.dist(nearest, (rov.x, rov.y, rov.depth)) > 1.0:
+            return None                                          # the straight line is clear
+        px, py = -dy, dx                                          # sideways, perpendicular to the swim
+        n = math.hypot(px, py) or 1.0
+        best = None
+        for side in (1, -1):
+            wx, wy = rov.x + side * px / n * 1.5, rov.y + side * py / n * 1.5
+            qx, qy = nearest_in(self._open_regions(fz), wx, wy, self.MARGIN)
+            if abs(qx - wx) + abs(qy - wy) > 1e-6:
+                continue                                          # that side is against a wall
+            length = math.dist((fx, fy), (wx, wy)) + math.dist((wx, wy), (spot[0], spot[1]))
+            if best is None or length < best[0]:
+                best = (length, (wx, wy, clamp(0.5 * (fz + spot[2]), self.MARGIN, POOL_MAX_DEPTH - self.MARGIN)))
+        return best[1] if best else None
+
+    def _choose_peek_spot(self, rov):
+        """The nearest spot to the camera lens that is in its picture, above the claw, and that the fish is happy with:
+        inside the water it may use, and far enough from every part of the ROV that it won't spook itself."""
+        tilt = rov_shape.CAM_TILT
+        want_gap = self.FLEE_AT_TRUST + 0.05                       # (hovering is stationary now, so no need for a big margin)
+        best = None
+        for dist in (0.7, 0.8, 0.9, 1.0, 1.15, 1.3, 1.5, 1.8, 2.2):
+            for dlat in (0.0, 0.12, -0.12, 0.25, -0.25):
+                for dup in (0.0, 0.08, 0.16, 0.25, 0.35, 0.45):      # on the axis, or higher (away from the claw)
+                    local = (rov_shape.CAM_POS[0] + dist * math.cos(tilt), dlat * dist,
+                             rov_shape.CAM_POS[2] - dist * math.sin(tilt) + dup)
+                    x, y, up = rov_shape.local_to_world(rov, *local)
+                    z = -up
+                    if not self.SURFACE_MARGIN <= z <= self._floor_here(x, y, self._open_regions(z)) - self.MARGIN:
+                        continue
+                    qx, qy = nearest_in(self._open_regions(z), x, y, self.MARGIN)
+                    if abs(qx - x) + abs(qy - y) > 1e-6:
+                        continue
+                    if rov_shape.distance_to_rov(rov, (x, y, up))[0] < want_gap:
+                        continue
+                    score = dist + 0.5 * abs(dlat) + 0.5 * dup + 0.02 * self.rng.random()
+                    if best is None or score < best[0]:
+                        best = (score, local)
+            if best is not None and dist >= 0.9:
+                break                                               # found something near enough; don't look further
+        return best[1] if best else None
 
     def _peek_point(self, rov):
-        """A spot in front of and a little above the ROV's claw, in view of its camera (about 0.8 m from the lens)."""
+        """The chosen viewing spot in world coordinates (it follows the ROV if it moves slightly), with a gentle bob."""
         x, y, up = rov_shape.local_to_world(rov, *self.peek_local)
-        z = clamp(-up + 0.03 * math.sin(2.0 * self.clock), self.MARGIN, POOL_MAX_DEPTH - self.MARGIN)     # a gentle bob
+        z = clamp(-up + 0.03 * math.sin(2.0 * self.clock), self.SURFACE_MARGIN, POOL_MAX_DEPTH - self.MARGIN)
         x, y = nearest_in(self._open_regions(z), x, y, self.MARGIN)
         return (x, y, z)
 
@@ -244,7 +309,12 @@ class Fish:
         active = (math.hypot(rov.u, rov.v) > 0.1 or abs(rov.r) > 0.1 or abs(rov.w) > 0.35
                   or any(abs(v) > 0.05 for v in rov.cmd.values()))
         self.idle_t = 0.0 if active else self.idle_t + dt
+        was = self.trusting
         self.trusting = self.idle_t > self.IDLE_AFTER
+        if self.trusting and not was:                           # just decided the ROV is harmless: go and look soon
+            self.curious_in = self.rng.uniform(*self.CURIOUS_DELAY)
+        elif not self.trusting:
+            self.curious_in = None
 
     def step(self, rov, dt):
         self.clock += dt
@@ -261,11 +331,23 @@ class Fish:
         elif self.mode == "flee" and gap > calm_at:
             self.mode, self.target = "wander", None
 
+        if self.curious_in is not None:
+            self.curious_in -= dt
+            if self.curious_in <= 0:
+                self.curious_in = None
+                if self.mode == "wander" and self.clock >= self.peek_ready:
+                    self._start_peek(rov)                       # drop what it was doing and swim over
         if self.mode == "peek":
             if not self.trusting or self.clock > self.peek_until:
                 self.mode, self.target = "wander", None
+                self.peek_ready = self.clock + self.rng.uniform(*self.PEEK_COOLDOWN)
             else:
-                self.target = self._peek_point(rov)
+                spot = self._peek_point(rov)
+                if self.peek_via is None and math.dist((self.x, self.y, self.depth), spot) > 1.2:
+                    self.peek_via = self._route_around(rov, spot)             # don't swim through the ROV
+                if self.peek_via is not None and math.dist((self.x, self.y, self.depth), self.peek_via) < 0.35:
+                    self.peek_via = None
+                self.target = self.peek_via if self.peek_via is not None else spot
         elif self.mode == "route":
             self._update_route(rov)
         if self.mode == "wander" and self.target is None:
@@ -279,11 +361,11 @@ class Fish:
             self.target = None                                  # arrived: choose something else next step
         flee = self.mode == "flee"
         turn = self.TURN_FLEE if flee else self.TURN_CRUISE
-        near_target = math.dist((self.x, self.y, self.depth), (tx, ty, td)) < 0.3
-        if self.mode == "peek" and near_target:                 # hovering in front of the camera: look into it
-            cx, cy, _cu = rov_shape.local_to_world(rov, *rov_shape.CAM_POS)
+        dist3 = math.dist((self.x, self.y, self.depth), (tx, ty, td))
+        if self.mode == "peek" and self.peek_via is None and dist3 < 0.12:
+            cx, cy, _cu = rov_shape.local_to_world(rov, *rov_shape.CAM_POS)    # at the spot: stop, and look into the camera
             want_yaw = math.atan2(cy - self.y, cx - self.x)
-            want = 0.04
+            want = 0.0
         else:
             want_yaw = math.atan2(dy, dx) if hdist > 0.05 else self.yaw
             if flee:
@@ -291,7 +373,7 @@ class Fish:
             elif self.mode == "route":
                 want = 0.2 if math.dist((self.x, self.y, self.depth), self.route_center) < 0.4 else 0.3
             elif self.mode == "peek":
-                want = 0.3
+                want = self.PEEK_SPEED * clamp(dist3 / 1.0, 0.12, 1.0)   # a purposeful swim, slowing right down as it arrives
             else:
                 want = self.cruise * clamp(hdist / 0.5, 0.4, 1.0)
         self.yaw = wrap_pi(self.yaw + clamp(wrap_pi(want_yaw - self.yaw), -turn * dt, turn * dt))
@@ -317,7 +399,8 @@ class Fish:
         x, y = nearest_in(self._open_regions(self.depth), self.x, self.y, self.MARGIN if self.mode != "route" else 0.1)
         moved = abs(x - self.x) + abs(y - self.y) > 1e-6
         self.x, self.y = x, y
-        self.depth = clamp(self.depth, self.MARGIN, max(self.MARGIN, self._floor_here(x, y) - self.dm))
+        top = self.SURFACE_MARGIN if self.mode == "peek" else self.MARGIN
+        self.depth = clamp(self.depth, top, max(top, self._floor_here(x, y) - self.dm))
         return moved
 
     def _keep_clear(self, rov):

@@ -214,6 +214,39 @@ def test_ring_nose_lift_and_carry():
     assert ring.hooked, "ring came off while being carried"
 
 
+def test_ring_stays_on_the_nose_through_manoeuvres():
+    """Picking a ring up and then driving about (reversing, turning, diving) must not make it slide off the tip."""
+    random.seed(4)
+    for trial in range(6):
+        r = with_props("nose")                                  # defaults, including the positive buoyancy
+        ring = rings_of(r)[0]
+        r.x, r.y, r.yaw = -1.5, 0.0, 0.0
+
+        def hold(target, extra=None):
+            v = max(-1, min(1, -1.8 * (target - r.depth) - 0.6 * r.w - 0.15))
+            r.set_cmd("t3", v); r.set_cmd("t4", v)
+            for k, val in (extra or {}).items():
+                r.set_cmd(k, val)
+            r.step(DT)
+        for _ in range(60 * 8):
+            hold(1.62)
+        while not ring.hooked and r.x < 2.0:
+            hold(1.62, {"t1": 0.5, "t2": 0.5})
+        for _ in range(30):
+            hold(1.62)
+        assert ring.hooked, f"trial {trial}: never hooked"
+        for _ in range(60 * 3):
+            r.set_cmd("t3", 0.8); r.set_cmd("t4", 0.8); r.step(DT)
+        for i in range(60 * 30):
+            if i % 90 == 0:
+                cmds = {"t1": random.uniform(-.6, .6), "t2": random.uniform(-.6, .6),
+                        "t3": random.uniform(-0.2, 0.7), "t4": random.uniform(-0.2, 0.7)}
+            for k, v in cmds.items():
+                r.set_cmd(k, v)
+            r.step(DT)
+            assert ring.hooked, f"trial {trial}: the ring slid off the nose after {i / 60:.0f} s of manoeuvring"
+
+
 def test_ring_claw_grab_hold_release():
     r = with_props("claw", buoyancy=0.0)
     ring = rings_of(r)[0]
@@ -362,6 +395,62 @@ def test_fish_peeks_at_a_still_rov_and_stays_wary_of_a_moving_one():
         worst_gap = min(worst_gap, fish.gap)
     assert not fish.trusting, "the fish still trusted a ROV that is chasing it"
     assert worst_gap >= rov_fish.Fish.SAFE_HARD - 0.03, f"the moving ROV got within {worst_gap * 100:.0f} cm"
+
+
+def test_fish_peeks_promptly_at_a_default_rov_floating_at_the_surface():
+    """The default ROV is positively buoyant, so it floats up and sits at the surface: the fish must still come to look."""
+    import rov_shape
+    results = []
+    for seed in (11, 25, 39):
+        r = Rov(tool="claw")                                    # ALL defaults (buoyancy +1.5 N)
+        import rov_props, rov_fish
+        rov_props.add_to(r, 3)
+        rov_fish.add_to(r, 1)
+        fish = [p for p in r.props if p.type == "fish"][0]
+        fish.seed = seed
+        fish.reset()
+        r.x, r.y, r.depth, r.yaw = -1.5, 0.0, 0.8, 0.0
+        first, peek, spooked, prev, near = None, 0, 0, None, 0
+        for i in range(60 * 150):
+            r.step(DT)
+            if fish.mode == "peek":
+                peek += 1
+                first = i / 60 if first is None else first
+                cx, cy, cu = rov_shape.local_to_world(r, *rov_shape.CAM_POS)
+                near += math.dist((cx, cy, cu), (fish.x, fish.y, -fish.depth)) < 1.1
+            spooked += prev == "peek" and fish.mode == "flee"
+            prev = fish.mode
+        results.append((first, peek / 60, spooked, near / 60))
+        assert first is not None and first < 30, f"seed {seed}: first peek only at {first}"
+        assert peek > 60 * 40, f"seed {seed}: peeked for only {peek / 60:.0f} s of 150"
+        assert near > 60 * 8, f"seed {seed}: within 1.1 m of the lens for only {near / 60:.0f} s"
+        assert spooked <= 3, f"seed {seed}: spooked itself {spooked} times"
+    print("        (first peek, seconds peeking, times it spooked itself, seconds close to the lens):", [tuple(round(x, 1) if x is not None else None for x in rr) for rr in results])
+
+
+def test_two_rings_on_the_nose_tilt_twice_as_much():
+    r = with_props("nose", rings=2, buoyancy=0.0)
+    a, b = rings_of(r)
+    a.x, a.y, a.yaw = 0.8, 0.0, math.pi / 2
+    b.x, b.y, b.yaw = 1.5, 0.0, math.pi / 2
+    r.x, r.y, r.yaw, r.depth = -1.5, 0.0, 0.0, 1.62
+    def hold(extra):
+        v = max(-1, min(1, -1.8 * (1.62 - r.depth) - 0.6 * r.w))
+        r.set_cmd("t3", v); r.set_cmd("t4", v)
+        for k, val in extra.items():
+            r.set_cmd(k, val)
+        r.step(DT)
+    for _ in range(60 * 3):
+        hold({})
+    for _ in range(60 * 5):
+        hold({"t1": 0.4, "t2": 0.4})
+    assert a.hooked and b.hooked, f"hooked: {a.hooked}, {b.hooked}"
+    for _ in range(60 * 3):
+        r.set_cmd("t1", 0); r.set_cmd("t2", 0); r.set_cmd("t3", 0.8); r.set_cmd("t4", 0.8); r.step(DT)
+    for _ in range(60):
+        r.step(DT)
+    assert a.lifting and b.lifting, "the nose should be carrying both rings"
+    assert 0.17 < r.pitch < 0.26, f"two rings should tilt about 11 degrees, got {math.degrees(r.pitch):.1f}"
 
 
 def test_fish_threads_the_rings_now_and_then():
