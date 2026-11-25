@@ -254,13 +254,24 @@ If you change the look of the ROV in `web/app.js`, update `rov_shape.py` to matc
 
 ## The fish (optional)
 
-A little koi swims around the pool, drifts over now and then to look at the ROV from a polite distance, and **bolts if the ROV gets close**. It can never be
-caught, so nothing has to happen when they "meet". Three things make that hold: it starts fleeing early (about 1.6 m), it picks the escape route that keeps
-it farthest from a chasing ROV (it rehearses each route for 1.5 s), and it swims faster than the ROV can. As a last resort, a hard rule keeps it at least
-**55 cm** from the ROV's surface; if it is ever cornered it darts to the free spot farthest away. It respects the pool (walls, floor, surface, and the
-step: it only enters the shallow end when its depth allows) and ignores the rings.
+A little koi swims around the pool. It can **never be caught**, so nothing has to happen when it and the ROV "meet". What it does:
+- **Wander:** lazy swimming between spots in open water, kept away from walls and corners.
+- **Thread a ring:** now and then it swims through one of the rings: in one side, through the hoop, out the other (the hole is bigger than the fish).
+  It gives up if the ring is picked up or pushed.
+- **Peek:** if the ROV has sat still for a couple of seconds, the fish decides it is harmless and drifts over to **hover in view of the ROV camera**
+  (about 0.8 m from the lens), looking into it for 5 to 10 seconds, then wanders off. The moment the ROV moves, that trust is gone.
+- **Flee:** if the ROV comes close (about 1.6 m) it bolts, faster than the ROV can swim. It plans its escape **in three dimensions**: for every
+  direction, including diving and climbing, it rehearses about 1.8 seconds of swimming (including the time it takes to turn around, speed up and tilt)
+  against a ROV chasing flat out, and picks the route that leaves the most distance and the most open water. The ROV is slow going up and down, so a fish
+  that dives or climbs usually gets clear. Routes into walls and corners score badly; if it ends up pressed against a wall it re-plans at once.
+
+How it stays uncatchable: it flees early, it is faster than the ROV, and a hard rule keeps it at least **30 cm** from the ROV's surface: it is pushed clear,
+and if the pool geometry won't let it (cornered) it **darts** to the free spot farthest from the ROV. Against a perfect-aim autopilot chasing it
+non-stop in this small pool (much harder than any person would manage) it still has to dart about once every 25 seconds; against a person it should be
+rare. It respects the pool (walls, floor, surface, and the step: it only enters the shallow end when its depth allows).
 
 `fish` / `--fish N` sets how many (0 to 3). **It lives in two files: delete `rov_fish.py` and `web/fish.js` to remove it** (or `--fish 0`).
+The behaviour numbers (distances, speeds, how far ahead it rehearses) are constants at the top of the `Fish` class in `rov_fish.py`.
 
 ## Parameters
 
@@ -297,9 +308,9 @@ Read once at startup. `ros2 run`-style for `rov_sim.py`: `--ros-args -p name:=va
 
 ## Tests
 
-`python3 nodes/rov_sim/test_physics.py` (about 10 seconds; no ROS or browser needed; add a word to run only some, e.g. `... ring`) checks the physics:
+`python3 nodes/rov_sim/test_physics.py` (about 20 seconds; no ROS or browser needed; add a word to run only some, e.g. `... ring`) checks the physics:
 the pool walls and floors, the step to the shallow end, rings being pushed, spun and picked up, claw and nose behaviour, and the fish (an autopilot chases
-it flat out for eight minutes and it must never get within reach). Run it after changing anything in `rov_physics.py`, `rov_shape.py`, `rov_props.py`
+it flat out for eight minutes and it must never get within reach or get stuck in corners; it must also peek at a still ROV and thread the rings). Run it after changing anything in `rov_physics.py`, `rov_shape.py`, `rov_props.py`
 or `rov_fish.py`.
 
 ## Files in this folder

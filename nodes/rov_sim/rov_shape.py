@@ -78,6 +78,19 @@ def point_seg(p, a, b):
     return q, math.sqrt(_dot(d, d))
 
 
+def local_to_world(rov, fx, ly, uz):
+    """A point in the ROV's own frame (fx ahead, ly left, uz up of its centre) as a world (x, y, up), allowing for yaw and pitch."""
+    cy, sy = math.cos(rov.yaw), math.sin(rov.yaw)
+    cp, sp = math.cos(rov.pitch), math.sin(rov.pitch)
+    fx2, uz2 = fx * cp + uz * sp, -fx * sp + uz * cp
+    return (rov.x + cy * fx2 - sy * ly, rov.y + sy * fx2 + cy * ly, -rov.depth + uz2)
+
+
+# the ROV camera (see web/app.js): top front, looking forward and down
+CAM_POS = (0.23, 0.0, 0.20)
+CAM_TILT = 0.5                             # radians below the ROV's forward direction
+
+
 def capsules(rov):
     """The ROV's solid parts in WORLD coordinates, as (a, b, radius, tag): a and b are (x, y, up) end points.
     tag is "frame", "thruster", "nose" or "claw" so callers can ignore the parts that are meant to touch something

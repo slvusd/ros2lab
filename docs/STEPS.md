@@ -118,3 +118,7 @@
 - ROV camera: a small camera on a short pipe under the top-front edge (housing + lens in the model, a capsule in rov_shape.py), looking forward and down
   ~29 deg so the front of the claw is in view; its picture (320x240, ~15 fps) goes through the same water pipeline from its own position, with solid
   walls, and is shown in a window under joy2. Page-only (not a ROS image topic). renderScene was generalised to renderView(camera, targets).
+- Fish brain rewritten: escape routes are rehearsed in 3D (diving/climbing) including turn-around time (the old one assumed it could face any way
+  instantly, so it pressed into walls at full speed while the ROV caught up); corners/walls score badly; it peeks into the ROV camera when the ROV has
+  been still for 2 s, threads rings, and the hard exclusion is now 30 cm. Corner time while chased 19% -> ~8-11%. Tried reacting earlier to fast
+  approaches and looking further ahead: both were worse (kept as a 0-valued knob). 22 plain-Python tests.

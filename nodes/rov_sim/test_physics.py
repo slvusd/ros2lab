@@ -287,10 +287,9 @@ def chase(r, fish, seconds, speed=1.0):
 
 
 def test_fish_is_never_caught():
-    """An autopilot chases the fish flat out for minutes: the fish must never get within SAFE of the ROV."""
+    """An autopilot chases the fish flat out for minutes: the fish must never get within SAFE_HARD of the ROV."""
     import rov_fish
-    worst = 99.0
-    darts = 0
+    worst, darts = 99.0, 0
     for seed in range(4):
         r = with_props("claw", rings=0, fish=1, buoyancy=0.0)
         fish = [p for p in r.props if p.type == "fish"][0]
@@ -300,8 +299,87 @@ def test_fish_is_never_caught():
         closest = chase(r, fish, 120)
         worst = min(worst, closest)
         darts += fish.darts
-    assert worst >= rov_fish.Fish.SAFE - 0.02, f"the ROV got within {worst * 100:.0f} cm of the fish"
+    assert worst >= rov_fish.Fish.SAFE_HARD - 0.03, f"the ROV got within {worst * 100:.0f} cm of the fish"
+    assert darts <= 40, f"the fish had to dart {darts} times in 8 minutes of relentless chasing"
     print(f"        (closest approach in 8 minutes of chasing: {worst * 100:.0f} cm; fish had to dart {darts} times)")
+
+
+def corner_distance(x, y):
+    return min(math.hypot(x - cx, y - cy) for r in POOL_REGIONS for cx in (r[0], r[1]) for cy in (r[2], r[3]))
+
+
+def test_fish_does_not_get_stuck_in_corners():
+    """While being chased the fish should use the open water: little time in corners, never pinned against a wall."""
+    near = steps = 0
+    longest_stuck = still = 0
+    for seed in (11, 18, 25):
+        r = with_props("claw", rings=0, fish=1, buoyancy=0.0)
+        fish = [p for p in r.props if p.type == "fish"][0]
+        fish.seed = seed
+        fish.reset()
+        r.x, r.y, r.depth = -2.5, -1.0, 1.0
+        last = (fish.x, fish.y, fish.depth)
+        for _ in range(60 * 80):
+            bearing = math.atan2(fish.y - r.y, fish.x - r.x)
+            err = (bearing - r.yaw + math.pi) % (2 * math.pi) - math.pi
+            r.set_cmd("t1", max(-1, min(1, 1 - 1.5 * err)))
+            r.set_cmd("t2", max(-1, min(1, 1 + 1.5 * err)))
+            v = -max(-1, min(1, 2.0 * (fish.depth - r.depth)))
+            r.set_cmd("t3", v); r.set_cmd("t4", v)
+            r.step(DT)
+            steps += 1
+            near += corner_distance(fish.x, fish.y) < 0.8
+            moved = math.dist((fish.x, fish.y, fish.depth), last)
+            last = (fish.x, fish.y, fish.depth)
+            still = still + 1 if (fish.speed > 1.0 and moved < 0.005) else 0     # "swimming hard" but going nowhere
+            longest_stuck = max(longest_stuck, still)
+    assert near / steps < 0.20, f"{near / steps * 100:.0f}% of the time in a corner"
+    assert longest_stuck < 60, f"pressed against a wall for {longest_stuck / 60:.1f} s"
+
+
+def test_fish_peeks_at_a_still_rov_and_stays_wary_of_a_moving_one():
+    import rov_fish, rov_shape
+    r = with_props("claw", rings=0, fish=1, buoyancy=0.0)
+    fish = [p for p in r.props if p.type == "fish"][0]
+    r.x, r.y, r.depth, r.yaw = -2.0, 0.0, 1.0, 0.0
+    fish.x, fish.y, fish.depth = 1.0, 0.5, 1.0
+    peek_steps, closest_lens, worst_gap = 0, 99.0, 99.0
+    for _ in range(60 * 150):
+        r.step(DT)
+        peek_steps += fish.mode == "peek"
+        cx, cy, cu = rov_shape.local_to_world(r, *rov_shape.CAM_POS)
+        closest_lens = min(closest_lens, math.dist((cx, cy, cu), (fish.x, fish.y, -fish.depth)))
+        worst_gap = min(worst_gap, fish.gap)
+    assert peek_steps > 60 * 20, f"only {peek_steps / 60:.0f} s peeking at a ROV that sat still for 2.5 minutes"
+    assert closest_lens < 1.1, f"never came within {closest_lens:.2f} m of the camera"
+    assert worst_gap >= rov_fish.Fish.SAFE_HARD - 0.03, f"got within {worst_gap * 100:.0f} cm of the ROV"
+    # now the ROV starts moving: the trust must go, and the fish must get out of the way
+    for _ in range(60 * 10):
+        bearing = math.atan2(fish.y - r.y, fish.x - r.x)
+        err = (bearing - r.yaw + math.pi) % (2 * math.pi) - math.pi
+        r.set_cmd("t1", max(-1, min(1, 1 - 1.5 * err))); r.set_cmd("t2", max(-1, min(1, 1 + 1.5 * err)))
+        r.step(DT)
+        worst_gap = min(worst_gap, fish.gap)
+    assert not fish.trusting, "the fish still trusted a ROV that is chasing it"
+    assert worst_gap >= rov_fish.Fish.SAFE_HARD - 0.03, f"the moving ROV got within {worst_gap * 100:.0f} cm"
+
+
+def test_fish_threads_the_rings_now_and_then():
+    r = with_props("claw", rings=3, fish=1, buoyancy=0.0)
+    fish = [p for p in r.props if p.type == "fish"][0]
+    r.x, r.y, r.depth, r.yaw = -2.5, -1.0, 1.0, 0.0
+    through, side = 0, {}
+    for _ in range(60 * 600):
+        r.step(DT)
+        for ring in rings_of(r):
+            nx, ny = -math.sin(ring.yaw), math.cos(ring.yaw)
+            s_now = (fish.x - ring.x) * nx + (fish.y - ring.y) * ny
+            in_hole = math.hypot((fish.x - ring.x) * math.cos(ring.yaw) + (fish.y - ring.y) * math.sin(ring.yaw),
+                                 fish.depth - ring.depth) < ring.R - ring.TUBE
+            if id(ring) in side and side[id(ring)] * s_now < 0 and in_hole:
+                through += 1
+            side[id(ring)] = s_now
+    assert through >= 3, f"swam through a ring only {through} times in 10 minutes"
 
 
 def test_fish_respects_the_step():
