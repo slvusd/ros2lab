@@ -79,8 +79,8 @@ export class Eels {
     // ---- the eel
     if (e.segs.length) {
       if (!this.body) this.body = this._build();
-      const b = this.body, wall = e.outlet ? e.outlet.y : 1e9;          // (what is in the wall is hidden: the body slides into the hole)
-      const pts = e.segs.map((s) => new V(s[0], -s[2], -Math.min(s[1], wall)));
+      const b = this.body, wall = e.outlet ? e.outlet.y : 1e9, ox = e.outlet ? e.outlet.x : 0;          // (what is in the wall is hidden: the body slides into the hole)
+      const pts = e.segs.map((s) => new V(s[0], -s[2], -(Math.abs(s[0] - ox) < 0.6 ? Math.min(s[1], wall) : s[1])));          // (only at the hole: the shallow end really is beyond that line)
       const swim = e.mode === "chase" || e.mode === "leave" || e.mode === "enter", amp = swim ? 0.06 : 0.02;
       const side = new V();
       pts.forEach((p, i) => {                                                      // a swimming wiggle across the body, travelling tail-ward

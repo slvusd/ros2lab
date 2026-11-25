@@ -110,3 +110,25 @@ test("it swims INTO the hole: the body follows the head through the wall, it doe
   assert.ok(steps > 60 * 0.8, `going in takes time (${(steps / 60).toFixed(1)} s)`);
   assert.equal(eel.mode, "idle");
 });
+
+test("wherever the ROV was caught, the eel only ever goes through the wall at the hole itself", () => {
+  const shallow = POOL_REGIONS.reduce((a, b) => (b[4] < a[4] ? b : a)), deep = POOL_REGIONS.reduce((a, b) => (b[4] > a[4] ? b : a));
+  const spots = [
+    [(shallow[0] + shallow[1]) / 2, (shallow[2] + shallow[3]) / 2, 0.3], [shallow[1] - 0.4, shallow[3] - 0.4, 0.4], [shallow[0] + 0.4, shallow[2] + 0.4, 0.5],
+    [deep[0] + 0.5, deep[2] + 0.5, 1.0], [deep[1] - 0.5, deep[3] - 0.4, 0.3], [deep[0] + 0.5, deep[3] - 0.5, 1.5], [0.0, 0.0, 0.2],
+  ];
+  for (const [x, y, d] of spots) {
+    const { rov, eel } = make();
+    rov.x = x; rov.y = y; rov.depth = d;
+    eelMod.summon(rov);
+    const o = eel.outlet;
+    let n = 0;
+    for (let i = 0; i < 60 * 120 && !(eel.mode === "idle" && i > 60 && !eel.stun); i++) {
+      rov.step(DT); n++;
+      for (const [sx, sy, sd] of eel.segs) {
+        if (sy > o.y + 0.02 && sx < shallow[0] - 0.05) assert.ok(Math.abs(sx - o.x) < 0.2 && Math.abs(sd - o.depth) < 0.25, `(${x.toFixed(1)}, ${y.toFixed(1)}): a part of the eel is in the wall away from the hole at x ${sx.toFixed(2)}, depth ${sd.toFixed(2)}, mode ${eel.mode}`);
+      }
+    }
+    assert.equal(eel.mode, "idle", `(${x.toFixed(1)}, ${y.toFixed(1)}): the eel got home (${eel.mode} after ${(n / 60).toFixed(0)} s)`);
+  }
+});

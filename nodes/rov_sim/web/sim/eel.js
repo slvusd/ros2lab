@@ -97,19 +97,20 @@ export class Eel {
   }
 
   /** Swim the head toward `target` (x, y, depth) at `speed`, turning at most TURN rad/s, and keep it in the water. */
-  _swim(target, speed, dt, free = false) {
+  _swim(target, speed, dt, free = false, turnMul = 1.0) {
     const h = this._head(), E = Eel;
     let want = [target[0] - h[0], target[1] - h[1], target[2] - h[2]];
     const n = Math.hypot(...want) || 1;
     want = want.map((v) => v / n);
     const cur = this.dir, dot = clamp(cur[0] * want[0] + cur[1] * want[1] + cur[2] * want[2], -1, 1);
-    const ang = Math.acos(dot), k = ang < 1e-6 ? 1 : Math.min(1, E.TURN * dt / ang);
+    const ang = Math.acos(dot), k = ang < 1e-6 ? 1 : Math.min(1, E.TURN * turnMul * dt / ang);
     let d = cur.map((v, i) => v + (want[i] - v) * k);
     const dn = Math.hypot(...d) || 1;
     this.dir = d = d.map((v) => v / dn);
     h[0] += d[0] * speed * dt; h[1] += d[1] * speed * dt; h[2] += d[2] * speed * dt;
     if (!free) [h[0], h[1]] = nearestIn(this._swimmable(), h[0], h[1], E.MARGIN);
-    h[2] = clamp(h[2], E.MARGIN, Math.max(E.MARGIN, floorAt(h[0], h[1]) - E.MARGIN));
+    const fl = floorAt(h[0], h[1]);                                       // (null: in the hole, where there is no pool floor)
+    h[2] = fl === null ? Math.max(E.MARGIN, h[2]) : clamp(h[2], E.MARGIN, Math.max(E.MARGIN, fl - E.MARGIN));
   }
 
   /** Every point follows the one before it, keeping GAP between them. */
@@ -146,16 +147,17 @@ export class Eel {
       this._follow();
       if (this.t >= E.BITE_TIME) { this.mode = "leave"; this.t = 0.0; }
     } else if (this.mode === "leave") {                                    // back to the front of the outlet (round the corner if it is in the shallow end)...
-      const o = this.outlet, front = [o.x, o.y - 0.5, o.depth], h = this._head();
+      const o = this.outlet, front = [o.x, o.y - 0.9, o.depth], h = this._head();
       this._swim(this._route(front), E.SPEED[1], dt);
       this._follow();
-      if (Math.hypot(h[0] - front[0], h[1] - front[1], h[2] - front[2]) < 0.25) { this.mode = "enter"; this.t = 0.0; }
+      if (Math.hypot(h[0] - front[0], h[1] - front[1], h[2] - front[2]) < 0.3) { this.mode = "enter"; this.t = 0.0; }
       else if (this.t > 40) { this.mode = "idle"; this.segs = []; }
-    } else if (this.mode === "enter") {                                    // ... then straight into the hole, the whole body after the head
-      const o = this.outlet;
-      this._swim([o.x, o.y + 3.0, o.depth], E.SPEED[0], dt, true);
+    } else if (this.mode === "enter") {                                    // ... then slowly, straight into the hole, the whole body after the head
+      const o = this.outlet, h = this._head();
+      const aperture = Math.abs(h[0] - o.x) < 0.1 && Math.abs(h[2] - o.depth) < 0.12;     // only through the hole itself: anywhere else the wall stops it
+      this._swim([o.x, o.y + 3.0, o.depth], E.SPEED[0] * 0.8, dt, aperture && h[1] > o.y - 0.25, 2.0);
       this._follow();
-      if (this.segs.every((q) => q[1] >= o.y - 0.01) || this.t > 15) { this.mode = "idle"; this.segs = []; }
+      if (this.segs.every((q) => q[1] >= o.y - 0.01) || this.t > 20) { this.mode = "idle"; this.segs = []; }
     }
   }
 
