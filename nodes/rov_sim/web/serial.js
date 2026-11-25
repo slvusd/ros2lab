@@ -36,7 +36,7 @@ export function setupSerial({ link, button, panel }) {
     button.addEventListener("click", () => { panel.style.display = "block"; panel.textContent = problem; });
     return;
   }
-  label("Connect micro:bit / Pico", "Drive the ROV from a micro:bit or Pico plugged in with USB (Shift-click to choose any serial device)");
+  label("Connect micro:bit / Pico", "Drive the ROV from a micro:bit or Pico plugged in with USB (Shift-click to choose any serial device). The Help page explains the protocol.");
 
   async function cleanup(message) {
     if (!connected && !port) return;
@@ -66,7 +66,7 @@ export function setupSerial({ link, button, panel }) {
     };
     button.classList.add("on");
     label("Device connected (click to disconnect)", "Click to disconnect");
-    show("note", "connected: send p:t1,0.5 ... (see the README)");
+    show("note", "connected: send p:t1,0.5 ... (see Help, #microcontrollers)");
     readLoop(p);
     return true;
   }

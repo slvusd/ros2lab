@@ -32,24 +32,8 @@ Rules
   Give boards distinct channel names (e.g. `team3_temp`) so topics do not collide.
 
 ## The ROV pool simulator (browser version, `nodes/rov_sim/web/`)
-Click **Connect micro:bit / Pico** (Chrome, Edge or a Chromebook; https or localhost) and the page speaks this protocol over USB at 115200 baud.
-No bridge or ROS is involved. The channel names match the ROS ones (`/sim/t1` ...), see `nodes/rov_sim/README.md`.
+Click **Connect micro:bit / Pico** (Chrome, Edge or a Chromebook; https or localhost) and the page speaks these same lines over USB at 115200 baud.
+No bridge or ROS is involved. Example: `p:t1,0.5` runs thruster 1 at half power; `s:depth` then makes the page send `m:depth,0.82` readings.
 
-| You send | Meaning |
-|---|---|
-| `p:t1,0.5` .. `p:t4,0.5` | thrusters 1..4, -1 .. 1 (t1 left, t2 right, t3 front vertical, t4 rear vertical; + = forward / up) |
-| `p:claw,1` | claw servo, 0 closed .. 1 open |
-| `p:tool,nose` | `claw` or `nose` |
-| `p:reset,1` | back to the start position |
-| `s:depth` | "send me depth" (repeat every few seconds: it lapses after 15 s) |
-
-| The pool sends (only after `s:<name>`) | Meaning |
-|---|---|
-| `m:depth,0.82` | metres below the surface |
-| `m:heading,90` | degrees, 0 = +x end of the pool, counter-clockwise + |
-| `m:pitch,-1.5` | degrees, nose DOWN positive |
-| `m:accel,0.00,0.00,9.81` | accelerometer, m/s^2, includes gravity |
-| `m:speed,0.12` | m/s |
-
-Thruster values stay until you send new ones, but **when the cable is unplugged or the port closes, all four thrusters stop**.
-Lines are at most 32 bytes and at most about 16 a second; anything that is not a valid `p:` / `s:` line is ignored.
+The channels, their units, the safety rules (the thrusters stop when the cable is unplugged) and worked examples are documented **once**, in the page's own
+help, so they cannot drift: [`nodes/rov_sim/web/help.md`](../nodes/rov_sim/web/help.md) (the **Help** button on the page opens it as `help.html#microcontrollers`).

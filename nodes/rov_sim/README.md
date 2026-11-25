@@ -46,6 +46,9 @@ thrusters only. **H** (or the badge under the switches) toggles **H-bridge only*
 controller. With it off, the extra keys (W A S D, R F, Z C, I K) work too. The setting is remembered in the browser.
 To change a key, edit `SWITCHES` in `web/controls.js` (and the key help in `index.html`).
 
+**Help page:** the **Help** button opens `web/help.html`, rendered from `web/help.md` (controls, the pool, page options, and the full micro:bit / Pico protocol with examples). It is the single
+source for the browser version's protocol; `web/sim/tests/help.test.js` fails if it falls out of step with the code. Edit `help.md`, not the HTML.
+
 **Drive it from a micro:bit or Pico (browser version, Chrome / Edge / Chromebook):** plug the board in with USB, click
 *Connect micro:bit / Pico*, choose the board. The board then just `print()`s lines like `p:t1,0.5` (the protocol is in
 `docs/PROTOCOL.md`; examples: `examples/microbit_tilt.py` drives by tilting a micro:bit, `examples/pico_throttle.py` uses a dial).

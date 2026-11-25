@@ -83,6 +83,8 @@
            padding: 5px 10px; font: inherit; cursor: pointer; }
   button.on { background: #f2b705; color: #111; }
   button.off { opacity: .55; }
+  a.btnlink { background: #1d6f9f; color: #fff; border-radius: 6px; padding: 5px 10px; text-decoration: none; cursor: pointer; }
+  a.btnlink:hover { filter: brightness(1.15); }
   button:hover { filter: brightness(1.15); }
   #topics.side { left: auto; right: 8px; }          /* with the keyboard help also showing, topics go bottom-right */
   #topics { bottom: 8px; left: 8px; font: 12px/1.4 ui-monospace, Menlo, monospace; }
@@ -139,9 +141,10 @@
   <button id="buoy" title="Pool setting: ROV floats / neutral (hovers) / sinks (B)">Buoyancy: floats</button>
   <button id="tool" title="Front tool: claw or fixed nose (T)">Tool: Claw</button>
   <button id="fx" title="Refraction + water ripples (experimental)">Water FX</button>
-  <button id="serial" style="display:none" title="Drive the ROV from a micro:bit or Pico">Connect micro:bit / Pico</button>
+  <button id="serial" style="display:none" title="Drive the ROV from a micro:bit or Pico (the Help page has the protocol)">Connect micro:bit / Pico</button>
   <button id="quality" title="Auto lowers the graphics if the page runs slowly; click to pin High or Low">Quality: Auto</button>
   <button id="reset">Reset</button>
+  <a id="help" class="btnlink" href="help.html" target="_blank" rel="noopener" title="How it works: the controls, the pool, and the micro:bit / Pico protocol">Help</a>
 </div>
 <pre id="seriallog" class="panel" style="display:none; right: 8px; bottom: 8px; margin: 0; font: 11px/1.4 ui-monospace, Menlo, monospace; max-width: 300px; white-space: pre-wrap;"></pre>
 <div id="keyhelp" class="panel" style="display:none; bottom: 8px; left: 8px; font: 12px/1.5 ui-monospace, Menlo, monospace;">
