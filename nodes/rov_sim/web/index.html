@@ -51,6 +51,12 @@
   .swlever.on { background: radial-gradient(circle at 35% 30%, #ffe27a, #f2b705); }
   .swend { position: absolute; left: 0; right: 0; text-align: center; font: 10px ui-monospace, Menlo, monospace; opacity: .8; pointer-events: none; }
   .swend.top { top: 4px; } .swend.bot { bottom: 4px; }
+  .swslot.h { width: 92px; height: 36px; }                    /* red and green: lying down, left end = reverse, right end = forward */
+  .swslot.h .swlever { left: 33px; top: 4px; }
+  .swslot.h .swend { top: 10px; bottom: auto; width: 24px; }
+  .swslot.h .swend.l { left: 5px; right: auto; text-align: left; } .swslot.h .swend.r { right: 5px; left: auto; text-align: right; }
+  .sw.red .swname { color: #ff8a80; } .sw.green .swname { color: #7dffa8; }
+  .sw.red .swslot { border-color: #ff8a80aa; } .sw.green .swslot { border-color: #7dffa8aa; }
   .swkeys { font: 11px ui-monospace, Menlo, monospace; opacity: .85; margin-top: 3px; white-space: pre; }
   .joycap { font: 11px ui-monospace, Menlo, monospace; opacity: .85; margin-top: 3px; }
   @media (max-width: 640px) {
@@ -100,10 +106,10 @@
   </div>
 </div>
 <div id="rightcol">
-<div id="switchbox" class="panel" title="Three momentary switches, like a scout ROV controller: top two = left and right thrusters, bottom = up/down. Click and hold, or use the keys.">
+<div id="switchbox" class="panel" title="Three momentary switches, like a scout ROV controller: red and green = the two side thrusters (left end reverse, right end forward), bottom = up/down. Click and hold, or use the keys.">
   <div class="swrow">
-    <div class="sw" data-i="0"><div class="swname">left</div><div class="swslot"><span class="swend top">2&#9650;</span><div class="swlever"></div><span class="swend bot">1&#9660;</span></div></div>
-    <div class="sw" data-i="1"><div class="swname">right</div><div class="swslot"><span class="swend top">=&#9650;</span><div class="swlever"></div><span class="swend bot">-&#9660;</span></div></div>
+    <div class="sw red" data-i="0"><div class="swname">red</div><div class="swslot h"><span class="swend l">&#9664;1</span><div class="swlever"></div><span class="swend r">2&#9654;</span></div></div>
+    <div class="sw green" data-i="1"><div class="swname">green</div><div class="swslot h"><span class="swend l">&#9664;-</span><div class="swlever"></div><span class="swend r">=&#9654;</span></div></div>
   </div>
   <div class="swrow">
     <div class="sw" data-i="2"><div class="swname">up / down</div><div class="swslot"><span class="swend top">.&#9650;</span><div class="swlever"></div><span class="swend bot">;&#9660;</span></div></div>
@@ -138,7 +144,7 @@
   <div>W/S &nbsp;forward / reverse &nbsp;&nbsp;A/D turn left / right</div>
   <div>R/Space up &nbsp;&nbsp;F/Shift down &nbsp;&nbsp;I/K nose up/down</div>
   <div>Z / C &nbsp;left / right thruster only</div>
-  <div>1/2 left &nbsp;-/= right &nbsp;;/. down/up &nbsp;(switch box: first key reverse, second forward)</div>
+  <div>1/2 red &nbsp;-/= green &nbsp;;/. down/up &nbsp;(switch box: first key reverse, second forward)</div>
   <div id="help-claw">H claw open/close &nbsp;&nbsp;[ ] claw closer/wider &nbsp;&nbsp;X stop all</div>
   <div id="help-tool">T claw/nose &nbsp;&nbsp;B buoyancy &nbsp;&nbsp;V reset view (or double-click)</div>
 </div>

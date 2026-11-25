@@ -736,8 +736,9 @@ swEls.forEach((el, i) => {
   const slot = el.querySelector(".swslot");
   const set = (v) => { if (pointerSw[i] !== v) { pointerSw[i] = v; sendCommand(); } };
   const fromPointer = (e) => {
-    const r = slot.getBoundingClientRect(), dy = e.clientY - (r.top + r.height / 2);
-    set(dy < -r.height * 0.12 ? 1 : dy > r.height * 0.12 ? -1 : 0);
+    const r = slot.getBoundingClientRect();
+    const d = SWITCHES[i].orient === "h" ? (e.clientX - (r.left + r.width / 2)) / r.width : -(e.clientY - (r.top + r.height / 2)) / r.height;   // + toward the plus end
+    set(d > 0.12 ? 1 : d < -0.12 ? -1 : 0);
   };
   let down = false;
   slot.addEventListener("pointerdown", (e) => { if (!state.keys) return; down = true; slot.setPointerCapture(e.pointerId); fromPointer(e); e.preventDefault(); });
@@ -750,7 +751,7 @@ swEls.forEach((el, i) => {
 function drawSwitches() {
   switchValues(held, pointerSw).forEach((v, i) => {
     const lever = swEls[i].querySelector(".swlever");
-    lever.style.transform = `translateY(${-v * 22}px)`;
+    lever.style.transform = SWITCHES[i].orient === "h" ? `translateX(${v * 26}px)` : `translateY(${-v * 22}px)`;
     lever.classList.toggle("on", v !== 0);
   });
 }

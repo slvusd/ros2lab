@@ -2,15 +2,16 @@
 //
 // THE SWITCH BOX imitates the controller most scout ROVs use: three momentary DPDT switches (on-off-on, spring back to centre)
 // wired through H-bridges, so each is full reverse, off, or full forward, with no in-between.
-//   switch 1 = left thruster t1    keys 1 (reverse)  2 (forward)
-//   switch 2 = right thruster t2   keys - (reverse)  = (forward)
-//   switch 3 = both vertical t3+t4 keys ; (down)     . (up)
-// Rule for the keys: the left key of each pair is the "minus" direction, the right key the "plus" direction.
+//   red switch   = thruster t1 (the left one)    horizontal: left end reverse (key 1), right end forward (key 2)
+//   green switch = thruster t2 (the right one)   horizontal: left end reverse (key -), right end forward (key =)
+//   up/down      = both vertical t3+t4           vertical:   bottom down (key ;), top up (key .)
+// Rule for the keys: the left key of each pair is the "minus" direction, the right key the "plus" direction
+// (on the horizontal switches that is also the left and right end of the slot).
 // To change a key, edit SWITCHES below (and the help text in index.html).
 export const SWITCHES = [
-  { name: "L", thrusters: ["t1"], minus: "Digit1", plus: "Digit2", minusLabel: "1", plusLabel: "2", title: "left thruster" },
-  { name: "R", thrusters: ["t2"], minus: "Minus", plus: "Equal", minusLabel: "-", plusLabel: "=", title: "right thruster" },
-  { name: "Up/Down", thrusters: ["t3", "t4"], minus: "Semicolon", plus: "Period", minusLabel: ";", plusLabel: ".", title: "up / down" },
+  { name: "red", orient: "h", thrusters: ["t1"], minus: "Digit1", plus: "Digit2", minusLabel: "1", plusLabel: "2", title: "red thruster (t1, left)" },
+  { name: "green", orient: "h", thrusters: ["t2"], minus: "Minus", plus: "Equal", minusLabel: "-", plusLabel: "=", title: "green thruster (t2, right)" },
+  { name: "up/down", orient: "v", thrusters: ["t3", "t4"], minus: "Semicolon", plus: "Period", minusLabel: ";", plusLabel: ".", title: "up / down" },
 ];
 
 export const SWITCH_KEYS = SWITCHES.flatMap((s) => [s.minus, s.plus]);

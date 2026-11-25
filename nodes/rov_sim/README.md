@@ -38,9 +38,9 @@ ROV camera window to 4 pictures a second and renders at a lower pixel ratio, Low
 `?selftest` makes the page drive itself for 7 seconds and write `PASS ...` or `FAIL: ...` into the page title (used for headless checks).
 
 **The switch box** (top right, where the joysticks are in the ROS version) imitates the usual scout controller: three momentary
-DPDT switches that give full reverse, off, or full forward (no in-between, like an H-bridge). Top row: left thruster (keys `1` reverse, `2` forward)
-and right thruster (`-` reverse, `=` forward). Below: both vertical thrusters (`;` down, `.` up). Hold a switch with the mouse (top half = forward/up,
-bottom half = reverse/down) or press the keys; it springs back to off. A pushed switch overrides the keyboard for its own thrusters only.
+DPDT switches that give full reverse, off, or full forward (no in-between, like an H-bridge). Top row, lying down: the **red** switch (thruster t1, the left one; keys `1` reverse, `2` forward)
+and the **green** switch (t2, the right one; `-` reverse, `=` forward); left end of the slot = reverse, right end = forward. Below, upright: both vertical
+thrusters (`;` down, `.` up). Hold a switch with the mouse (right half / top half = forward / up, left half / bottom half = reverse / down) or press the keys; it springs back to off. A pushed switch overrides the keyboard for its own thrusters only.
 The rule for the keys is "left key = minus, right key = plus"; to change them edit `SWITCHES` in `web/controls.js` (and the key help in `index.html`).
 
 **Drive it from a micro:bit or Pico (browser version, Chrome / Edge / Chromebook):** plug the board in with USB, click
