@@ -1258,11 +1258,23 @@ if (new URLSearchParams(location.search).has("selftest")) {
         if (!(d1 > d0 + 0.05)) return fail(`the dropped ring does not sink (${d0.toFixed(2)} -> ${d1.toFixed(2)})`);
       }
     }
+    if (backend.setPoolSize && jets && jets.sys) {                    // the drawn outlets must follow the wall when the pool is resized
+      for (const [L, W] of [[1, 3], [2, 2], [1, 1]]) {
+        backend.setPoolSize(L, W);
+        await wait(500);
+        const outlets = state.props.find((p) => p.type === "jets").outlets;
+        if (!jets.sys) return fail("the outlets were not drawn after the pool was resized");
+        for (let k = 0; k < outlets.length; k++) {
+          const o = outlets[k], d = jets.sys[k].origin;                // the drawn outlet (three.js: x, -depth, -y)
+          if (Math.hypot(d.x - o.x, d.y + o.depth, d.z + o.y) > 1e-6) return fail(`${L}x${W}: the outlet is drawn at (${d.x.toFixed(2)}, ${(-d.y).toFixed(2)}, ${(-d.z).toFixed(2)}) but sits at (${o.x.toFixed(2)}, ${o.depth.toFixed(2)}, ${o.y.toFixed(2)})`);
+        }
+      }
+    }
     document.title = `PASS (${backend.name}, tool ${tool}, quality ${TIERS[tier].name}, ${lastFps ? lastFps.toFixed(0) + " fps" : "fps not measured"})`;
   })();
 }
 
-window.__rov = { state, backend, camera, controls, rings: () => (state.props || []).filter((p) => p.type === "ring") };      // read-only hook for automatic checks (see devtools-driven tests)
+window.__rov = { state, backend, camera, controls, jets: () => jets, rings: () => (state.props || []).filter((p) => p.type === "ring") };      // read-only hook for automatic checks (see devtools-driven tests)
 
 // ---------- ?config: a panel to set all of these and make the link ----------
 if (cfg.open) import("./configui.js").then((m) => m.showConfig({ cfg, configurable: backend.configurable || {} })).catch((e) => console.warn("config panel failed:", e));

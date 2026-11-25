@@ -41,6 +41,13 @@ export class Jets {
     return (this._tex = new this.T.CanvasTexture(c));
   }
 
+  /** Take the outlets and the water out of the scene (to be built again somewhere else). */
+  dispose() {
+    this.scene.remove(this.group);
+    this.group.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    this.group = null; this.sys = null;
+  }
+
   build(p) {
     const T = this.T, group = new T.Group();
     const rim = new T.MeshStandardMaterial({ color: 0xe0e6ea, roughness: 0.35, metalness: 0.3 }), hole = new T.MeshBasicMaterial({ color: 0x0a2030 });
@@ -103,7 +110,9 @@ export class Jets {
   update(list, dt) {                       // list = state.props from the sim
     const p = (list || []).find((q) => q.type === "jets");
     if (!p) { if (this.group) this.group.visible = false; return; }
-    if (!this.sys) this.build(p);
+    const where = JSON.stringify(p.outlets.map((o) => [o.x, o.y, o.depth, o.dx, o.dy]));
+    if (this.sys && where !== this.where) this.dispose();                  // the outlets moved (the pool was resized): draw them where they are now
+    if (!this.sys) { this.build(p); this.where = where; }
     this.group.visible = true;
     const on = !!p.on, showBubbles = on && (this.look === "bubbles" || this.look === "mix"), showStreaks = on && this.look === "streaks", showRings = on && (this.look === "rings" || this.look === "mix");
     for (const j of this.sys) { j.bubbles.visible = showBubbles; j.streaks.visible = showStreaks; j.ringGroup.visible = showRings; }
