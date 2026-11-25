@@ -32,8 +32,22 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 
-# Pool, metres. x: -L/2..L/2, y: -W/2..W/2, depth: 0 (surface) .. D (floor).
-POOL_L, POOL_W, POOL_D = 6.0, 3.0, 2.0
+# THE POOL (metres): a list of rectangles seen from above, each with the depth of its floor. They must touch along
+# their edges to form one connected pool. x is along the pool, y to the left of the ROV's start heading, depth is
+# measured down from the surface. The page draws whatever is listed here, so you can reshape the pool by editing it.
+#
+#   y
+#   4.0 |            +--------+        <- the SHALLOW END (1 m deep), off to the left at the far end
+#       |            | shallow|
+#   1.5 +------------+--------+
+#       |      deep end (2 m)  |      <- the original pool: 6 m x 3 m
+#  -1.5 +----------------------+
+#      -3.0         0.5       3.0   x
+POOL_REGIONS = [
+    (-3.0, 3.0, -1.5, 1.5, 2.0),     # x0, x1, y0, y1, floor depth: the deep end
+    (0.5, 3.0, 1.5, 4.0, 1.0),       # the shallow end: a 1 m deep shelf, joined to the deep end along y = 1.5
+]
+POOL_MAX_DEPTH = max(r[4] for r in POOL_REGIONS)
 ROV_HALF = 0.25                       # ROV is ~0.5 m on a side (to the middle of the frame pipes)
 ROV_BOTTOM = 0.28                     # lowest point below the centre: the bottom pipes (radius 1.4 cm) and the tool/thruster
                                       # clamps hang below the pipe centre line, so the floor stops THIS, not ROV_HALF
@@ -78,6 +92,26 @@ T_LEFT, T_RIGHT, T_FRONT, T_REAR = "t1", "t2", "t3", "t4"      # thruster channe
 
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
+
+
+def floor_at(x, y):
+    """Depth of the pool floor under (x, y): the deepest region containing that point, or None outside the pool."""
+    ds = [r[4] for r in POOL_REGIONS if r[0] - 1e-9 <= x <= r[1] + 1e-9 and r[2] - 1e-9 <= y <= r[3] + 1e-9]
+    return max(ds) if ds else None
+
+
+def nearest_in(regions, x, y, margin=0.0):
+    """The closest point to (x, y) that lies inside the union of the rectangles (each shrunk by `margin`)."""
+    best = None
+    for r in regions:
+        x0, x1, y0, y1 = r[0] + margin, r[1] - margin, r[2] + margin, r[3] - margin
+        if x0 > x1 or y0 > y1:
+            continue
+        qx, qy = clamp(x, x0, x1), clamp(y, y0, y1)
+        d = (qx - x) ** 2 + (qy - y) ** 2
+        if best is None or d < best[0]:
+            best = (d, qx, qy)
+    return (best[1], best[2]) if best else (x, y)
 
 
 class Rov:
@@ -151,8 +185,8 @@ class Rov:
         prev_depth = self.depth
         self.depth += self.w * dt
 
-        self._walls(c, s)
-        floor = POOL_D - ROV_BOTTOM
+        self._walls(c, s, prev_depth)
+        floor = self._floor_limit(c, s)
         if self.hard_limits:
             if self.depth < 0.15 or self.depth > floor:
                 self.depth = clamp(self.depth, 0.15, floor); self.w = 0.0
@@ -205,22 +239,43 @@ class Rov:
                 "gx": g(), "gy": self.pitch_rate + g(), "gz": self.r + g(),
                 "ax": self.imu_acc[0], "ay": self.imu_acc[1], "az": self.imu_acc[2]}
 
-    def _walls(self, c, s):
-        """Keep the whole footprint (corners, thrusters, tool tip) inside the pool: push the ROV back
-        and cancel the part of its motion that goes into the wall, so it slides along it."""
+    def _footprint(self, c, s):
+        """World (x, y) of the footprint's corners and the tool tip."""
         pts = [(BODY_HX, BODY_HY), (BODY_HX, -BODY_HY), (-BODY_HX, BODY_HY), (-BODY_HX, -BODY_HY), (TOOL_TIP, 0.0)]
-        xs = [self.x + c * px - s * py for px, py in pts]
-        ys = [self.y + s * px + c * py for px, py in pts]
+        return [(self.x + c * px - s * py, self.y + s * px + c * py) for px, py in pts]
+
+    def _floor_limit(self, c, s):
+        """Deepest the ROV's centre may go: its lowest point can't pass the floor under ANY part of its footprint."""
+        floors = [floor_at(x, y) for x, y in self._footprint(c, s)]
+        floors = [f for f in floors if f is not None] or [POOL_MAX_DEPTH]
+        return min(floors) - ROV_BOTTOM
+
+    def _walls(self, c, s, depth):
+        """Keep the whole footprint (corners, thrusters, tool tip) inside the pool: push the ROV back and cancel the
+        part of its motion that goes into the wall, so it slides along it. A region is only open to the ROV while its
+        floor is deeper than the ROV's lowest point, so the step up to the shallow end is a wall to a ROV that is
+        too deep to pass over it. `depth` is the ROV's depth at the START of this step, so diving while over the
+        shelf stops on the shelf floor (see _floor_limit) instead of throwing the ROV off the shelf."""
+        need = depth + ROV_BOTTOM
+        open_regions = [r for r in POOL_REGIONS if r[4] >= need - 1e-6] or [max(POOL_REGIONS, key=lambda r: r[4])]
         vx, vy = self.u * c - self.v * s, self.u * s + self.v * c       # velocity in pool coordinates
-        hx, hy = POOL_L / 2, POOL_W / 2
-        if max(xs) > hx:
-            self.x -= max(xs) - hx; vx = min(vx, 0.0)
-        elif min(xs) < -hx:
-            self.x += -hx - min(xs); vx = max(vx, 0.0)
-        if max(ys) > hy:
-            self.y -= max(ys) - hy; vy = min(vy, 0.0)
-        elif min(ys) < -hy:
-            self.y += -hy - min(ys); vy = max(vy, 0.0)
+        for _ in range(4):                                              # fix the worst corner, then look again
+            worst = None
+            for wx, wy in self._footprint(c, s):
+                qx, qy = nearest_in(open_regions, wx, wy)
+                dx, dy = qx - wx, qy - wy
+                d = dx * dx + dy * dy
+                if d > 1e-12 and (worst is None or d > worst[0]):
+                    worst = (d, dx, dy)
+            if worst is None:
+                break
+            _, dx, dy = worst
+            self.x += dx
+            self.y += dy
+            if dx > 0: vx = max(vx, 0.0)
+            elif dx < 0: vx = min(vx, 0.0)
+            if dy > 0: vy = max(vy, 0.0)
+            elif dy < 0: vy = min(vy, 0.0)
         self.u, self.v = vx * c + vy * s, -vx * s + vy * c
 
     def state(self, keys=False):
@@ -231,7 +286,7 @@ class Rov:
                 "splash_n": self.splash_n, "splash_v": self.splash_v,
                 "floor_n": self.floor_n, "floor_v": self.floor_v,
                 "props": [p.state() for p in self.props], "tool": self.tool, "pitch": self.pitch, "imu": self.imu(), "buoyancy": self.buoyancy,
-                "pool": [POOL_L, POOL_W, POOL_D], "keys": keys}
+                "regions": [list(r) for r in POOL_REGIONS], "keys": keys}
 
 
 class Shared:

@@ -138,6 +138,29 @@ W/S forward/reverse, A/D turn, R/Space both vertical thrusters up, F/Shift down,
 H claw open/close, `[` `]` close/open the claw gradually, T claw/nose, B buoyancy, V reset the view, X stop. (These keys mix `t1`..`t4` for you.
 Your ROS code only has the individual thrusters, by design.)
 
+## The pool
+
+The pool is **L-shaped**: the original 6 × 3 m, 2 m deep pool (the **deep end**), plus a **shallow end**, a 2.5 × 2.5 m shelf, 1 m deep,
+off to the left (+y) at the far end:
+
+```
+ y
+ 4.0 |            +--------+       the shallow end (floor at 1.0 m)
+     |            | shallow|
+ 1.5 +------------+--------+
+     |      deep end (2 m)  |      the original pool (floor at 2.0 m); the ROV starts here, facing +x
+-1.5 +----------------------+
+    -3.0         0.5       3.0   x
+```
+- **The step.** Between the deep end and the shelf is a 1 m step. To go over it **the ROV's lowest point must be above the shelf floor**, i.e. its
+  centre shallower than about **0.72 m** (`/sim/depth` < 0.72). A deeper ROV is stopped by the step like any wall; a ROV over the shelf can't dive
+  below 0.72 m (it rests on the shelf). A ROV straddling the edge rests on the lip.
+- **Missions this allows:** carry the ring from the deep end to the shallow end and set it down there (it stands on the shelf floor); hover over the
+  shelf at a set depth; find the way into the shallow end; compare `/sim/depth` in the two ends.
+- **Reshaping it.** The pool is a list of rectangles with floor depths, `POOL_REGIONS` at the top of `rov_physics.py`. The physics and the page both
+  read that list, so editing it (adding a rectangle, changing a depth) reshapes everything: walls, steps, floors, deck, waves. The rectangles must
+  touch along their edges to form one connected pool. A sloped shallow end (a ramp) isn't supported yet: floors are flat per rectangle.
+
 ## The vehicle and its thrusters
 
 A cube frame (about 50 cm) of PVC pipe, nose toward +x. Four thrusters, and a tool on the front bottom bar:
@@ -164,7 +187,8 @@ breaches. Together they provide all the lift (each is half of `max_thrust`).
   **floats → neutral** (hovers wherever you leave it) **→ sinks** (settles on the floor).
 - It loses buoyancy as its top comes out of the water, so it can **pop up out of the water and sink back**: held up at 80% lift it rests ~14 cm out.
   On the floor it **bumps** (small bounce, a puff of silt, a little rocking). `--hard-limits` / `-p hard_limits:=true` gives plain stop-dead walls.
-- The **walls** stop the ROV's real footprint (frame, side thrusters, tool tip), so it slides along a wall instead of poking a corner through.
+- The **walls** stop the ROV's real footprint (frame, side thrusters, tool tip), so it slides along a wall instead of poking a corner through. The
+  **floor** stops its lowest point, and in the L-shaped pool the floor depth depends on where it is (see [The pool](#the-pool)).
 - **Tilt:** `t3` and `t4` differ → the ROV pitches. A ring hanging on the nose (or held in the claw) adds a nose-down torque that tilts it about 6°
   (4° held). Nothing levels it for you except a little buoyancy restoring force, so **students can read the tilt on the IMU and cancel it with
   `t3`/`t4`**.
@@ -194,7 +218,8 @@ it, and from popping bubbles, on top of a gentle ambient ripple. **Off:** a simp
 
 ## The pick-up ring (optional)
 
-A slightly buoyant orange hoop with a weight on its bottom edge: it **stands upright on the pool floor**, facing the ROV's start. Which tool you have
+A slightly buoyant orange hoop with a weight on its bottom edge: it **stands upright on the pool floor**, facing the ROV's start. You can
+carry it to the shallow end and set it down there. Which tool you have
 selected decides how you lift it:
 - **Nose:** drive the nose **through** the ring, then **rise**. The top of the nose meets the ring's inner rim and carries it up; it hangs from the nose,
   rides its low part, and swings round as you turn (the page says "ring hooked"). Lower it onto the floor and back out to leave it.

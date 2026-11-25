@@ -104,3 +104,9 @@
   no "turn"/"vertical-both" shortcuts: students mix them), /sim/claw, /sim/tool, /sim/reset, /sim/imu, /sim/depth, /sim/heading.
   Old /rov/... names are gone. nodes/rov_sim/README.md rewritten as a reference (nodes, channels, command-line cheat sheet,
   troubleshooting), with the commands checked against a live sim. install.sh updated and passing (incl. both joysticks).
+- L-shaped pool: the pool is now a list of rectangles with floor depths (`POOL_REGIONS` in rov_physics.py): the original 6x3x2 m deep end plus
+  a 2.5x2.5 m shallow end (1 m deep) off the left side at the far end. Physics: footprint kept inside the union of regions that are open at
+  the ROV's depth (so the step is a wall to a deep ROV), floor depth varies by position (diving over the shelf stops on it, no teleporting),
+  ring floor/clamp follow the region (a hanging ring can be carried over the step and set on the shelf). Page: floors, walls (outer + step),
+  deck, masked water grid and wave simulation, shadows/silt, x-ray walls and camera all generated from the region list.
+  Tested: 20 random 20 s runs (all buoyancies/depths) never left the pool or passed a floor; full ring mission carry-to-shelf; screenshots.

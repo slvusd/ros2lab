@@ -32,24 +32,23 @@ sun.position.set(3, 6, 2);
 scene.add(sun);
 
 // ---------- pool ----------
-let L = 6, W = 3, D = 2;          // updated from the sim's first message (same defaults)
-
-function tileTexture(repeatX, repeatY) {
-  const c = document.createElement("canvas");
-  c.width = c.height = 128;
-  const g = c.getContext("2d");
-  g.fillStyle = "#4ab3dc"; g.fillRect(0, 0, 128, 128);
-  g.fillStyle = "#58c0e6"; g.fillRect(4, 4, 120, 120);
-  g.strokeStyle = "#e9f6fb"; g.lineWidth = 4; g.strokeRect(0, 0, 128, 128);
-  const t = new THREE.CanvasTexture(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(repeatX, repeatY);
-  t.anisotropy = 4;
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
+// The pool is a list of rectangles with floor depths, sent by the sim (POOL_REGIONS in rov_physics.py).
+// Here, in three.js coordinates: x is the sim's x, z is the sim's -y, depth is measured down from the surface.
+let regions = [{ x0: -3, x1: 3, z0: -1.5, z1: 1.5, d: 2 }];        // until the sim tells us (the original pool)
+let regionsKey = "";
+let bbox = { x0: -3, x1: 3, z0: -1.5, z1: 1.5 }, maxDepth = 2;
+function setRegions(list) {
+  regions = list.map(([x0, x1, y0, y1, d]) => ({ x0, x1, z0: -y1, z1: -y0, d }));
+  bbox = { x0: Math.min(...regions.map((r) => r.x0)), x1: Math.max(...regions.map((r) => r.x1)),
+           z0: Math.min(...regions.map((r) => r.z0)), z1: Math.max(...regions.map((r) => r.z1)) };
+  maxDepth = Math.max(...regions.map((r) => r.d));
 }
-function tiled(w, h) {          // plane w x h metres, one tile = 0.5 m
-  return new THREE.MeshLambertMaterial({ map: tileTexture(w / 0.5, h / 0.5), side: THREE.DoubleSide });
+const EPS = 1e-6;
+const insidePool = (x, z, e = EPS) => regions.some((r) => x >= r.x0 - e && x <= r.x1 + e && z >= r.z0 - e && z <= r.z1 + e);
+function floorAt(x, z) {                          // depth of the floor under (x, z): the deepest region containing it
+  let best = null;
+  for (const r of regions) if (x >= r.x0 - EPS && x <= r.x1 + EPS && z >= r.z0 - EPS && z <= r.z1 + EPS) best = Math.max(best ?? 0, r.d);
+  return best ?? maxDepth;
 }
 
 // Surfaces that can block the view fade to "x-ray" when the camera is on the far side of them.
@@ -83,8 +82,9 @@ function rippleTexture() {
 const pool = new THREE.Group();
 scene.add(pool);
 const water = {};
-const NX = 72, NZ = 36;            // surface grid cells
-const wave = { h: null, v: null, tot: null, acc: 0 };
+const CELL = 1 / 12;               // water-surface grid cell, metres
+let NX = 72, NZ = 36, DX = CELL, DZ = CELL;   // grid size, set in buildPool for the pool's bounding box
+const wave = { h: null, v: null, tot: null, inside: null, acc: 0 };
 let fx = true;                     // "Water FX": refraction + wave simulation (toggle button)
 try { fx = localStorage.getItem("rovWaterFx") !== "off"; } catch (e) { /* no storage: keep default */ }
 
@@ -140,64 +140,151 @@ const WATER_FRAG = `
     #include <colorspace_fragment>
   }`;
 
+const sharedTileCanvas = (() => {                 // one tile picture, shared by every wall and floor
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const g = c.getContext("2d");
+  g.fillStyle = "#4ab3dc"; g.fillRect(0, 0, 128, 128);
+  g.fillStyle = "#58c0e6"; g.fillRect(4, 4, 120, 120);
+  g.strokeStyle = "#e9f6fb"; g.lineWidth = 4; g.strokeRect(0, 0, 128, 128);
+  return c;
+})();
+function tiled(w, h) {                            // plane w x h metres, one tile = 0.5 m
+  const t = new THREE.CanvasTexture(sharedTileCanvas);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(w / 0.5, h / 0.5);
+  t.anisotropy = 4;
+  t.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshLambertMaterial({ map: t, side: THREE.DoubleSide });
+}
+
+// Wall pieces, worked out from the regions. Each side of each region is either an OUTER wall (nothing on the other
+// side: surface to floor) or touches a neighbouring region. Where the neighbour's floor is shallower there is a STEP
+// wall (from its floor down to ours); where it is deeper or equal there is nothing from this side.
+function wallSegments() {
+  const eq = (a, b) => Math.abs(a - b) < EPS;
+  const segs = [];
+  for (const r of regions) {
+    const sides = [
+      { axis: "x", at: r.x1, out: +1, span: [r.z0, r.z1], nb: (n) => eq(n.x0, r.x1) && [n.z0, n.z1] },
+      { axis: "x", at: r.x0, out: -1, span: [r.z0, r.z1], nb: (n) => eq(n.x1, r.x0) && [n.z0, n.z1] },
+      { axis: "z", at: r.z1, out: +1, span: [r.x0, r.x1], nb: (n) => eq(n.z0, r.z1) && [n.x0, n.x1] },
+      { axis: "z", at: r.z0, out: -1, span: [r.x0, r.x1], nb: (n) => eq(n.z1, r.z0) && [n.x0, n.x1] },
+    ];
+    for (const sd of sides) {
+      const cover = [];
+      for (const n of regions) {
+        if (n === r) continue;
+        const iv = sd.nb(n);
+        if (!iv) continue;
+        const lo = Math.max(sd.span[0], iv[0]), hi = Math.min(sd.span[1], iv[1]);
+        if (hi - lo > EPS) cover.push({ lo, hi, d: n.d });
+      }
+      cover.sort((a, b) => a.lo - b.lo);
+      let cur = sd.span[0];
+      for (const cv of cover) {
+        if (cv.lo - cur > EPS) segs.push({ axis: sd.axis, at: sd.at, out: sd.out, lo: cur, hi: cv.lo, top: 0, bottom: r.d, outer: true });
+        if (cv.d < r.d - EPS) segs.push({ axis: sd.axis, at: sd.at, out: sd.out, lo: cv.lo, hi: cv.hi, top: cv.d, bottom: r.d, outer: false });
+        cur = Math.max(cur, cv.hi);
+      }
+      if (sd.span[1] - cur > EPS) segs.push({ axis: sd.axis, at: sd.at, out: sd.out, lo: cur, hi: sd.span[1], top: 0, bottom: r.d, outer: true });
+    }
+  }
+  return segs;
+}
+
 function buildPool() {
   pool.clear();
   solids.length = 0;
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(L, W).rotateX(-Math.PI / 2), tiled(L, W));
-  floor.position.y = -D;
-  pool.add(floor);
-  solid(floor, (c) => c.y < -D);
-  for (const sx of [-1, 1]) {
-    const w = new THREE.Mesh(new THREE.PlaneGeometry(W, D).rotateY(Math.PI / 2), tiled(W, D));
-    w.position.set(sx * L / 2, -D / 2, 0);
-    pool.add(w);
-    solid(w, (c) => sx * c.x > L / 2);
+  const bw = bbox.x1 - bbox.x0, bh = bbox.z1 - bbox.z0, cx = (bbox.x0 + bbox.x1) / 2, cz = (bbox.z0 + bbox.z1) / 2;
+
+  // floors (one per region, at its own depth)
+  for (const r of regions) {
+    const w = r.x1 - r.x0, h = r.z1 - r.z0;
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(w, h).rotateX(-Math.PI / 2), tiled(w, h));
+    floor.position.set((r.x0 + r.x1) / 2, -r.d, (r.z0 + r.z1) / 2);
+    pool.add(floor);
+    solid(floor, (c) => c.y < -r.d);
   }
-  for (const sz of [-1, 1]) {
-    const w = new THREE.Mesh(new THREE.PlaneGeometry(L, D), tiled(L, D));
-    w.position.set(0, -D / 2, sz * W / 2);
-    pool.add(w);
-    solid(w, (c) => sz * c.z > W / 2);
+  // walls: outer ones fade when the camera is outside them; step walls stay solid. Outer walls also get a faint
+  // water tint plane just inside, so water seen through a see-through wall still looks like water.
+  const tint = new THREE.MeshBasicMaterial({ color: 0x1f8fc4, transparent: true, opacity: 0.16, side: THREE.DoubleSide, depthWrite: false });
+  for (const sg of wallSegments()) {
+    const w = sg.hi - sg.lo, h = sg.bottom - sg.top, mid = (sg.lo + sg.hi) / 2, y = -(sg.top + sg.bottom) / 2;
+    const geo = new THREE.PlaneGeometry(w, h);
+    if (sg.axis === "x") geo.rotateY(Math.PI / 2);
+    const m = new THREE.Mesh(geo, tiled(w, h));
+    if (sg.axis === "x") m.position.set(sg.at, y, mid); else m.position.set(mid, y, sg.at);
+    pool.add(m);
+    if (sg.outer) {
+      solid(m, sg.axis === "x" ? (c) => sg.out * (c.x - sg.at) > 0 : (c) => sg.out * (c.z - sg.at) > 0);
+      const t = new THREE.Mesh(geo.clone(), tint);
+      if (sg.axis === "x") t.position.set(sg.at - sg.out * 0.003, y, mid); else t.position.set(mid, y, sg.at - sg.out * 0.003);
+      pool.add(t);
+    }
   }
-  // deck around the pool (a big square with a pool-shaped hole)
-  const shape = new THREE.Shape();
-  shape.moveTo(-9, -7); shape.lineTo(9, -7); shape.lineTo(9, 7); shape.lineTo(-9, 7); shape.closePath();
-  const hole = new THREE.Path();
-  hole.moveTo(-L / 2, -W / 2); hole.lineTo(-L / 2, W / 2); hole.lineTo(L / 2, W / 2); hole.lineTo(L / 2, -W / 2); hole.closePath();
-  shape.holes.push(hole);
-  const deck = new THREE.Mesh(new THREE.ShapeGeometry(shape).rotateX(-Math.PI / 2),
-                              new THREE.MeshLambertMaterial({ color: 0xd9d4c7 }));
-  deck.position.y = 0.01;
-  pool.add(deck);
-  solid(deck, (c) => c.y < 0.01);
-  // lane line + 1 m tick marks on the floor: makes motion easy to see
-  const dark = new THREE.MeshBasicMaterial({ color: 0x14384d });
-  const lane = new THREE.Mesh(new THREE.BoxGeometry(L, 0.005, 0.06), dark);
-  lane.position.y = -D + 0.004;
-  pool.add(lane);
-  for (let x = -Math.floor(L / 2) + 1; x < L / 2; x += 1) {
-    const tick = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.005, W * 0.5), dark);
-    tick.position.set(x, -D + 0.004, 0);
-    pool.add(tick);
+  // tint over each floor too
+  for (const r of regions) {
+    const t = new THREE.Mesh(new THREE.PlaneGeometry(r.x1 - r.x0, r.z1 - r.z0).rotateX(-Math.PI / 2), tint);
+    t.position.set((r.x0 + r.x1) / 2, -r.d + 0.003, (r.z0 + r.z1) / 2);
+    pool.add(t);
   }
-  // translucent water volume (tints everything seen through it) + wavy surface
-  const tint = new THREE.MeshBasicMaterial({ color: 0x1f8fc4, transparent: true, opacity: 0.16,
-                                             side: THREE.DoubleSide, depthWrite: false });
-  const hidden = new THREE.MeshBasicMaterial({ visible: false });
-  const vol = new THREE.Mesh(new THREE.BoxGeometry(L, D, W),
-                             [tint, tint, hidden, tint, tint, tint]);
-  vol.position.y = -D / 2;
-  pool.add(vol);
-  // water surface: one wavy grid, drawn two ways. "simple" = translucent Phong (+ a rippling
-  // underside); "fx" = refraction shader that samples a picture of the scene (see renderScene).
-  const geo = new THREE.PlaneGeometry(L, W, NX, NZ).rotateX(-Math.PI / 2);
+
+  // deck: everything around the pool that isn't pool (cells of a grid made from the region edges)
+  {
+    const xs = new Set([bbox.x0 - 7, bbox.x1 + 7]), zs = new Set([bbox.z0 - 6, bbox.z1 + 6]);
+    for (const r of regions) { xs.add(r.x0); xs.add(r.x1); zs.add(r.z0); zs.add(r.z1); }
+    const X = [...xs].sort((a, b) => a - b), Z = [...zs].sort((a, b) => a - b), pos = [], idx = [];
+    for (let i = 0; i < X.length - 1; i++) for (let j = 0; j < Z.length - 1; j++) {
+      if (insidePool((X[i] + X[i + 1]) / 2, (Z[j] + Z[j + 1]) / 2, -EPS)) continue;      // that cell is water
+      const k = pos.length / 3;
+      pos.push(X[i], 0, Z[j], X[i + 1], 0, Z[j], X[i + 1], 0, Z[j + 1], X[i], 0, Z[j + 1]);
+      idx.push(k, k + 2, k + 1, k, k + 3, k + 2);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute("normal", new THREE.Float32BufferAttribute(pos.map((_, n) => (n % 3 === 1 ? 1 : 0)), 3));
+    g.setIndex(idx);
+    const deck = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: 0xd9d4c7, side: THREE.DoubleSide }));
+    deck.position.y = 0.01;
+    pool.add(deck);
+    solid(deck, (c) => c.y < 0.01);
+  }
+
+  // lane line + 1 m tick marks on the deep floor: makes motion easy to see
+  {
+    const deep = regions.reduce((a, b) => (b.d > a.d ? b : a)), dark = new THREE.MeshBasicMaterial({ color: 0x14384d });
+    const mz = (deep.z0 + deep.z1) / 2, len = deep.x1 - deep.x0;
+    const lane = new THREE.Mesh(new THREE.BoxGeometry(len, 0.005, 0.06), dark);
+    lane.position.set((deep.x0 + deep.x1) / 2, -deep.d + 0.004, mz);
+    pool.add(lane);
+    for (let x = Math.ceil(deep.x0 + 1e-6); x < deep.x1; x += 1) {
+      const tick = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.005, (deep.z1 - deep.z0) * 0.5), dark);
+      tick.position.set(x, -deep.d + 0.004, mz);
+      pool.add(tick);
+    }
+  }
+
+  // ---- water surface: one wavy grid over the pool's bounding box, only the cells that are water are drawn ----
+  NX = Math.max(8, Math.round(bw / CELL)); NZ = Math.max(8, Math.round(bh / CELL));
+  DX = bw / NX; DZ = bh / NZ;
+  const S = NX + 1, geo = new THREE.PlaneGeometry(bw, bh, NX, NZ).rotateX(-Math.PI / 2).translate(cx, 0, cz);
+  const index = [];
+  for (let iz = 0; iz < NZ; iz++) for (let ix = 0; ix < NX; ix++) {
+    if (!insidePool(bbox.x0 + (ix + 0.5) * DX, bbox.z0 + (iz + 0.5) * DZ)) continue;
+    const a = ix + S * iz, b = ix + S * (iz + 1), c = ix + 1 + S * (iz + 1), d = ix + 1 + S * iz;   // same winding as PlaneGeometry
+    index.push(a, b, d, b, c, d);
+  }
+  geo.setIndex(index);
+  // "simple" = translucent Phong (+ a rippling underside); "fx" = refraction shader that samples a picture of
+  // the scene (see renderScene).
   const surf = new THREE.Mesh(geo,
     new THREE.MeshPhongMaterial({ color: 0x3fb0ea, transparent: true, opacity: 0.32,
                                   specular: 0xffffff, shininess: 90, side: THREE.FrontSide,
                                   depthWrite: false }));
   pool.add(surf);
   const rip = rippleTexture();
-  rip.repeat.set(L / 1.2, W / 1.2);
+  rip.repeat.set(bw / 1.2, bh / 1.2);
   const under = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
     map: rip, color: 0xb8e6ff, transparent: true, opacity: 0.6, side: THREE.BackSide, depthWrite: false }));
   pool.add(under);
@@ -209,45 +296,55 @@ function buildPool() {
     vertexShader: WATER_VERT, fragmentShader: WATER_FRAG });
   const fxSurf = new THREE.Mesh(geo, fxMat);
   pool.add(fxSurf);
-  // drifting light patches on the pool floor
-  const cau = rippleTexture();
-  cau.repeat.set(L / 1.0, W / 1.0);
-  const caustics = new THREE.Mesh(new THREE.PlaneGeometry(L, W).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ map: cau, transparent: true, opacity: 0.22,
-                                  blending: THREE.AdditiveBlending, depthWrite: false }));
-  caustics.position.y = -D + 0.006;
-  pool.add(caustics);
+  // drifting light patches on each floor
+  const cau = [];
+  for (const r of regions) {
+    const t = rippleTexture();
+    t.repeat.set((r.x1 - r.x0) / 1.0, (r.z1 - r.z0) / 1.0);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(r.x1 - r.x0, r.z1 - r.z0).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }));
+    m.position.set((r.x0 + r.x1) / 2, -r.d + 0.006, (r.z0 + r.z1) / 2);
+    pool.add(m);
+    cau.push(t);
+  }
   Object.assign(water, { rip, cau, simple: surf, under, fx: fxSurf, geo, mat: fxMat });
   initWave();
 }
 buildPool();
 
-// ----- surface height field: a small wave simulation (rings spread, bounce off the walls, fade) -----
+// ----- surface height field: a small wave simulation (rings spread, bounce off the pool's walls, fade) -----
 function initWave() {
-  const n = (NX + 1) * (NZ + 1);
+  const S = NX + 1, n = S * (NZ + 1);
   wave.h = new Float32Array(n); wave.v = new Float32Array(n); wave.tot = new Float32Array(n);
+  wave.inside = new Uint8Array(n);                 // 1 where this grid point is water (the L has corners that aren't)
+  for (let iz = 0; iz <= NZ; iz++) for (let ix = 0; ix <= NX; ix++)
+    wave.inside[iz * S + ix] = insidePool(bbox.x0 + ix * DX, bbox.z0 + iz * DZ, 1e-4) ? 1 : 0;
 }
 function drop(x, z, amp, radius = 0.25) {          // poke the water at world (x, z)
-  const dx = L / NX, dz = W / NZ, gx = (x + L / 2) / dx, gz = (z + W / 2) / dz;
-  for (let iz = Math.max(0, Math.floor(gz - radius / dz)); iz <= Math.min(NZ, Math.ceil(gz + radius / dz)); iz++)
-    for (let ix = Math.max(0, Math.floor(gx - radius / dx)); ix <= Math.min(NX, Math.ceil(gx + radius / dx)); ix++) {
-      const d = Math.hypot((ix - gx) * dx, (iz - gz) * dz);
-      if (d < radius) wave.h[iz * (NX + 1) + ix] += amp * 0.5 * (1 + Math.cos(Math.PI * d / radius));
+  const gx = (x - bbox.x0) / DX, gz = (z - bbox.z0) / DZ;
+  for (let iz = Math.max(0, Math.floor(gz - radius / DZ)); iz <= Math.min(NZ, Math.ceil(gz + radius / DZ)); iz++)
+    for (let ix = Math.max(0, Math.floor(gx - radius / DX)); ix <= Math.min(NX, Math.ceil(gx + radius / DX)); ix++) {
+      const i = iz * (NX + 1) + ix;
+      if (!wave.inside[i]) continue;
+      const d = Math.hypot((ix - gx) * DX, (iz - gz) * DZ);
+      if (d < radius) wave.h[i] += amp * 0.5 * (1 + Math.cos(Math.PI * d / radius));
     }
 }
 function stepWave() {                               // one 1/60 s step
-  const { h, v } = wave, S = NX + 1;
+  const { h, v, inside } = wave, S = NX + 1;
   for (let iz = 0; iz <= NZ; iz++) for (let ix = 0; ix <= NX; ix++) {
-    const i = iz * S + ix, c = h[i];
-    const avg = ((ix > 0 ? h[i - 1] : c) + (ix < NX ? h[i + 1] : c) +
-                 (iz > 0 ? h[i - S] : c) + (iz < NZ ? h[i + S] : c)) / 4;
+    const i = iz * S + ix;
+    if (!inside[i]) continue;
+    const c = h[i];                                  // a neighbour that is a wall (or outside) just mirrors this point
+    const avg = ((ix > 0 && inside[i - 1] ? h[i - 1] : c) + (ix < NX && inside[i + 1] ? h[i + 1] : c) +
+                 (iz > 0 && inside[i - S] ? h[i - S] : c) + (iz < NZ && inside[i + S] ? h[i + S] : c)) / 4;
     v[i] = (v[i] + (avg - c) * 0.18) * 0.992;       // spring toward neighbours, then a little damping
   }
   for (let i = 0; i < h.length; i++) h[i] += v[i];
 }
 
 function animateWater(t, dt) {
-  const S = NX + 1, dx = L / NX, dz = W / NZ, amb = fx ? 0.005 : 0.012;
+  const S = NX + 1, amb = fx ? 0.005 : 0.012;
   if (fx) { wave.acc += dt; while (wave.acc >= 1 / 60) { wave.acc -= 1 / 60; stepWave(); } }
   const p = water.geo.attributes.position, nrm = water.geo.attributes.normal, H = wave.tot;
   for (let i = 0; i < p.count; i++) {
@@ -258,14 +355,14 @@ function animateWater(t, dt) {
   const K = fx ? 3 : 1;                             // exaggerate slopes so tiny ripples still refract visibly
   for (let iz = 0; iz <= NZ; iz++) for (let ix = 0; ix <= NX; ix++) {
     const i = iz * S + ix;
-    const sx = (H[iz * S + Math.min(NX, ix + 1)] - H[iz * S + Math.max(0, ix - 1)]) / (2 * dx);
-    const sz = (H[Math.min(NZ, iz + 1) * S + ix] - H[Math.max(0, iz - 1) * S + ix]) / (2 * dz);
+    const sx = (H[iz * S + Math.min(NX, ix + 1)] - H[iz * S + Math.max(0, ix - 1)]) / (2 * DX);
+    const sz = (H[Math.min(NZ, iz + 1) * S + ix] - H[Math.max(0, iz - 1) * S + ix]) / (2 * DZ);
     const nx = -sx * K, nz = -sz * K, inv = 1 / Math.hypot(nx, 1, nz);
     nrm.setXYZ(i, nx * inv, inv, nz * inv);
   }
   p.needsUpdate = true; nrm.needsUpdate = true;
   water.rip.offset.set(t * 0.03, t * 0.02);
-  water.cau.offset.set(-t * 0.025, t * 0.035);
+  for (const c of water.cau) c.offset.set(-t * 0.025, t * 0.035);
   water.mat.uniforms.uTime.value = t;
 }
 
@@ -462,7 +559,8 @@ function puffSilt(x, z, speed) {
     if (sp.userData.life > 0) continue;
     n--;
     const a = Math.random() * Math.PI * 2, r = 0.1 + Math.random() * 0.2;
-    sp.position.set(x + Math.cos(a) * r, -D + 0.06, z + Math.sin(a) * r);
+    const sx = x + Math.cos(a) * r, sz = z + Math.sin(a) * r;
+    sp.position.set(sx, -floorAt(sx, sz) + 0.06, sz);
     sp.userData.vel.set(Math.cos(a) * (0.12 + Math.random() * 0.15), 0.05 + Math.random() * 0.12, Math.sin(a) * (0.12 + Math.random() * 0.15));
     sp.userData.life = sp.userData.max = 1.2 + Math.random() * 0.8;
     sp.scale.setScalar(0.12); sp.visible = true;
@@ -497,8 +595,14 @@ let lastMsg = 0;
 const es = new EventSource("/events");
 es.onmessage = (e) => {
   const s = JSON.parse(e.data);
-  if (!s.pool) return;
-  if (s.pool[0] !== L || s.pool[1] !== W || s.pool[2] !== D) { [L, W, D] = s.pool; buildPool(); }
+  if (!s.regions) return;
+  const key = JSON.stringify(s.regions);
+  if (key !== regionsKey) {                                  // the pool's shape (first message, or the sim changed it)
+    regionsKey = key; setRegions(s.regions); buildPool();
+    if (!userMoved && typeof view !== "undefined") {          // re-centre the camera on the new shape, in whatever view we're in
+      if (view === "orbit") resetView(); else if (view === "top") setView("top");
+    }
+  }
   Object.assign(state, s);
   lastMsg = performance.now();
   if (s.tool && s.tool !== tool && performance.now() - toolAsked > 600) setTool(s.tool, false);   // sim changed it
@@ -652,11 +756,14 @@ setInterval(() => {                              // send each stick at most ~30 
 // A narrow window (e.g. VS Code's side panel) sees less of the pool, so back the camera off to fit it.
 const fitFactor = () => Math.max(1, 1.5 / Math.max(window.innerWidth / window.innerHeight, 0.3));
 let userMoved = false;                     // once you orbit yourself, we stop auto-fitting the camera
+// Where the camera looks by default: the middle of the pool, backed off in proportion to its size (1 for the original 6 x 3 m pool).
+const poolCenter = () => new THREE.Vector3((bbox.x0 + bbox.x1) / 2, -0.4 * maxDepth, (bbox.z0 + bbox.z1) / 2);
+const poolScale = () => Math.sqrt((bbox.x1 - bbox.x0) * (bbox.z1 - bbox.z0) / 18);
 function resetView() {
   setView("orbit");
   userMoved = false;
-  controls.target.set(0, -0.8, 0);
-  camera.position.set(-2.6, 1.6, 3.0).sub(controls.target).multiplyScalar(fitFactor()).add(controls.target);
+  controls.target.copy(poolCenter());
+  camera.position.set(-2.6, 2.4, 3.0).multiplyScalar(fitFactor() * poolScale()).add(controls.target);
   controls.update();
 }
 renderer.domElement.addEventListener("dblclick", resetView);
@@ -665,8 +772,9 @@ function setView(v) {
   view = v;
   controls.enabled = v === "orbit";
   document.querySelectorAll("[data-view]").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
-  if (v === "top") { camera.position.set(0, 7.5 * fitFactor(), 0.01); camera.lookAt(0, 0, 0); }
-  if (v === "orbit") { controls.target.set(0, -0.8, 0); }
+  const pc = poolCenter();
+  if (v === "top") { camera.position.set(pc.x, 7.5 * fitFactor() * poolScale(), pc.z + 0.01); camera.lookAt(pc.x, 0, pc.z); }
+  if (v === "orbit") { controls.target.copy(pc); }
 }
 document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
 function setFx(on) {
@@ -754,8 +862,9 @@ function frame(now) {
   emit(bubbles.t4, vrear, ey, state.t4, dt);
   for (const k of bars) stepBubbles(bubbles[k], dt);
 
-  shadow.position.set(rov.position.x, -D + 0.01, rov.position.z);
-  const hgt = Math.max(0, D - shown.depth) ;
+  const floorD = floorAt(rov.position.x, rov.position.z);
+  shadow.position.set(rov.position.x, -floorD + 0.01, rov.position.z);
+  const hgt = Math.max(0, floorD - shown.depth);
   shadow.scale.setScalar(1 + hgt * 0.2);
   shadow.material.opacity = clamp01(0.4 - hgt * 0.12);
 
@@ -781,7 +890,7 @@ function frame(now) {
     controls.update();
   }
   // under the surface: blue fog; above: clear sky
-  const under = camera.position.y < 0 && Math.abs(camera.position.x) < L / 2 && Math.abs(camera.position.z) < W / 2;
+  const under = camera.position.y < 0 && insidePool(camera.position.x, camera.position.z);
   scene.background = under ? WATER : SKY;
   scene.fog = under ? UNDER_FOG : null;
 

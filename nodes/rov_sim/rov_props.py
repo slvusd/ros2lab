@@ -24,7 +24,7 @@
 # =============================================================================
 import math
 
-from rov_physics import POOL_D, POOL_L, POOL_W, ROV_HALF, clamp
+from rov_physics import POOL_MAX_DEPTH, POOL_REGIONS, clamp, floor_at, nearest_in
 
 
 def wrap_half_pi(a):
@@ -55,8 +55,20 @@ class Ring:
     HOLD_OPEN = 0.10              # jaws can't close past the tube's thickness
 
     def __init__(self):
-        self.floor = POOL_D - self.R - self.TUBE        # centre depth when standing on the floor
         self.reset()
+
+    def _footprint(self):
+        """The hoop stands in a vertical plane, so from above it is a line: its two ends and its middle."""
+        ex, ey = math.cos(self.yaw) * self.R, math.sin(self.yaw) * self.R
+        return [(self.x + ex, self.y + ey), (self.x - ex, self.y - ey), (self.x, self.y)]
+
+    @property
+    def floor(self):
+        """Centre depth when standing on the floor right here: the shallowest floor under any part of the hoop
+        (the shallow end is shallower)."""
+        fl = [floor_at(x, y) for x, y in self._footprint()]
+        fl = [f for f in fl if f is not None] or [POOL_MAX_DEPTH]
+        return min(fl) - self.R - self.TUBE
 
     def reset(self):
         self.x, self.y, self.yaw = self.START["x"], self.START["y"], self.START["yaw"]
@@ -99,8 +111,17 @@ class Ring:
         if self.lifting:
             rov.pitch_torque += self.TORQUE_HANGING
         self.prev_claw = rov.claw
-        self.x = clamp(self.x, -POOL_L / 2 + self.R, POOL_L / 2 - self.R)
-        self.y = clamp(self.y, -POOL_W / 2 + self.R, POOL_W / 2 - self.R)
+        for _ in range(3):                                      # keep both ends of the hoop inside the pool
+            worst = None
+            for px, py in self._footprint():
+                qx, qy = nearest_in(POOL_REGIONS, px, py)
+                d = (qx - px) ** 2 + (qy - py) ** 2
+                if d > 1e-12 and (worst is None or d > worst[0]):
+                    worst = (d, qx - px, qy - py)
+            if worst is None:
+                break
+            self.x += worst[1]
+            self.y += worst[2]
         self.depth = clamp(self.depth, self.R + self.TUBE, self.floor)
 
     # ------------------------------------------------------------------ claw
