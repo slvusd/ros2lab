@@ -39,6 +39,19 @@
   .joypad.drag { cursor: grabbing; }
   .joyknob { position: absolute; left: 31px; top: 31px; width: 30px; height: 30px; border-radius: 50%; pointer-events: none;
              background: radial-gradient(circle at 35% 30%, #ffe27a, #f2b705); box-shadow: 0 2px 5px #0006; }
+  /* the switch box: three momentary DPDT switches, like a scout ROV controller */
+  #switchbox { position: static; padding: 6px 10px 4px; }
+  .swrow { display: flex; justify-content: center; gap: 20px; margin-bottom: 4px; }
+  .sw { text-align: center; }
+  .swname { font: 11px ui-monospace, Menlo, monospace; opacity: .85; margin-bottom: 2px; }
+  .swslot { position: relative; width: 36px; height: 84px; margin: 0 auto; border-radius: 17px; cursor: grab; touch-action: none;
+            background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.4); }
+  .swlever { position: absolute; left: 4px; top: 29px; width: 26px; height: 26px; border-radius: 50%; pointer-events: none;
+             background: radial-gradient(circle at 35% 30%, #ddd, #8a97a3); box-shadow: 0 2px 5px #0006; transition: transform .05s; }
+  .swlever.on { background: radial-gradient(circle at 35% 30%, #ffe27a, #f2b705); }
+  .swend { position: absolute; left: 0; right: 0; text-align: center; font: 10px ui-monospace, Menlo, monospace; opacity: .8; pointer-events: none; }
+  .swend.top { top: 4px; } .swend.bot { bottom: 4px; }
+  .swkeys { font: 11px ui-monospace, Menlo, monospace; opacity: .85; margin-top: 3px; white-space: pre; }
   .joycap { font: 11px ui-monospace, Menlo, monospace; opacity: .85; margin-top: 3px; }
   @media (max-width: 640px) {
     #rightcol { top: 8px; }         /* the toolbar moves left in a narrow window, so the pads can take the corner */
@@ -87,6 +100,15 @@
   </div>
 </div>
 <div id="rightcol">
+<div id="switchbox" class="panel" title="Three momentary switches, like a scout ROV controller: top two = left and right thrusters, bottom = up/down. Click and hold, or use the keys.">
+  <div class="swrow">
+    <div class="sw" data-i="0"><div class="swname">left</div><div class="swslot"><span class="swend top">2&#9650;</span><div class="swlever"></div><span class="swend bot">1&#9660;</span></div></div>
+    <div class="sw" data-i="1"><div class="swname">right</div><div class="swslot"><span class="swend top">=&#9650;</span><div class="swlever"></div><span class="swend bot">-&#9660;</span></div></div>
+  </div>
+  <div class="swrow">
+    <div class="sw" data-i="2"><div class="swname">up / down</div><div class="swslot"><span class="swend top">.&#9650;</span><div class="swlever"></div><span class="swend bot">;&#9660;</span></div></div>
+  </div>
+</div>
 <div id="joys">
   <div class="panel joy" title="joy1: drag with the mouse. Publishes sensor_msgs/Joy on /sim/joy1 (axes[0] left +, axes[1] up +)">
     <div class="joypad" data-n="1"><div class="joyknob"></div></div><div class="joycap" id="joycap1">joy1</div>
@@ -116,6 +138,7 @@
   <div>W/S &nbsp;forward / reverse &nbsp;&nbsp;A/D turn left / right</div>
   <div>R/Space up &nbsp;&nbsp;F/Shift down &nbsp;&nbsp;I/K nose up/down</div>
   <div>Z / C &nbsp;left / right thruster only</div>
+  <div>1/2 left &nbsp;-/= right &nbsp;;/. down/up &nbsp;(switch box: first key reverse, second forward)</div>
   <div id="help-claw">H claw open/close &nbsp;&nbsp;[ ] claw closer/wider &nbsp;&nbsp;X stop all</div>
   <div id="help-tool">T claw/nose &nbsp;&nbsp;B buoyancy &nbsp;&nbsp;V reset view (or double-click)</div>
 </div>

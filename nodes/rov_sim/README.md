@@ -37,6 +37,12 @@ ROV camera window to 4 pictures a second and renders at a lower pixel ratio, Low
 (remembered in the browser). Small screens (under 800 px tall) get tighter panels.
 `?selftest` makes the page drive itself for 7 seconds and write `PASS ...` or `FAIL: ...` into the page title (used for headless checks).
 
+**The switch box** (top right, where the joysticks are in the ROS version) imitates the usual scout controller: three momentary
+DPDT switches that give full reverse, off, or full forward (no in-between, like an H-bridge). Top row: left thruster (keys `1` reverse, `2` forward)
+and right thruster (`-` reverse, `=` forward). Below: both vertical thrusters (`;` down, `.` up). Hold a switch with the mouse (top half = forward/up,
+bottom half = reverse/down) or press the keys; it springs back to off. A pushed switch overrides the keyboard for its own thrusters only.
+The rule for the keys is "left key = minus, right key = plus"; to change them edit `SWITCHES` in `web/controls.js` (and the key help in `index.html`).
+
 **Drive it from a micro:bit or Pico (browser version, Chrome / Edge / Chromebook):** plug the board in with USB, click
 *Connect micro:bit / Pico*, choose the board. The board then just `print()`s lines like `p:t1,0.5` (the protocol is in
 `docs/PROTOCOL.md`; examples: `examples/microbit_tilt.py` drives by tilting a micro:bit, `examples/pico_throttle.py` uses a dial).

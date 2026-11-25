@@ -2,6 +2,7 @@
 // Coordinates: sim x = forward, y = left, depth = down  ->  three.js (x, -depth, -y).
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
+import { GAME_KEYS, SWITCHES, computeCommand, switchValues } from "./controls.js";
 
 // Which simulation? A Python server answers GET ping -> talk to it; a plain web host (GitHub Pages...) does not -> run the sim in this page.
 // Override with ?mode=local or ?mode=server.
@@ -661,6 +662,7 @@ function handleState(s) {
 
 const bars = ["t1", "t2", "t3", "t4"];
 function updateHud() {
+  drawSwitches();
   const live = performance.now() - lastMsg < 1000;
   $("dot").className = live ? "ok" : "";
   $("status").textContent = live ? backend.name : "waiting for sim...";
@@ -706,25 +708,13 @@ function updateHud() {
 // ---------- keyboard (only when the server is keyboard_sim.py: state.keys) ----------
 const held = new Set();
 let clawCmd = 0, lastSent = "";
-const POWER = 0.8;
+const pointerSw = [0, 0, 0];                                  // the on-screen switch box: -1 / 0 / +1 per switch while the mouse holds it
 function sendCommand() {
-  const k = (c) => held.has(c) ? 1 : 0;
-  const fwd = k("KeyW") + k("ArrowUp") - k("KeyS") - k("ArrowDown");
-  const turn = k("KeyD") + k("ArrowRight") - k("KeyA") - k("ArrowLeft");   // + = turn right
-  const up = k("KeyR") + k("Space") - k("KeyF") - k("ShiftLeft") - k("ShiftRight");
-  const trim = k("KeyI") - k("KeyK");                                       // + = nose up: front pushes up, rear down
-  const c = (v) => Math.max(-1, Math.min(1, v)) * POWER;
-  const body = JSON.stringify({
-    t1: c(fwd + turn + k("KeyZ")), t2: c(fwd - turn + k("KeyC")),
-    t3: c(up + trim), t4: c(up - trim), claw: Math.round(clawCmd * 100) / 100,
-  });
+  const body = JSON.stringify(computeCommand(held, pointerSw, clawCmd));
   if (body === lastSent) return;
   lastSent = body;
   backend.cmd(JSON.parse(body));
 }
-const GAME_KEYS = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "KeyR", "KeyF", "KeyZ", "KeyC", "KeyI", "KeyK",
-  "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space", "ShiftLeft", "ShiftRight",
-  "BracketLeft", "BracketRight"]);
 window.addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.code === "KeyV" && !e.repeat) { resetView(); return; }
@@ -739,6 +729,31 @@ window.addEventListener("keydown", (e) => {
 });
 window.addEventListener("keyup", (e) => { if (held.delete(e.code)) sendCommand(); });
 window.addEventListener("blur", () => { held.clear(); sendCommand(); });   // never leave a thruster stuck on
+
+// ---------- the switch box: three momentary DPDT switches (see controls.js). Press the top half of a switch for +, the bottom for -; it springs back ----------
+const swEls = SWITCHES.map((_, i) => document.querySelector(`.sw[data-i="${i}"]`));
+swEls.forEach((el, i) => {
+  const slot = el.querySelector(".swslot");
+  const set = (v) => { if (pointerSw[i] !== v) { pointerSw[i] = v; sendCommand(); } };
+  const fromPointer = (e) => {
+    const r = slot.getBoundingClientRect(), dy = e.clientY - (r.top + r.height / 2);
+    set(dy < -r.height * 0.12 ? 1 : dy > r.height * 0.12 ? -1 : 0);
+  };
+  let down = false;
+  slot.addEventListener("pointerdown", (e) => { if (!state.keys) return; down = true; slot.setPointerCapture(e.pointerId); fromPointer(e); e.preventDefault(); });
+  slot.addEventListener("pointermove", (e) => { if (down) fromPointer(e); });
+  const release = () => { down = false; set(0); };
+  slot.addEventListener("pointerup", release);
+  slot.addEventListener("pointercancel", release);
+  window.addEventListener("blur", release);
+});
+function drawSwitches() {
+  switchValues(held, pointerSw).forEach((v, i) => {
+    const lever = swEls[i].querySelector(".swlever");
+    lever.style.transform = `translateY(${-v * 22}px)`;
+    lever.classList.toggle("on", v !== 0);
+  });
+}
 
 // ---------- tool mode (claw / nose): the sim owns it, this just shows it and asks to change it ----------
 let tool = "claw", toolAsked = 0;
