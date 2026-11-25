@@ -2,7 +2,16 @@
 // Coordinates: sim x = forward, y = left, depth = down  ->  three.js (x, -depth, -y).
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
-import * as backend from "./backend-net.js";   // the server connection (M1.2 will let the page pick a local one instead)
+
+// Which simulation? A Python server answers GET ping -> talk to it; a plain web host (GitHub Pages...) does not -> run the sim in this page.
+// Override with ?mode=local or ?mode=server.
+async function pickBackend() {
+  const want = new URLSearchParams(location.search).get("mode");
+  let server = want === "server";
+  if (!want) { try { server = (await fetch("ping", { cache: "no-store" })).ok; } catch (e) { server = false; } }
+  return server ? import("./backend-net.js") : import("./backend-local.js");
+}
+const backend = await pickBackend();
 
 const $ = (id) => document.getElementById(id);
 
@@ -612,6 +621,12 @@ const seen = { splash: null, floor: null };
 const shown = { ...state };
 let lastMsg = 0;
 
+{ // hide what this backend cannot do
+  const f = backend.features, hide = (sel) => document.querySelectorAll(sel).forEach((e) => { e.style.display = "none"; });
+  if (!f.joys) { hide("#joys"); hide("#joyval1, #joyval2"); document.querySelectorAll("#joyval1, #joyval2").forEach((e) => { e.parentElement.style.display = "none"; }); }
+  if (!f.imu) hide(".imu");
+  if (!f.claw) { hide("#tool"); const c = $("claw"); if (c) c.parentElement.style.display = "none"; }
+}
 backend.connect(handleState);
 function handleState(s) {
   if (!s.regions) return;
@@ -642,7 +657,7 @@ const bars = ["t1", "t2", "t3", "t4"];
 function updateHud() {
   const live = performance.now() - lastMsg < 1000;
   $("dot").className = live ? "ok" : "";
-  $("status").textContent = live ? "sim connected" : "waiting for sim...";
+  $("status").textContent = live ? backend.name : "waiting for sim...";
   for (const n of bars) {
     const v = state[n], el = $("b-" + n);
     el.style.width = Math.abs(v) * 50 + "%";

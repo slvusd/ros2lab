@@ -10,6 +10,7 @@
 // URLs are RELATIVE ("events", not "/events") so the page works from any folder.
 const post = (url, body) => fetch(url, { method: "POST", body, keepalive: true });
 
+export const name = "sim connected";
 export const features = { keys: true, joys: true, claw: true, imu: true, rings: true, fish: true };
 
 export function connect(onState) {
