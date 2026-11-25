@@ -23,7 +23,9 @@ let crabsAdded = false;
 if (config.crabs > 0) try { (await import("./sim/crab.js")).addTo(rov, config.crabs); crabsAdded = true; } catch (e) { /* optional add-on: no crabs without crab.js */ }
 let currentMod = null;                           // the optional water current (sim/current.js); the page's Current button can turn it on and off at any time
 try { currentMod = await import("./sim/current.js"); currentMod.addTo(rov, config.current); } catch (e) { /* optional add-on: no outlets without current.js */ }      // the outlets are always in the wall; ?current=on makes the water run
-export const features = { keys: true, joys: false, claw: true, imu: true, rings: !!ringsMod, fish: fishAdded, crabs: crabsAdded, current: !!currentMod, serial: true };
+let eelMod = null;                               // the optional eel joke (sim/eel.js): the L key calls it out of the lower outlet
+try { eelMod = await import("./sim/eel.js"); eelMod.addTo(rov); } catch (e) { /* optional add-on: no eel without eel.js */ }
+export const features = { eel: !!eelMod, keys: true, joys: false, claw: true, imu: true, rings: !!ringsMod, fish: fishAdded, crabs: crabsAdded, current: !!currentMod, serial: true };
 const world = new World(rov);
 if (ringsMod) world.ringDropper = ringsMod.dropRing;
 export const link = new DeviceLink(world);       // a micro:bit / Pico plugged in over USB (see serial.js)
@@ -38,6 +40,8 @@ export const cmd = (obj) => world.command(obj);
 export const tool = (name) => world.setTool(name);
 export const buoyancy = (mode) => world.setBuoyancy(mode);
 export const joy = () => {};
+/** The L key: an eel comes out of the lower water outlet and goes after the ROV. Returns true if it started. */
+export const summonEel = () => (eelMod ? eelMod.summon(rov) : false);
 export const reset = () => world.reset();
 export const dropRing = (x, y) => world.dropRing(x, y);          // the N key
 /** The Config dialog's thruster mode: 3, 4, 6 or 8 thrusters (the commands go back to zero). */

@@ -673,6 +673,8 @@ let props = null;
 import("./props.js").then((m) => { props = new m.Props(scene, THREE); }).catch(() => { /* no props */ });
 let fish = null;                      // optional add-on: fish.js draws the coy fish (delete that file to remove it)
 import("./fish.js").then((m) => { fish = new m.Fish(scene, THREE); }).catch(() => { /* no fish */ });
+let eels = null;                      // optional joke add-on: eel.js draws the electric eel, the sparks and the smoke (delete that file to remove them)
+import("./eel.js").then((m) => { eels = new m.Eels(scene, THREE); }).catch(() => { /* no eel */ });
 let crabs = null;                     // optional add-on: crab.js draws the green crabs (delete that file to remove them)
 import("./crab.js").then((m) => { crabs = new m.Crabs(scene, THREE); }).catch(() => { /* no crabs */ });
 let jets = null;                      // optional add-on: jets.js draws the water outlets and the current (delete that file to remove them)
@@ -680,7 +682,9 @@ import("./jets.js").then((m) => { jets = new m.Jets(scene, THREE, { look: cfg.fl
 
 // ---------- state from the sim ----------
 const state = { x: -1.5, y: 0, depth: 0.8, yaw: 0, thrusters: 4, t1: 0, t2: 0, t3: 0, t4: 0, claw: 0, speed: 0, pitch: 0, roll: 0, imu: null, buoyancy: 1.5, joys: [[0, 0], [0, 0]], joy_topics: [] };
-const seen = { splash: null, floor: null };
+const seen = { splash: null, floor: null, eel: "idle" };
+const eelProp = () => (state.props || []).find((p) => p.type === "eel");
+const eelDead = () => !!(eelProp() && eelProp().locked);       // the eel got the ROV: nothing works until Reset (see eel.js)
 const shown = { ...state };
 let lastMsg = 0;
 
@@ -709,6 +713,11 @@ function handleState(s) {
   }
   Object.assign(state, s);
   lastMsg = performance.now();
+  const eel = eelProp();
+  if (eel && eel.mode !== seen.eel) {                                  // the eel's story: out of the outlet, the shock, away
+    if (eel.mode === "shock") { held.clear(); sendCommand(); wobble = 1; toast("ZAP! The eel got the ROV. Press Reset to start over."); }
+    seen.eel = eel.mode;
+  }
   if (s.tool && s.tool !== tool && performance.now() - toolAsked > 600) setTool(s.tool, false);   // sim changed it
   if (seen.splash === null) { seen.splash = s.splash_n; seen.floor = s.floor_n; }   // ignore history
   if (s.splash_n !== seen.splash) {                       // top of the ROV crossed the surface
@@ -815,6 +824,8 @@ window.addEventListener("keydown", (e) => {
   if (document.getElementById("configui")) return;                    // the ?config panel is open: typing in it must not drive the ROV
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.code === "KeyV" && !e.repeat) { resetView(); return; }
+  if (eelDead()) { e.preventDefault(); return; }                      // the eel got the ROV: only Reset (the button) works now
+  if (e.code === "KeyL" && !e.repeat) { if (backend.features.eel && backend.summonEel()) toast("An eel is coming out of the lower outlet!"); return; }
   if (e.code === "KeyB" && !e.repeat) { nextBuoyancy(); return; }
   if (e.code === "KeyT" && !e.repeat) { if (backend.features.claw) setTool(tool === "claw" ? "nose" : "claw"); return; }
   if (e.code === "KeyN" && !e.repeat) { if (backend.features.rings) dropRing(); return; }
@@ -846,6 +857,7 @@ function waterUnderMouse() {                                   // the point of t
   return { x: _hit.x, y: -_hit.z };                            // three.js z is the sim's -y
 }
 function dropRing() {
+  if (eelDead()) return;
   const p = waterUnderMouse();
   if (!p) { toast("Point the mouse at the water of the pool (move it a little first), then press N."); return; }
   const n = (state.props || []).filter((q) => q.type === "ring").length;
@@ -892,6 +904,7 @@ function drawSwitches() {
 // ---------- tool mode (claw / nose): the sim owns it, this just shows it and asks to change it ----------
 let tool = backend.defaultTool || "claw", toolAsked = 0;
 function setTool(t, send = true) {
+  if (eelDead()) return;
   tool = t;
   claw.visible = t === "claw"; nose.visible = t === "nose";
   if (send) { toolAsked = performance.now(); backend.tool(t); }
@@ -900,6 +913,7 @@ setTool(backend.features.claw ? tool : "nose", false);       // no claw in this 
 
 // ---------- buoyancy: floats -> neutral -> sinks (a pool setting, not a ROS topic) ----------
 function nextBuoyancy() {
+  if (eelDead()) return;
   const b = state.buoyancy ?? 0;
   const next = b > 0.05 ? "neutral" : b < -0.05 ? "positive" : "negative";   // + -> 0 -> - -> +
   backend.buoyancy(next);
@@ -1075,6 +1089,8 @@ function frame(now) {
   if (props) props.update(state.props, dt);
   if (fish) fish.update(state.props, dt, t);
   if (crabs) crabs.update(state.props, dt, t);
+  if (eels) eels.update(state.props, dt, t, rov);
+  { const eel = eelProp(); if (eel && eel.zap) wobble = Math.max(wobble, 0.9); }        // the ROV shakes while it is shocked
   if (jets) jets.update(state.props, dt);
   for (const m of solids) {                          // x-ray: fade what is between us and the pool
     const mat = m.material, target = m.userData.hidesWhen(camera.position) ? 0.14 : 1;
@@ -1281,6 +1297,20 @@ if (new URLSearchParams(location.search).has("selftest")) {
         backend.cmd(computeCommand(new Set(), [0, 0, 0], 0, { thrusters: n }));
         if (!(state.x > x1 + 0.05)) return fail(`${n} thrusters: W did not drive forward (${x1.toFixed(2)} -> ${state.x.toFixed(2)})`);
       }
+    }
+    if (backend.features.eel) {                                        // the L key: an eel comes out of the lower outlet, shocks the ROV, and only Reset brings it back
+      backend.reset(); await wait(300);
+      window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyL", bubbles: true }));
+      for (let k = 0; k < 600 && !eelDead(); k++) await wait(100);
+      if (!eelDead()) return fail(`the eel never caught the ROV (mode ${eelProp() && eelProp().mode})`);
+      await wait(300);
+      const x1 = state.x;
+      window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyW", bubbles: true }));
+      await wait(800);
+      if (Math.abs(state.x - x1) > 0.05 || state.t1 !== 0) return fail(`the dead ROV still answers the keys (${x1.toFixed(2)} -> ${state.x.toFixed(2)}, t1 ${state.t1})`);
+      window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyW", bubbles: true }));
+      $("reset").click(); await wait(500);
+      if (eelDead()) return fail("Reset did not bring the ROV back");
     }
     if (backend.setPoolSize && jets && jets.sys) {                    // the drawn outlets must follow the wall when the pool is resized
       for (const [L, W] of [[1, 3], [2, 2], [1, 1]]) {
