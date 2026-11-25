@@ -110,3 +110,8 @@
   ring floor/clamp follow the region (a hanging ring can be carried over the step and set on the shelf). Page: floors, walls (outer + step),
   deck, masked water grid and wave simulation, shadows/silt, x-ray walls and camera all generated from the region list.
   Tested: 20 random 20 s runs (all buoyancies/depths) never left the pool or passed a floor; full ring mission carry-to-shelf; screenshots.
+- Collisions and company: `rov_shape.py` models the ROV as ~40 capsules (frame, thrusters, nose or moving claw jaws). Rings are 16-segment hoops that
+  are now pushed, spun by where they were hit, and left coasting by any part of the ROV (the hooking/gripping part excepted); rings push each other;
+  3 rings by default (`rings`/`--rings`), the claw holds one at a time. A coy fish (`rov_fish.py` + `web/fish.js`, `fish`/`--fish`) wanders, looks, bolts,
+  and cannot be caught (early flee + rehearsed escapes + faster than the ROV + hard 55 cm exclusion with a dart fallback). `test_physics.py` has
+  19 plain-Python checks and runs from install.sh. Floor limit now only counts regions open to the ROV (hardening against a shelf-depth "bounce").

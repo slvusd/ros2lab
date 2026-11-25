@@ -6,7 +6,8 @@ browser tab right next to your code in VS Code. Nothing to install beyond the RO
 - [Quick start](#quick-start) · [Nodes](#nodes) · [**Channels**](#channels-everything-the-sim-listens-to-and-publishes) ·
   [**Command-line cheat sheet**](#command-line-cheat-sheet) · [The page](#the-page) · [Troubleshooting](#troubleshooting)
 - Then the details: [thrusters](#the-vehicle-and-its-thrusters), [physics](#what-the-physics-does), [IMU](#the-imu),
-  [Water FX](#water-fx), [pick-up ring](#the-pick-up-ring-optional), [parameters](#parameters), [files](#files-in-this-folder)
+  [Water FX](#water-fx), [rings and collisions](#the-rings-and-how-things-collide-optional), [the fish](#the-fish-optional), [parameters](#parameters),
+  [tests](#tests), [files](#files-in-this-folder)
 
 ## Quick start
 
@@ -49,7 +50,7 @@ All channels are under the short prefix **`/sim`**. Thruster numbers follow the 
 | `/sim/t4` | `std_msgs/Float32` | -1.0 .. 1.0 | thruster 4: **rear vertical**, near the tail, `+` pushes **up** |
 | `/sim/claw` | `std_msgs/Float32` | 0.0 .. 1.0 | claw servo: `0.0` closed, `1.0` fully open, in between = partly open |
 | `/sim/tool` | `std_msgs/String` | `claw` / `nose` | which tool is on the front bottom bar (also the page's **Tool** button) |
-| `/sim/reset` | `std_msgs/Empty` | | put the ROV (and the ring) back at the start (also the **Reset** button) |
+| `/sim/reset` | `std_msgs/Empty` | | put the ROV, the rings and the fish back at the start (also the **Reset** button) |
 
 There is deliberately **no "forward" or "turn" command**: that is thruster control. If `t1` and `t2` are equal the ROV drives straight;
 if they differ it turns. `t3` and `t4` together lift or sink it; if they differ it tilts (front up + rear down = nose up).
@@ -155,7 +156,7 @@ off to the left (+y) at the far end:
 - **The step.** Between the deep end and the shelf is a 1 m step. To go over it **the ROV's lowest point must be above the shelf floor**, i.e. its
   centre shallower than about **0.72 m** (`/sim/depth` < 0.72). A deeper ROV is stopped by the step like any wall; a ROV over the shelf can't dive
   below 0.72 m (it rests on the shelf). A ROV straddling the edge rests on the lip.
-- **Missions this allows:** carry the ring from the deep end to the shallow end and set it down there (it stands on the shelf floor); hover over the
+- **Missions this allows:** carry a ring from the deep end to the shallow end and set it down there (it stands on the shelf floor); hover over the
   shelf at a set depth; find the way into the shallow end; compare `/sim/depth` in the two ends.
 - **Reshaping it.** The pool is a list of rectangles with floor depths, `POOL_REGIONS` at the top of `rov_physics.py`. The physics and the page both
   read that list, so editing it (adding a rectangle, changing a depth) reshapes everything: walls, steps, floors, deck, waves. The rectangles must
@@ -216,19 +217,40 @@ amount that grows with their depth, so a pipe through the surface stays joined a
 "window", and the rest of the surface is a dark mirror. A small wave simulation adds ripples from the ROV breaking the surface (or dropping in), moving near
 it, and from popping bubbles, on top of a gentle ambient ripple. **Off:** a simple translucent surface (cheaper on slow laptops).
 
-## The pick-up ring (optional)
+## The rings, and how things collide (optional)
 
-A slightly buoyant orange hoop with a weight on its bottom edge: it **stands upright on the pool floor**, facing the ROV's start. You can
-carry it to the shallow end and set it down there. Which tool you have
-selected decides how you lift it:
-- **Nose:** drive the nose **through** the ring, then **rise**. The top of the nose meets the ring's inner rim and carries it up; it hangs from the nose,
-  rides its low part, and swings round as you turn (the page says "ring hooked"). Lower it onto the floor and back out to leave it.
-- **Claw:** open the claw and put the jaws around the *side* of the rim (a vertical piece of tube, anywhere between the hinges and the fingertips; the page
-  says "ring between jaws: close!"), then **command the claw closed** (`/sim/claw` at 0.25 or less). It grips at once and the jaws stop at the tube's
-  thickness. Command it open (above 0.25) to let go. Closing only partway doesn't clamp. The top and bottom of the rim won't grip.
+**Three weighted rings** (orange, yellow, green) stand upright on the pool floor, each a slightly buoyant hoop with a weight on its bottom edge. The
+first faces the ROV's start. `rings` / `--rings N` sets how many (0 to 5). Ways to deal with a ring:
+- **Nose:** drive the nose **through** a ring, then **rise**. The top of the nose meets the ring's inner rim and carries it up; it hangs from the nose,
+  rides its low part, and swings round as you turn (the page says "ring hooked"). Lower it onto the floor and back out to leave it. Several rings
+  can hang on the nose at once. You can carry a ring to the shallow end and set it down there.
+- **Claw:** open the claw and put the jaws around the *side* of a ring's rim (a vertical piece of tube, anywhere between the hinges and the fingertips; the
+  page says "ring between jaws: close!"), then **command the claw closed** (`/sim/claw` at 0.25 or less). It grips at once and the jaws stop at the
+  tube's thickness. Command it open (above 0.25) to let go. Closing only partway doesn't clamp. The top and bottom of the rim won't grip. **The claw
+  holds one ring at a time.**
+- **Bumping:** every solid part of the ROV can now push a ring, not only the nose and claw. A ring that isn't hooked or gripped is **pushed along,
+  turned by where it was hit, and drifts to a stop in the water**. Hit the edge of a ring with a corner of the frame and it swings out of the way.
+  Rings also push each other, and can't be pushed through a wall. The part that is hooking or gripping a ring doesn't push it.
 
-It's game-style physics, not a contact solver. **It lives in two files, so it is easy to drop: delete `rov_props.py` and `web/props.js`**
-(everything else skips it quietly), or run with `--no-ring` / `-p ring:=false`. **Reset** puts it back.
+**How collisions work.** `rov_shape.py` describes every solid part of the ROV as about 40 *capsules* (a line segment with a radius): the 12 frame pipes
+and rails, the thruster bodies, shrouds and propellers, and either the nose or the claw (the jaws move as the claw opens and closes). Each ring is a
+16-sided hoop of capsules. Every step, any ring near the ROV is tested against those parts; if a pipe overlaps the hoop the ring is moved out along the
+contact direction, turned in proportion to how far off-centre the hit was, and given some drift. The ROV itself isn't slowed by what it pushes. It's
+game-style physics, cheap (well under a millisecond per step), and good enough to see "that pipe hit the ring".
+If you change the look of the ROV in `web/app.js`, update `rov_shape.py` to match.
+
+**It lives in two files, so it is easy to drop: delete `rov_props.py` and `web/props.js`** (everything else skips it quietly), or run with
+`--rings 0` / `-p rings:=0`. **Reset** puts the rings back.
+
+## The fish (optional)
+
+A little koi swims around the pool, drifts over now and then to look at the ROV from a polite distance, and **bolts if the ROV gets close**. It can never be
+caught, so nothing has to happen when they "meet". Three things make that hold: it starts fleeing early (about 1.6 m), it picks the escape route that keeps
+it farthest from a chasing ROV (it rehearses each route for 1.5 s), and it swims faster than the ROV can. As a last resort, a hard rule keeps it at least
+**55 cm** from the ROV's surface; if it is ever cornered it darts to the free spot farthest away. It respects the pool (walls, floor, surface, and the
+step: it only enters the shallow end when its depth allows) and ignores the rings.
+
+`fish` / `--fish N` sets how many (0 to 3). **It lives in two files: delete `rov_fish.py` and `web/fish.js` to remove it** (or `--fish 0`).
 
 ## Parameters
 
@@ -240,7 +262,8 @@ Read once at startup. `ros2 run`-style for `rov_sim.py`: `--ros-args -p name:=va
 | `keys` | true | the page's keyboard also drives the ROV (ROS version) |
 | `joy` | true | publish the on-screen joysticks on `/sim/joy1`, `/sim/joy2` |
 | `tool` | claw | starting tool: `claw` or `nose` |
-| `ring` | true | the pick-up ring (`--no-ring` for the keyboard version) |
+| `rings` | 3 | how many pick-up rings, 0 to 5 (`--rings`; `--no-ring` = 0 on the keyboard version) |
+| `fish` | 1 | how many fish, 0 to 3 (`--fish`) |
 | `max_thrust` | 12 | newtons at full command for **each** horizontal thruster; the two vertical thrusters share one such budget (6 N each) |
 | `mass` | 8 | kg including added mass |
 | `buoyancy` | 1.5 | N of spare buoyancy: positive floats, `0` hovers, negative sinks |
@@ -262,6 +285,13 @@ Read once at startup. `ros2 run`-style for `rov_sim.py`: `--ros-args -p name:=va
 - **The pool looks wrongly zoomed in VS Code:** press `V`, or close and reopen the Simple Browser tab.
 - The page only listens on this computer (127.0.0.1); each student runs their own pool. three.js is bundled in `web/vendor/` so it works offline.
 
+## Tests
+
+`python3 nodes/rov_sim/test_physics.py` (about 10 seconds; no ROS or browser needed; add a word to run only some, e.g. `... ring`) checks the physics:
+the pool walls and floors, the step to the shallow end, rings being pushed, spun and picked up, claw and nose behaviour, and the fish (an autopilot chases
+it flat out for eight minutes and it must never get within reach). Run it after changing anything in `rov_physics.py`, `rov_shape.py`, `rov_props.py`
+or `rov_fish.py`.
+
 ## Files in this folder
 
 | File | What it is |
@@ -269,7 +299,10 @@ Read once at startup. `ros2 run`-style for `rov_sim.py`: `--ros-args -p name:=va
 | `rov_sim.py` | the ROS node (channels, parameters) |
 | `keyboard_sim.py` | the same pool without ROS |
 | `rov_physics.py` | **the physics**, thruster layout, and the tiny web server (no ROS in it); tune the feel here |
-| `rov_props.py` + `web/props.js` | the optional pick-up ring (delete both to remove it) |
+| `rov_shape.py` | the ROV's solid shape (capsules) used for collisions; keep it in step with the model in `web/app.js` |
+| `rov_props.py` + `web/props.js` | the optional rings and their collisions (delete both to remove them) |
+| `rov_fish.py` + `web/fish.js` | the optional fish (delete both to remove it) |
+| `test_physics.py` | checks of the physics in plain Python, no ROS (see [Tests](#tests)) |
 | `web/` | the page: `index.html`, `app.js` (3D scene, readouts, joysticks), `vendor/` (three.js) |
 | `student_*.py` | examples for students (see [Nodes](#nodes)) |
 | `install.sh` | self-test (needs `source mac/env.sh`) |

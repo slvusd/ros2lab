@@ -123,6 +123,7 @@ class Rov:
         self.tool = tool            # front tool: "claw" (servo jaws) or "nose" (fixed upturned bar)
         self.props = []             # optional extras in the pool (see rov_props.py); each has reset/step/state
         self.claw_floor = 0.0       # an extra can hold the jaws open a little (a ring between them)
+        self.claw_holder = None     # the extra currently gripped in the claw, if any (only one at a time)
         self.thruster_up = THRUSTER_UP
         self.pitch = self.pitch_rate = 0.0   # radians, positive = nose DOWN
         self.pitch_torque = 0.0              # extras (a hanging ring) add to this each step, N m nose-down
@@ -143,6 +144,8 @@ class Rov:
         for k in self.cmd:
             self.cmd[k] = 0.0
         self.pitch = self.pitch_rate = 0.0
+        self.claw_holder = None
+        self._depth_before = self.depth
         self._prev = (0.0, 0.0, 0.0, 0.0)                 # last step's u, v, w, r (for the accelerometer)
         self.imu_acc = (0.0, 0.0, G)
         for p in self.props:
@@ -185,6 +188,7 @@ class Rov:
         prev_depth = self.depth
         self.depth += self.w * dt
 
+        self._depth_before = prev_depth
         self._walls(c, s, prev_depth)
         floor = self._floor_limit(c, s)
         if self.hard_limits:
@@ -206,6 +210,7 @@ class Rov:
         self.claw += clamp(self.claw_target - self.claw, -k, k)   # servo turns at a fixed speed
         self.claw = max(self.claw, self.claw_floor)
         self.pitch_torque = 0.0
+        self.claw_floor = 0.0                # extras that hold something in the jaws set it again below
         for p in self.props:
             p.step(self, dt)
         tilt = (fb - ff) * VERT_ARM + self.pitch_torque             # rear pushing up = nose down
@@ -244,11 +249,22 @@ class Rov:
         pts = [(BODY_HX, BODY_HY), (BODY_HX, -BODY_HY), (-BODY_HX, BODY_HY), (-BODY_HX, -BODY_HY), (TOOL_TIP, 0.0)]
         return [(self.x + c * px - s * py, self.y + s * px + c * py) for px, py in pts]
 
+    def _open_regions(self, depth):
+        """The regions the ROV may be over at this depth: those whose floor is deeper than its lowest point."""
+        need = depth + ROV_BOTTOM
+        return [r for r in POOL_REGIONS if r[4] >= need - 1e-6] or [max(POOL_REGIONS, key=lambda r: r[4])]
+
     def _floor_limit(self, c, s):
-        """Deepest the ROV's centre may go: its lowest point can't pass the floor under ANY part of its footprint."""
-        floors = [floor_at(x, y) for x, y in self._footprint(c, s)]
-        floors = [f for f in floors if f is not None] or [POOL_MAX_DEPTH]
-        return min(floors) - ROV_BOTTOM
+        """Deepest the ROV's centre may go: its lowest point can't pass the floor under ANY part of its footprint.
+        Only regions that are open to the ROV count: a region it is too deep to enter (the shallow end, seen from the
+        deep end) never limits its depth, so touching a wall can't lift it onto the shelf's floor."""
+        regions = self._open_regions(self._depth_before)
+        floors = []
+        for x, y in self._footprint(c, s):
+            ds = [r[4] for r in regions if r[0] - 1e-9 <= x <= r[1] + 1e-9 and r[2] - 1e-9 <= y <= r[3] + 1e-9]
+            if ds:
+                floors.append(max(ds))
+        return (min(floors) if floors else POOL_MAX_DEPTH) - ROV_BOTTOM
 
     def _walls(self, c, s, depth):
         """Keep the whole footprint (corners, thrusters, tool tip) inside the pool: push the ROV back and cancel the
@@ -256,8 +272,7 @@ class Rov:
         floor is deeper than the ROV's lowest point, so the step up to the shallow end is a wall to a ROV that is
         too deep to pass over it. `depth` is the ROV's depth at the START of this step, so diving while over the
         shelf stops on the shelf floor (see _floor_limit) instead of throwing the ROV off the shelf."""
-        need = depth + ROV_BOTTOM
-        open_regions = [r for r in POOL_REGIONS if r[4] >= need - 1e-6] or [max(POOL_REGIONS, key=lambda r: r[4])]
+        open_regions = self._open_regions(depth)
         vx, vy = self.u * c - self.v * s, self.u * s + self.v * c       # velocity in pool coordinates
         for _ in range(4):                                              # fix the worst corner, then look again
             worst = None

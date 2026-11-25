@@ -1,5 +1,5 @@
 // =============================================================================
-// props.js — OPTIONAL add-on: draws the extras in the pool (right now: the pick-up ring).
+// props.js — OPTIONAL add-on: draws the rings in the pool (one or several, each its own colour).
 // To remove: delete this file and ../rov_props.py. app.js loads it with a dynamic
 // import() that quietly does nothing if the file is missing.
 // =============================================================================
@@ -16,7 +16,7 @@ export class Props {
       let it = this.items[i];
       if (!it) {
         if (p.type !== "ring") return;
-        const mat = new T.MeshStandardMaterial({ color: 0xff6a00, roughness: 0.45, emissive: 0x000000 });
+        const mat = new T.MeshStandardMaterial({ color: p.color ?? 0xff6a00, roughness: 0.45, emissive: 0x000000 });
         const mesh = new T.Mesh(new T.TorusGeometry(p.r, p.tube, 14, 44), mat);   // ring plane = x/up, like the sim
         mesh.position.set(p.x, -p.depth, -p.y);
         this.scene.add(mesh);

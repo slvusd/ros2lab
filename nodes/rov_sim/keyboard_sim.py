@@ -4,7 +4,7 @@
 # =============================================================================
 # Run (plain Python 3, nothing to install):
 #   python3 nodes/rov_sim/keyboard_sim.py            then open http://localhost:8000
-# Options:  --port 8000  --max-thrust 12  --mass 8  --buoyancy 1.5  --imu-noise 0  --hard-limits  --no-ring  --tool claw|nose
+# Options:  --port 8000  --max-thrust 12  --mass 8  --buoyancy 1.5  --imu-noise 0  --hard-limits  --rings 3  --fish 1  --tool claw|nose
 #
 # Click the page once so it has keyboard focus, then:
 #   W / Up      both thrusters forward         S / Down    both reverse
@@ -35,18 +35,24 @@ def main():
     ap.add_argument("--imu-resolution", type=float, default=0.0, help="accelerometer step in m/s^2 (0 = exact, 0.01 = BNO055-like)")
     ap.add_argument("--imu-noise", type=float, default=0.0, help="IMU noise std-dev (m/s^2), 0 = clean")
     ap.add_argument("--tool", choices=["claw", "nose"], default="claw", help="front tool to start with")
-    ap.add_argument("--no-ring", action="store_true", help="leave out the pick-up ring (rov_props.py)")
+    ap.add_argument("--rings", type=int, default=3, help="number of pick-up rings, 0-5 (rov_props.py)")
+    ap.add_argument("--no-ring", action="store_true", help="no rings at all (same as --rings 0)")
+    ap.add_argument("--fish", type=int, default=1, help="number of fish, 0-3 (rov_fish.py)")
     ap.add_argument("--hard-limits", action="store_true",
                     help="stop dead at the surface/floor (no overshoot or bounce)")
     a = ap.parse_args()
 
     rov = Rov(a.max_thrust, a.mass, a.buoyancy, a.hard_limits, a.tool, a.imu_noise, a.imu_resolution)
-    if not a.no_ring:
-        try:                       # optional extras; works without rov_props.py (see its header)
-            import rov_props
-            rov_props.add_to(rov)
-        except ImportError:
-            pass
+    try:                           # optional extras; each works without its file (see the file's header)
+        import rov_props
+        rov_props.add_to(rov, 0 if a.no_ring else a.rings)
+    except ImportError:
+        pass
+    try:
+        import rov_fish
+        rov_fish.add_to(rov, a.fish)
+    except ImportError:
+        pass
     shared = Shared(keys=True)
     server = start_server(shared, a.port)
     print(f"ROV pool (keyboard mode) is at http://localhost:{a.port}   (Ctrl+C to quit)")
