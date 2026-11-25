@@ -82,6 +82,8 @@
   button { background: #1d6f9f; color: #fff; border: 0; border-radius: 6px;
            padding: 5px 10px; font: inherit; cursor: pointer; }
   button.on { background: #f2b705; color: #111; }
+  /* ?controls=h-hidden: only the switch box (and the camera window) are left */
+  body.bare #btns, body.bare #hud, body.bare #keyhelp, body.bare #topics, body.bare #seriallog, body.bare #hmode, body.bare #joys { display: none !important; }
   button.off { opacity: .55; }
   a.btnlink { background: #1d6f9f; color: #fff; border-radius: 6px; padding: 5px 10px; text-decoration: none; cursor: pointer; }
   a.btnlink:hover { filter: brightness(1.15); }

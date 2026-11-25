@@ -3,6 +3,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
 import { GAME_KEYS, SWITCHES, computeCommand, switchValues } from "./controls.js";
+import { parseConfig } from "./config.js";
 
 // Which simulation? A Python server answers GET ping -> talk to it; a plain web host (GitHub Pages...) does not -> run the sim in this page.
 // Override with ?mode=local or ?mode=server.
@@ -13,6 +14,8 @@ async function pickBackend() {
   return server ? import("./backend-net.js") : import("./backend-local.js");
 }
 const backend = await pickBackend();
+const cfg = parseConfig(location.search);                 // ?controls= ?camera= ... and ?config (see config.js); the pool, rings and fish are read by backend-local.js
+if (cfg.controls === "h-hidden") document.body.classList.add("bare");      // H-circuit only, and every other control hidden (CSS: body.bare)
 
 const $ = (id) => document.getElementById(id);
 
@@ -244,7 +247,8 @@ function buildPool() {
 
   // deck: everything around the pool that isn't pool (cells of a grid made from the region edges)
   {
-    const xs = new Set([bbox.x0 - 7, bbox.x1 + 7]), zs = new Set([bbox.z0 - 6, bbox.z1 + 6]);
+    const grow = Math.max(1, Math.sqrt(bw * bh / 18));                                   // a bigger pool gets a bigger deck around it
+    const xs = new Set([bbox.x0 - 7 * grow, bbox.x1 + 7 * grow]), zs = new Set([bbox.z0 - 6 * grow, bbox.z1 + 6 * grow]);
     for (const r of regions) { xs.add(r.x0); xs.add(r.x1); zs.add(r.z0); zs.add(r.z1); }
     const X = [...xs].sort((a, b) => a - b), Z = [...zs].sort((a, b) => a - b), pos = [], idx = [];
     for (let i = 0; i < X.length - 1; i++) for (let j = 0; j < Z.length - 1; j++) {
@@ -278,7 +282,8 @@ function buildPool() {
   }
 
   // ---- water surface: one wavy grid over the pool's bounding box, only the cells that are water are drawn ----
-  NX = Math.max(8, Math.round(bw / CELL)); NZ = Math.max(8, Math.round(bh / CELL));
+  const cell = CELL * Math.max(1, Math.sqrt(bw * bh / 33));      // a bigger pool gets coarser water cells: the grid never has more cells than the original pool's (33 m2), so it stays cheap on a Chromebook
+  NX = Math.max(8, Math.round(bw / cell)); NZ = Math.max(8, Math.round(bh / cell));
   DX = bw / NX; DZ = bh / NZ;
   const S = NX + 1, geo = new THREE.PlaneGeometry(bw, bh, NX, NZ).rotateX(-Math.PI / 2).translate(cx, 0, cz);
   const index = [];
@@ -391,13 +396,13 @@ const rov = new THREE.Group();
 scene.add(rov);
 const H = 0.25;                          // half the cube side
 
-function bar(a, b, r = 0.014) {          // PVC pipe from point a to point b
+function bar(a, b, r = 0.014, parent = rov) {          // PVC pipe from point a to point b
   const va = new THREE.Vector3(...a), vb = new THREE.Vector3(...b);
   const len = va.distanceTo(vb);
   const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), PVC);
   m.position.copy(va).add(vb).multiplyScalar(0.5);
   m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vb.sub(va).normalize());
-  rov.add(m);
+  parent.add(m);
 }
 for (const sy of [-1, 1]) for (const sz of [-1, 1]) bar([-H, sy * H, sz * H], [H, sy * H, sz * H]);   // along x
 for (const sx of [-1, 1]) for (const sz of [-1, 1]) bar([sx * H, -H, sz * H], [sx * H, H, sz * H]);   // vertical
@@ -467,15 +472,18 @@ rov.add(left, right, vfront, vrear);
 
 // ---- camera: a small housing on a short pipe under the top-front edge, looking forward and tilted down so the
 // front of the claw is in view. rovCam is the actual three.js camera (its picture goes to the window under joy2). ----
-bar([0.25, H, 0], [0.19, H - 0.045, 0], 0.012);                                  // mount: a pipe from the top-front edge
+const camModel = new THREE.Group();                                              // the camera on the model: hidden by ?camera=off
+bar([0.25, H, 0], [0.19, H - 0.045, 0], 0.012, camModel);                        // mount: a pipe from the top-front edge
 {
   const housing = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.042, 0.052), DARK);
   housing.position.set(0.18, H - 0.05, 0);
   const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.017, 0.017, 0.012, 16).rotateZ(Math.PI / 2),
     new THREE.MeshStandardMaterial({ color: 0x1d4f7a, roughness: 0.1, metalness: 0.6 }));
   lens.position.set(0.2225, H - 0.05, 0);
-  rov.add(housing, lens);
+  camModel.add(housing, lens);
 }
+rov.add(camModel);
+camModel.visible = cfg.camera;
 const rovCam = new THREE.PerspectiveCamera(64, 4 / 3, 0.03, 40);
 rovCam.rotation.order = "YXZ";
 rovCam.rotation.set(-0.5, -Math.PI / 2, 0);        // look along the ROV's +x (yaw -90 deg), tilted down 0.5 rad (~29 deg)
@@ -736,10 +744,12 @@ function updateHud() {
 const held = new Set();
 let clawCmd = 0, lastSent = "";
 let hOnly = false;                                            // "H-bridge only": only the three switches work (H key / the badge on the box)
+const hLocked = cfg.explicit.has("controls");                 // ?controls= in the address decides the mode: the H key and the badge do nothing then
 try { hOnly = localStorage.getItem("rovHOnly") === "on"; } catch (e) { /* no storage: keep default */ }
+if (hLocked) hOnly = cfg.controls !== "all";
 function setHOnly(on, send = true) {
   hOnly = on;
-  try { localStorage.setItem("rovHOnly", on ? "on" : "off"); } catch (e) { /* ignore */ }
+  if (!hLocked) try { localStorage.setItem("rovHOnly", on ? "on" : "off"); } catch (e) { /* ignore */ }
   const b = $("hmode");
   b.classList.toggle("on", on);
   b.textContent = on ? "H-bridge only" : "all keys";
@@ -754,13 +764,14 @@ function sendCommand() {
   backend.cmd(JSON.parse(body));
 }
 window.addEventListener("keydown", (e) => {
+  if (document.getElementById("configui")) return;                    // the ?config panel is open: typing in it must not drive the ROV
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.code === "KeyV" && !e.repeat) { resetView(); return; }
   if (e.code === "KeyB" && !e.repeat) { nextBuoyancy(); return; }
   if (e.code === "KeyT" && !e.repeat) { if (backend.features.claw) setTool(tool === "claw" ? "nose" : "claw"); return; }
   if (!state.keys) return;
   if (GAME_KEYS.has(e.code)) { held.add(e.code); e.preventDefault(); }
-  else if (e.code === "KeyH" && !e.repeat) { setHOnly(!hOnly); return; }
+  else if (e.code === "KeyH" && !e.repeat) { if (!hLocked) setHOnly(!hOnly); return; }
   else if (e.code === "KeyX") held.clear();
   else return;
   sendCommand();
@@ -786,7 +797,8 @@ swEls.forEach((el, i) => {
   slot.addEventListener("pointercancel", release);
   window.addEventListener("blur", release);
 });
-$("hmode").addEventListener("click", () => setHOnly(!hOnly));
+$("hmode").addEventListener("click", () => { if (!hLocked) setHOnly(!hOnly); });
+if (hLocked) { $("hmode").style.cursor = "default"; $("hmode").title = "Set by the page address (?controls=" + cfg.controls + ")"; }
 setHOnly(hOnly, false);
 function drawSwitches() {
   switchValues(held, pointerSw).forEach((v, i) => {
@@ -1117,8 +1129,8 @@ function applyTier(t) {
   tier = t;
   const T = TIERS[t];
   setFx(T.fx ? fxUser : false, false);
-  camEvery = T.cam; maxPR = T.pr;
-  $("cam").style.display = T.cam ? "" : "none";
+  camEvery = cfg.camera ? T.cam : 0; maxPR = T.pr;                       // no camera on this ROV (?camera=off): never draw its picture
+  $("cam").style.display = camEvery ? "" : "none";
   winStart = 0; graceUntil = performance.now() + 1500;          // let shaders compile before measuring again
   $("quality").textContent = qualityMode === "auto" ? `Quality: Auto (${T.name})` : `Quality: ${T.name}`;
   onResize();
@@ -1167,5 +1179,8 @@ if (new URLSearchParams(location.search).has("selftest")) {
     document.title = `PASS (${backend.name}, tool ${tool}, quality ${TIERS[tier].name}, ${lastFps ? lastFps.toFixed(0) + " fps" : "fps not measured"})`;
   })();
 }
+
+// ---------- ?config: a panel to set all of these and make the link ----------
+if (cfg.open) import("./configui.js").then((m) => m.showConfig({ cfg, configurable: backend.configurable || {} })).catch((e) => console.warn("config panel failed:", e));
 
 requestAnimationFrame(frame);

@@ -165,7 +165,26 @@ A micro:bit that talks over the **radio** can use the same lines through a gatew
 
 ## Page options and settings {#options}
 
-Add these to the page address, for example `?tool=claw&quality=low`.
+**[Set up the pool](index.html?config)** opens a panel (the address option `config`) where you choose everything below, and it gives you a **link** that makes the same setup
+for anyone you send it to. Every setting is also a plain option you can add to the page address yourself, for example `?controls=h&rings=2&poollength=2`.
+
+| Option | Does |
+|---|---|
+| `config` | open the set-up panel |
+| `controls=all` | all keys: the three switches and the extra keys (the normal start-up) |
+| `controls=h` | **H-circuit only**: just the three switches work, and `H` no longer changes it (the link decides) |
+| `controls=h-hidden` | H-circuit only **and every other control hidden**: only the switch box (and the camera window, if there is a camera) is left on the page |
+| `fish=on` or `off` | the fish (normally on) |
+| `rings=0` to `5` | how many pick-up rings (normally 3) |
+| `poollength=1` or `2` | the main pool is 6 m times this long (normally 1, so 6 m; 2 is 12 m) |
+| `poolwidth=1`, `2` or `3` | the main pool is 3 m times this wide (normally 1, so 3 m; 3 is 9 m) |
+| `camera=on` or `off` | whether the ROV has a camera: its housing on the model, the camera window, and the fish coming to look into it (normally on) |
+
+Whole numbers only: anything else is rounded and kept inside the limits, and an option the page does not understand is ignored. The shallow end keeps its size
+and stays at the far end whatever the main pool size. A bigger pool has coarser water ripples so it still runs on a slow computer.
+With the Python server, `controls` and `camera` work the same; the pool, rings and fish are set by the server's own options (`--rings`, `--fish`).
+
+Other options:
 
 | Option | Does |
 |---|---|
@@ -176,7 +195,7 @@ Add these to the page address, for example `?tool=claw&quality=low`.
 | `mode=local` or `mode=server` | force the built-in simulation, or the Python server |
 | `selftest` | the page drives itself for a few seconds and writes PASS or FAIL in its title |
 
-The **Quality** and **H-bridge only** choices are remembered by your browser.
+The **Quality** choice and (when no `controls` option is given) the **H-bridge only** choice are remembered by your browser.
 
 ## For teachers {#teachers}
 
@@ -184,6 +203,7 @@ The **Quality** and **H-bridge only** choices are remembered by your browser.
   so students can write ROS 2 code; the same page is its display. The physics are kept the same by tests that compare the two.
 - To drive the Python/ROS version from a micro:bit or Pico, use the bridge in `nodes/serial_bridge/` instead of the Connect button.
 - The full protocol is on this page; the project's `docs/PROTOCOL.md` describes the same lines for the ROS bridge.
+- To give students a fixed setup (for example H-circuit only, 2 rings, no fish), open **Set up the pool**, choose, and send them the link it makes.
 - The page uses no outside web sites (everything is bundled), so a school web filter does not break it.
 
 [Back to the pool](index.html)

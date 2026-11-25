@@ -3,11 +3,26 @@
 // What is NOT ported: the web server, and (for now) the optional props (rings/fish) -- the hooks (`props`, `claw_floor`,
 // `pitch_torque`) are here so rings.js / fishbrain.js can plug in later.
 
-export const POOL_REGIONS = [
-  [-3.0, 3.0, -1.5, 1.5, 2.0],     // x0, x1, y0, y1, floor depth: the deep end
-  [0.5, 3.0, 1.5, 4.0, 1.0],       // the shallow end: a 1 m deep shelf, joined to the deep end along y = 1.5
-];
-export const POOL_MAX_DEPTH = Math.max(...POOL_REGIONS.map((r) => r[4]));
+// The pool: the main pool (the deep end) and the shallow end. Python has these two numbers fixed; here the MAIN pool can be made longer and wider
+// with whole-number multipliers (setPool, used by the page's ?poollength= and ?poolwidth=). The ROV still starts near the near wall, in the middle;
+// the main pool grows away from it (longer = further along x, wider = both sides of y = 0); the shallow end keeps its 2.5 m x 2.5 m size and stays
+// flush with the far wall, joined along the main pool's +y wall.
+export const MAIN_LENGTH = 6.0, MAIN_WIDTH = 3.0, SHELF = 2.5;
+export function poolRegions(lengthMul = 1, widthMul = 1) {
+  const x1 = -3.0 + MAIN_LENGTH * lengthMul, half = (MAIN_WIDTH * widthMul) / 2;
+  return [
+    [-3.0, x1, -half, half, 2.0],                       // x0, x1, y0, y1, floor depth: the main pool (deep end)
+    [x1 - SHELF, x1, half, half + SHELF, 1.0],          // the shallow end: a 1 m deep shelf
+  ];
+}
+export const POOL_REGIONS = poolRegions(1, 1);           // (the same array object is edited in place by setPool, so every importer sees the change)
+export let POOL_MAX_DEPTH = Math.max(...POOL_REGIONS.map((r) => r[4]));
+/** Resize the main pool (whole numbers: length 1..2 times 6 m, width 1..3 times 3 m). Call it BEFORE creating the ROV, rings and fish. */
+export function setPool(lengthMul = 1, widthMul = 1) {
+  const L = Math.max(1, Math.min(2, Math.round(lengthMul))), W = Math.max(1, Math.min(3, Math.round(widthMul)));
+  POOL_REGIONS.splice(0, POOL_REGIONS.length, ...poolRegions(L, W));
+  POOL_MAX_DEPTH = Math.max(...POOL_REGIONS.map((r) => r[4]));
+}
 export const ROV_HALF = 0.25, ROV_BOTTOM = 0.28;
 export const START = { x: -1.5, y: 0.0, depth: 0.8, yaw: 0.0 };
 

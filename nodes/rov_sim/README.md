@@ -49,6 +49,12 @@ To change a key, edit `SWITCHES` in `web/controls.js` (and the key help in `inde
 **Help page:** the **Help** button opens `web/help.html`, rendered from `web/help.md` (controls, the pool, page options, and the full micro:bit / Pico protocol with examples). It is the single
 source for the browser version's protocol; `web/sim/tests/help.test.js` fails if it falls out of step with the code. Edit `help.md`, not the HTML.
 
+**Settings (`?config`):** add `?config` to the page address (or use *Set up the pool* in the Help page) for a panel that sets the options and gives you a link to share;
+each setting is also a plain address option: `controls=all|h|h-hidden` (all keys / H-circuit only, locked / H-circuit only with every other control hidden),
+`fish=on|off`, `rings=0..5` (3), `poollength=1|2` (x 6 m), `poolwidth=1|2|3` (x 3 m), `camera=on|off`. They live in `web/config.js` (parsing and limits, tested) and
+`web/configui.js` (the panel); `physics.js` `setPool()` resizes the main pool. The pool size is a browser-version feature for now: Python's pool is still the fixed
+6 x 3 m plus shelf (`POOL_REGIONS` in `rov_physics.py`), and with the Python server only `controls` and `camera` apply (use `--rings` / `--fish` there).
+
 **Drive it from a micro:bit or Pico (browser version, Chrome / Edge / Chromebook):** plug the board in with USB, click
 *Connect micro:bit / Pico*, choose the board. The board then just `print()`s lines like `p:t1,0.5` (the protocol is in
 `docs/PROTOCOL.md`; examples: `examples/microbit_tilt.py` drives by tilting a micro:bit, `examples/pico_throttle.py` uses a dial).

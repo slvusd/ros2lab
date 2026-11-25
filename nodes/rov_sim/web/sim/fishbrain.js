@@ -35,6 +35,7 @@ export class Fish {
     this.type = "fish";
     this.seed = seed;
     this.color = color;
+    this.peeks = true;               // false when the ROV has no camera (page option ?camera=off): nothing to come and look into
     this.reset();
   }
 
@@ -168,6 +169,7 @@ export class Fish {
   }
 
   _startPeek(rov) {
+    if (!this.peeks) return false;
     const local = this._choosePeekSpot(rov);
     if (local === null) return false;
     this.mode = "peek";

@@ -6,6 +6,7 @@ import { render, outline } from "../../mdrender.js";
 import { CHANNELS, DeviceLink } from "../devicelink.js";
 import { World } from "../world.js";
 import { SWITCHES } from "../../controls.js";
+import { CONFIG_KEYS, CONTROL_MODES, LIMITS } from "../../config.js";
 
 const md = readFileSync(new URL("../../help.md", import.meta.url), "utf8");
 const html = render(md);
@@ -53,4 +54,21 @@ test("it renders cleanly: a title, no raw HTML, no leftovers", () => {
   assert.ok(!/<script|undefined|\[object/i.test(html));
   assert.ok((html.match(/<table>/g) || []).length >= 5);
   assert.ok((html.match(/<pre>/g) || []).length >= 2);
+});
+
+test("every page option in config.js is documented, with its values and limits", () => {
+  for (const k of CONFIG_KEYS) assert.ok(md.includes(`\`${k}=`), `help.md does not document ${k}=`);
+  assert.ok(md.includes("`config`"), "help.md does not document ?config");
+  for (const m of CONTROL_MODES) assert.ok(md.includes(`controls=${m}`), `help.md does not show controls=${m}`);
+  assert.ok(md.includes(`\`rings=${LIMITS.rings[0]}\` to \`${LIMITS.rings[1]}\``), "rings limits");
+  assert.ok(md.includes(`poollength=${LIMITS.poollength[0]}\` or \`${LIMITS.poollength[1]}`), "poollength limits");
+  assert.ok(md.includes(`poolwidth=${LIMITS.poolwidth[0]}\`, \`2\` or \`${LIMITS.poolwidth[1]}`), "poolwidth limits");
+});
+
+test("the example addresses in the help are read back as written", async () => {
+  const { parseConfig } = await import("../../config.js");
+  const c = parseConfig("?controls=h&rings=2&poollength=2");
+  assert.deepEqual([c.controls, c.rings, c.poollength], ["h", 2, 2]);
+  assert.ok(md.includes("?controls=h&rings=2&poollength=2"), "the worked example moved");
+  assert.ok(html.includes('href="index.html?config"'), "the Set up the pool link must survive rendering");
 });

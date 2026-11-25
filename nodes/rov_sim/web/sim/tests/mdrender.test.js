@@ -24,6 +24,7 @@ test("inline: code, bold, italic, links; code is left alone", () => {
   assert.equal(inline("`*not italic* **nor bold**`"), "<code>*not italic* **nor bold**</code>");
   assert.equal(inline("[home](index.html)"), '<a href="index.html">home</a>');
   assert.equal(inline("[top](#top)"), '<a href="#top">top</a>');
+  assert.equal(inline("[set up](index.html?config&rings=2)"), '<a href="index.html?config&amp;rings=2">set up</a>', "a relative link may carry a query string");
   assert.match(inline("[site](https://example.com/a?b=1&c=2)"), /href="https:\/\/example.com\/a\?b=1&amp;c=2" target="_blank" rel="noopener"/);
   const bad = inline("[bad](javascript:alert(1))");
   assert.ok(bad.startsWith("bad") && !bad.includes("<a") && !bad.includes("href"), "javascript: links are dropped: " + bad);
