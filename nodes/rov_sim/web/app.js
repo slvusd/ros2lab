@@ -799,9 +799,15 @@ function waterUnderMouse() {                                   // the point of t
 }
 function dropRing() {
   const p = waterUnderMouse();
-  if (!p) { toast("Point the mouse at the water of the pool, then press N."); return; }
-  if ((state.props || []).filter((q) => q.type === "ring").length >= MAX_RINGS) { toast(`The pool already has ${MAX_RINGS} rings: that is the most. (Reset puts it back.)`); return; }
-  backend.dropRing(p.x, p.y);
+  if (!p) { toast("Point the mouse at the water of the pool (move it a little first), then press N."); return; }
+  const n = (state.props || []).filter((q) => q.type === "ring").length;
+  if (n >= MAX_RINGS) { toast(`The pool already has ${MAX_RINGS} rings: that is the most. (Reset puts it back.)`); return; }
+  if (typeof backend.dropRing !== "function") { toast("This page is a mix of old and new files: reload it with Ctrl+Shift+R (Cmd+Shift+R on a Mac)."); return; }
+  try {
+    Promise.resolve(backend.dropRing(p.x, p.y)).then(
+      (r) => toast(r === null ? "No ring was dropped (the rings add-on is not loaded)." : `Ring dropped: ${n + 1} in the pool.`),
+      (e) => toast("Could not drop a ring: " + (e && e.message ? e.message : e)));
+  } catch (e) { console.error(e); toast("Could not drop a ring: " + e.message); }
 }
 window.addEventListener("keyup", (e) => { if (held.delete(e.code)) sendCommand(); });
 window.addEventListener("blur", () => { held.clear(); sendCommand(); });   // never leave a thruster stuck on
@@ -1221,6 +1227,8 @@ if (new URLSearchParams(location.search).has("selftest")) {
     document.title = `PASS (${backend.name}, tool ${tool}, quality ${TIERS[tier].name}, ${lastFps ? lastFps.toFixed(0) + " fps" : "fps not measured"})`;
   })();
 }
+
+window.__rov = { state, backend, rings: () => (state.props || []).filter((p) => p.type === "ring") };      // read-only hook for automatic checks (see devtools-driven tests)
 
 // ---------- ?config: a panel to set all of these and make the link ----------
 if (cfg.open) import("./configui.js").then((m) => m.showConfig({ cfg, configurable: backend.configurable || {} })).catch((e) => console.warn("config panel failed:", e));

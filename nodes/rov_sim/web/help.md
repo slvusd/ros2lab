@@ -33,7 +33,7 @@ Press `H` (or click the badge) and it becomes **H-bridge only**: just the three 
 | `I` / `K` | tilt the nose up / down (front thruster up and rear down, or the reverse) |
 | `Z` / `C` | the left / right thruster only |
 
-Other keys: `N` drops a new pool ring into the water where the mouse is (point at the pool first; it sinks, there can be 10 rings at most, and **Reset** removes the dropped ones), `[` and `]` close and open the claw gradually, `T` switches between the nose and the claw, `B` changes the buoyancy,
+Other keys: `N` drops a new pool ring into the water where the mouse is (move the mouse over the pool first and a message says "Ring dropped"; if there is no message at all, reload the page with Ctrl+Shift+R. It sinks, there can be 10 rings at most, and **Reset** removes the dropped ones), `[` and `]` close and open the claw gradually, `T` switches between the nose and the claw, `B` changes the buoyancy,
 `V` (or a double-click) resets the camera view, `X` lets go of every key.
 
 Buttons: **Orbit** (drag to turn the view, scroll to zoom), **Follow** (a chase camera), **Top**, **Buoyancy**, **Tool**, **Water FX**
