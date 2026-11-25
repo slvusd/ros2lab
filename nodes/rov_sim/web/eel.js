@@ -1,7 +1,7 @@
 // =============================================================================
-// eel.js — OPTIONAL joke add-on: draws the electric eel (L key), the sparks under water while it shocks the ROV, and the smoke that rises from the dead ROV.
-// To remove: delete this file and sim/eel.js. app.js loads it with a dynamic import() that quietly does nothing if the file is missing. It only looks at the
-// state.props entry whose type is "eel". Sim coordinates (x ahead, y left, depth down) -> three.js (x, -depth, -y).
+// eel.js — an easter egg (not documented on purpose): draws the eel, the flash and sparks when it bites, and the smoke from the stunned ROV.
+// To remove: delete this file and sim/eel.js. app.js loads it with a dynamic import() that quietly does nothing if the file is missing.
+// Sim coordinates (x ahead, y left, depth down) -> three.js (x, -depth, -y).
 // =============================================================================
 const SMOKE_MAX = 70;
 

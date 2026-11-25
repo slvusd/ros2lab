@@ -4,7 +4,7 @@
 # =============================================================================
 # Run (plain Python 3, nothing to install):
 #   python3 nodes/rov_sim/keyboard_sim.py            then open http://localhost:8000
-# Options:  --port 8000  --speed 1  --thrusters 4  --max-thrust 12  --mass 8  --buoyancy 1.5  --imu-noise 0  --hard-limits  --rings 3  --fish 1  --crabs 1  --current  --tool claw|nose
+# Options:  --port 8000  --speed 1  --thrusters 4  --max-thrust 12  --mass 8  --buoyancy 0  --imu-noise 0  --hard-limits  --rings 3  --fish 1  --crabs 1  --current  --tool claw|nose
 #
 # Click the page once so it has keyboard focus, then:
 #   Switch box (top right of the page, like a scout controller, full power):
@@ -29,7 +29,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from rov_physics import BUOYANCY, BUOYANCY_MODES, Rov, Shared, apply_keyboard, apply_ring_drops, clamp, start_server
+from rov_physics import BUOYANCY, DEFAULT_BUOYANCY, BUOYANCY_MODES, Rov, Shared, apply_keyboard, apply_ring_drops, clamp, start_server
 
 
 def main():
@@ -39,7 +39,7 @@ def main():
     ap.add_argument("--thrusters", type=int, choices=[3, 4, 6, 8], default=4, help="how many thrusters: 3 (one up/down), 4 (the original), 6 (four on the posts + two up/down) or 8 (four on the posts + four up/down at the corners)")
     ap.add_argument("--speed", type=float, default=1.0, help="power of the red and green thrusters, 0.25 .. 4 (1 = normal)")
     ap.add_argument("--mass", type=float, default=8.0)
-    ap.add_argument("--buoyancy", type=float, default=BUOYANCY, help="spare buoyancy in N (+ floats up; 0 hovers)")
+    ap.add_argument("--buoyancy", type=float, default=DEFAULT_BUOYANCY, help="spare buoyancy in N (+ floats up; 0 hovers: the default)")
     ap.add_argument("--imu-resolution", type=float, default=0.0, help="accelerometer step in m/s^2 (0 = exact, 0.01 = BNO055-like)")
     ap.add_argument("--imu-noise", type=float, default=0.0, help="IMU noise std-dev (m/s^2), 0 = clean")
     ap.add_argument("--tool", choices=["claw", "nose"], default="claw", help="front tool to start with")

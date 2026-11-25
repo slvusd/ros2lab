@@ -28,7 +28,7 @@
 #   port (8000), keys (true: the page's keyboard also works, last new value per thruster wins),
 #   joy (true: publish the on-screen joysticks), tool (claw | nose), rings (3: pick-up rings, 0-5), fish (1: 0-3), crabs (1: green crabs on the shallow end, 0-5), current (false: two water outlets make a current),
 #   thrusters (4: 3, 4, 6 or 8: the channels are /sim/t1 .. /sim/t<n>), speed (1: power of the horizontal thrusters, 0.25 .. 4), max_thrust (N, 12), mass (kg incl. added mass, 8),
-#   buoyancy (N of spare buoyancy, default 1.5: floats; 0 = hovers; negative sinks),
+#   buoyancy (N of spare buoyancy, default 0: hovers; positive floats; negative sinks),
 #   hard_limits (false; true = stop dead at surface/floor, no overshoot/bounce),
 #   imu_noise (0; try 0.05, m/s^2 std-dev), imu_resolution (0 = exact; 0.01 = BNO055-like, m/s^2)
 #
@@ -46,7 +46,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import Imu, Joy
 from std_msgs.msg import Empty, Float32, String
 
-from rov_physics import BUOYANCY, BUOYANCY_MODES, Rov, Shared, apply_keyboard, apply_ring_drops, clamp, start_server
+from rov_physics import BUOYANCY, DEFAULT_BUOYANCY, BUOYANCY_MODES, Rov, Shared, apply_keyboard, apply_ring_drops, clamp, start_server
 
 P = "/sim"          # every channel lives under this short prefix
 
@@ -62,7 +62,7 @@ class RovSim(Node):
         self.declare_parameter("speed", 1.0)          # power of the red and green thrusters, 0.25 .. 4 (1 = normal)
         self.declare_parameter("max_thrust", 12.0)
         self.declare_parameter("mass", 8.0)
-        self.declare_parameter("buoyancy", BUOYANCY)
+        self.declare_parameter("buoyancy", DEFAULT_BUOYANCY)
         self.declare_parameter("imu_noise", 0.0)
         self.declare_parameter("imu_resolution", 0.0)
         self.declare_parameter("hard_limits", False)

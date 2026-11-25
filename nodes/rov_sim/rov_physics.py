@@ -65,6 +65,7 @@ CLAW_TIME = 0.6                      # seconds to open or close
 # Surface and floor behaviour (skipped with hard_limits=True, the old "stop dead" walls)
 SURF_DEPTH = ROV_HALF   # depth at which the top of the cube reaches the water surface
 BUOYANCY = 1.5          # N of spare buoyancy when fully submerged (positive = floats up, gently)
+DEFAULT_BUOYANCY = 0.0   # a new ROV is neutrally buoyant (it hovers); the page's Buoyancy button picks floats / neutral / sinks
 BUOYANCY_MODES = {"positive": BUOYANCY, "neutral": 0.0, "negative": -BUOYANCY}   # the page's Buoyancy button
 EMERGE_SOFT = 0.08      # the first 8 cm out is just the top bars and a bit of foam: buoyancy falls slowly ...
 EMERGE_K1 = 25.0        # ... N per metre for that first stretch (BUOYANCY 1.5 N floats it with ~6 cm out)
@@ -181,7 +182,7 @@ def nearest_in(regions, x, y, margin=0.0):
 class Rov:
     """The vehicle. Set .cmd / .claw_target, call step(dt) ~60 times a second."""
 
-    def __init__(self, max_thrust=12.0, mass=8.0, buoyancy=BUOYANCY, hard_limits=False, tool="claw", imu_noise=0.0, imu_resolution=0.0, speed=1.0, thrusters=4):
+    def __init__(self, max_thrust=12.0, mass=8.0, buoyancy=DEFAULT_BUOYANCY, hard_limits=False, tool="claw", imu_noise=0.0, imu_resolution=0.0, speed=1.0, thrusters=4):
         self.max_thrust, self.mass, self.buoyancy = max_thrust, mass, buoyancy
         self.speed_mult = clamp(float(speed), 0.25, 4.0)    # multiplies the red / green thrusters' power (1.0 = normal)
         self.hard_limits = hard_limits

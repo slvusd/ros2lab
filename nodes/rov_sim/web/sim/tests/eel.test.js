@@ -1,4 +1,4 @@
-// eel.js: press L, an eel comes out of the lower outlet, chases the ROV, shocks it, and the ROV is dead until Reset. Run: node --test nodes/rov_sim/web/sim/tests/
+// eel.js (an easter egg). Run: node --test nodes/rov_sim/web/sim/tests/
 import test from "node:test";
 import assert from "node:assert/strict";
 import { World, DT } from "../world.js";
@@ -29,43 +29,42 @@ test("the eel sleeps until summoned; summoned it starts in the LOWER outlet and 
   assert.ok(Math.hypot(head[0] - low.x, head[1] - low.y, head[2] - low.depth) > 0.5, "the head has swum out");
 });
 
-test("it catches a ROV that drives away, shocks it, and the ROV is dead: no command moves it", () => {
+test("it catches a ROV that drives away, bites it, and the ROV is dead for 5 to 10 s: no command moves it, then everything works again", () => {
   const { rov, world, eel } = make();
   eelMod.summon(rov);
   world.command({ t1: 1, t2: 1 });                       // the ROV tries to flee at full speed
-  let grabbed = -1;
-  for (let i = 0; i < 60 * 40 && grabbed < 0; i++) { rov.step(DT); if (eel.mode === "shock") grabbed = i * DT; }
-  assert.ok(grabbed > 0, "the eel catches even a ROV that is driving away");
-  assert.equal(eel.locked, true);
+  let bite = -1;
+  for (let i = 0; i < 60 * 40 && bite < 0; i++) { rov.step(DT); if (eel.mode === "bite") bite = i * DT; }
+  assert.ok(bite > 0, "the eel catches even a ROV that is driving away");
+  assert.equal(eel.locked, true); assert.equal(eel.state().zap, 1, "a flash at the bite");
+  assert.ok(eel.stun >= 5 && eel.stun <= 10, `stunned for 5 to 10 s (${eel.stun.toFixed(1)})`);
   world.command({ t1: 0, t2: 0 }); world.command({ t1: 1, t2: 1, t3: 1, t4: 1, claw: 1 });
-  run(world, 6);
+  run(world, 4);
   for (const k of Object.keys(rov.cmd)) assert.equal(rov.cmd[k], 0, `${k} stays off`);
   assert.equal(rov.claw_target, rov.claw, "the claw stays where it is");
-  assert.ok(Math.hypot(rov.u, rov.v) < 0.05, "no thrust: it has coasted to a stop");
+  assert.equal(eel.state().dead, true, "smoking");
+  assert.equal(eelMod.summon(rov), false, "no second eel while it is still smoking");
+  run(world, 11);
+  assert.equal(eel.locked, false); assert.equal(eel.state().dead, false);
+  world.command({ t1: 0, t2: 0, t3: 0.1 }); world.command({ t1: 0.5, t2: 0.5 });
+  const x0 = rov.x;
+  run(world, 1);
+  assert.ok(rov.x > x0 + 0.01, "the ROV drives again");
 });
 
-test("the shock lasts a few seconds, then the eel swims back into the outlet and is gone; the ROV stays dead until Reset", () => {
+test("after the bite the eel swims back into the outlet and is gone; it can be called again once the ROV is alive again", () => {
   const { rov, world, eel } = make();
   eelMod.summon(rov);
-  for (let i = 0; i < 60 * 40 && eel.mode !== "shock"; i++) rov.step(DT);
-  assert.equal(eel.mode, "shock");
-  assert.equal(eel.state().zap, 1);
-  const centre = [rov.x, rov.y, rov.depth];
-  run(world, 1.5);
-  const near = eel.segs.map((s) => Math.hypot(s[0] - rov.x, s[1] - rov.y, s[2] - rov.depth));
-  assert.ok(Math.max(...near) < 0.7, `the whole body is wrapped round the ROV (${Math.max(...near).toFixed(2)} m)`);
-  run(world, Eel.SHOCK_TIME);
+  for (let i = 0; i < 60 * 40 && eel.mode !== "bite"; i++) rov.step(DT);
+  assert.equal(eel.mode, "bite");
+  run(world, Eel.BITE_TIME + 0.1);
   assert.equal(eel.mode, "leave"); assert.equal(eel.state().zap, 0);
-  run(world, 25);
-  assert.equal(eel.mode, "gone");
-  assert.equal(eel.locked, true, "still dead");
-  assert.equal(eelMod.summon(rov), false);
+  run(world, 20);
+  assert.equal(eel.mode, "idle"); assert.equal(eel.segs.length, 0);
+  run(world, 11);
+  assert.equal(eelMod.summon(rov), true, "and it can be called again");
   rov.reset();
-  assert.equal(eel.mode, "idle"); assert.equal(eel.locked, false);
-  world.command({ t1: 0.5, t2: 0.5 });
-  run(world, 1);
-  assert.ok(rov.u > 0.01, "after Reset the ROV drives again");
-  assert.equal(eelMod.summon(rov), true, "and the eel can be called again");
+  assert.equal(eel.mode, "idle"); assert.equal(eel.locked, false); assert.equal(eel.stun, 0);
 });
 
 test("the eel stays inside the water and its body keeps together", () => {
@@ -75,7 +74,8 @@ test("the eel stays inside the water and its body keeps together", () => {
     rov.step(DT);
     const segs = eel.segs;
     if (!segs.length) continue;
-    for (const [x, y, d] of segs.slice(0, 1)) assert.ok(d >= 0 && d <= floorAt(x, y) + 1e-6, `the head is under water and above the floor (${d.toFixed(2)})`);
-    for (let k = 1; k < segs.length; k++) assert.ok(Math.hypot(...segs[k].map((v, j) => v - segs[k - 1][j])) <= Eel.GAP * 1.05 + 0.2, `no gap in the body (${i}, ${eel.mode}, seg ${k}: ${Math.hypot(...segs[k].map((v, j) => v - segs[k - 1][j])).toFixed(2)})`);
+    const [x, y, d] = segs[0];
+    assert.ok(d >= 0 && d <= floorAt(x, y) + 1e-6, `the head is under water and above the floor (${d.toFixed(2)})`);
+    for (let k = 1; k < segs.length; k++) assert.ok(Math.hypot(...segs[k].map((v, j) => v - segs[k - 1][j])) <= Eel.GAP * 1.05 + 0.01, "no gap in the body");
   }
 });

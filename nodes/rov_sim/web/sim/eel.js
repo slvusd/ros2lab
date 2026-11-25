@@ -1,10 +1,7 @@
-// eel.js — OPTIONAL joke add-on (browser version only): press L and an electric eel swims out of the lower water outlet, chases the ROV, wraps round it and
-// shocks it. The ROV is then dead (no thrusters, no claw, nothing: only Reset brings it back); the eel lets go and swims back into the outlet.
-// To remove it: delete this file and ../eel.js, and the addTo() call in backend-local.js. Nothing else knows about it: the physics only sees a prop
-// (reset / step / state) that, while it holds the ROV, keeps every command at zero.
-//   idle    not there                       chase   swims at the ROV (a little faster the longer it takes)      shock   coiled round the ROV, zapping
-//   leave   swims back to its outlet        gone    inside the outlet again; the ROV stays dead until Reset
-// The body is a chain of points: the head leads and every point follows the one in front of it, so it pours out of the nozzle like a real eel.
+// eel.js — an easter egg (browser version only; not documented on purpose). To remove it: delete this file and ../eel.js, and the eel lines in backend-local.js / app.js.
+// The physics only sees a prop (reset / step / state) that keeps every command at zero while the ROV is stunned.
+//   idle   not there     chase   swims at the ROV     bite   at the ROV for a moment (flash)     leave   swims back into its outlet
+// The body is a chain of points: the head leads and every point follows the one in front of it.
 import { POOL_REGIONS, clamp, floorAt, nearestIn } from "./physics.js";
 
 export class Eel {
@@ -13,9 +10,9 @@ export class Eel {
   static SPEED = [0.9, 1.8];            // m/s: how fast it swims at first / at most (it speeds up while it chases, so it always catches the ROV)
   static SPEED_UP = 0.08;               // m/s gained every second of the chase
   static TURN = 3.0;                    // rad/s: how fast the head can turn
-  static GRAB_AT = 0.34;                // m: head this close to the ROV's middle and it wraps round
-  static SHOCK_TIME = 4.0;              // s of zapping
-  static COIL_R = 0.36;                 // m: radius of the coil round the ROV
+  static BITE_AT = 0.30;                // m: head this close to the ROV's middle and it bites
+  static BITE_TIME = 0.5;               // s of flash
+  static STUN = [5.0, 10.0];            // s the ROV is dead and smoking after the bite, then everything works again
   static MARGIN = 0.12;                 // keeps this far from the pool's walls and floor
 
   constructor() {
@@ -27,7 +24,8 @@ export class Eel {
     this.mode = "idle";
     this.t = 0.0;                       // seconds in this mode
     this.chase_t = 0.0;
-    this.locked = false;                // true from the grab on: the ROV ignores every command (until Reset)
+    this.stun = 0.0;                    // seconds of being dead and smoking still to go
+    this.locked = false;                // true while stunned: the ROV ignores every command
     this.dir = [0.0, -1.0, 0.0];        // where the head points (x, y, depth)
     this.segs = [];
     this.phase = 0.0;                   // swimming wiggle / coil turn
@@ -42,9 +40,9 @@ export class Eel {
     return { x: (main[0] + main[1]) / 2, y: main[3], depth: main[4] * 2 / 3, dx: 0.0, dy: -1.0 };
   }
 
-  /** The L key. Does nothing while the eel is already out (or the ROV is already dead). Returns true if the eel started. */
+  /** The L key. Does nothing while the eel is already out or the ROV is still smoking. Returns true if the eel started. */
   summon(rov) {
-    if (this.mode !== "idle") return false;
+    if (this.mode !== "idle" || this.stun > 0) return false;
     const o = this.outlet = this._outlet(rov);
     this.mode = "chase"; this.t = 0.0; this.chase_t = 0.0;
     this.dir = [o.dx, o.dy, 0.0];
@@ -81,52 +79,50 @@ export class Eel {
   }
 
   step(rov, dt) {
-    if (this.mode === "idle" || this.mode === "gone") { if (this.locked) this._lock(rov); return; }
     const E = Eel, centre = [rov.x, rov.y, rov.depth];
+    if (this.stun > 0) {                                                  // dead and smoking, then alive again
+      this.stun -= dt;
+      if (this.stun <= 0) { this.stun = 0.0; this.locked = false; } else this._lock(rov);
+    }
+    if (this.mode === "idle") return;
     this.t += dt; this.phase += dt;
     if (this.mode === "chase") {
       this.chase_t += dt;
       this._swim(centre, Math.min(E.SPEED[1], E.SPEED[0] + E.SPEED_UP * this.chase_t), dt);
       this._follow();
       const h = this._head();
-      if (Math.hypot(h[0] - centre[0], h[1] - centre[1], h[2] - centre[2]) < E.GRAB_AT) { this.mode = "shock"; this.t = 0.0; this.locked = true; }
-    } else if (this.mode === "shock") {
-      const n = this.segs.length;                                    // the body winds round the ROV in a spiral, the head on top
-      this.segs.forEach((s, i) => {
-        const a = this.phase * 1.2 + i * 0.55, r = E.COIL_R, up = (0.5 - i / (n - 1)) * 0.55;
-        const x = centre[0] + Math.cos(a) * r, y = centre[1] + Math.sin(a) * r;
-        const to = [x, y, clamp(centre[2] - up, 0.04, Math.max(0.04, floorAt(x, y) - 0.04))];                 // (never out of the water or into the floor)
-        const k = 1 - Math.exp(-dt * 7);
-        for (let j = 0; j < 3; j++) s[j] += (to[j] - s[j]) * k;
-      });
-      this.dir = [Math.cos(this.phase * 1.2 + 0.55), Math.sin(this.phase * 1.2 + 0.55), 0.0];
-      if (this.t >= E.SHOCK_TIME) { this.mode = "leave"; this.t = 0.0; }
+      if (Math.hypot(h[0] - centre[0], h[1] - centre[1], h[2] - centre[2]) < E.BITE_AT) {
+        this.mode = "bite"; this.t = 0.0;
+        this.stun = E.STUN[0] + (E.STUN[1] - E.STUN[0]) * Math.random();
+        this.locked = true; this._lock(rov);
+      }
+    } else if (this.mode === "bite") {
+      const h = this._head(), d = [centre[0] - h[0], centre[1] - h[1], centre[2] - h[2]], n = Math.hypot(...d) || 1;
+      for (let j = 0; j < 3; j++) h[j] += d[j] / n * Math.min(n, 0.5 * dt);   // the head stays on the ROV
+      this._follow();
+      if (this.t >= E.BITE_TIME) { this.mode = "leave"; this.t = 0.0; }
     } else if (this.mode === "leave") {
       const o = this.outlet;
-      this._swim([o.x, o.y + 0.25, o.depth], E.SPEED[0] * 1.2, dt);
+      this._swim([o.x, o.y + 0.25, o.depth], E.SPEED[1], dt);
       this._follow();
       const h = this._head();
-      if (Math.hypot(h[0] - o.x, h[1] - o.y, h[2] - o.depth) < 0.3 || this.t > 25) { this.mode = "gone"; this.segs = []; }
+      if (Math.hypot(h[0] - o.x, h[1] - o.y, h[2] - o.depth) < 0.3 || this.t > 25) { this.mode = "idle"; this.segs = []; }
     }
-    if (this.locked) this._lock(rov);
   }
 
-  /** The ROV is dead: every thruster and the claw stay where they are (off). */
+  /** Stunned: every thruster and the claw stay off. */
   _lock(rov) {
     for (const k of Object.keys(rov.cmd)) rov.cmd[k] = 0.0;
     rov.claw_target = rov.claw;
   }
 
-  /** `zap` is 1 while the eel is shocking (the page makes the sparks); `dead` once the ROV was shocked (the page makes the smoke). */
   state() {
-    return {
-      type: "eel", mode: this.mode, t: this.t, locked: this.locked, zap: this.mode === "shock" ? 1 : 0, dead: this.locked,
-      dir: [...this.dir], phase: this.phase, segs: this.segs.map((s) => [...s]),
-    };
+    return { type: "eel", mode: this.mode, t: this.t, locked: this.locked, zap: this.mode === "bite" ? 1 : 0, dead: this.stun > 0,
+      dir: [...this.dir], phase: this.phase, segs: this.segs.map((s) => [...s]) };
   }
 }
 
-/** Put the (sleeping) eel in the pool: it only comes out when the L key is pressed. */
+/** Put the (sleeping) eel in the pool. */
 export function addTo(rov) { rov.props.push(new Eel()); }
 
 /** The L key: the eel comes out of the lower outlet. Returns true if it started. */

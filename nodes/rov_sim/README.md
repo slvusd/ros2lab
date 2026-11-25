@@ -67,8 +67,6 @@ rings, fish, crabs and the outlets are put back in the new pool), the water (*Ru
 fish, rings, crabs, camera) applies with *Restart with these*, which reloads the page. With the Python server only the tool and the water look are live. **Water looks** (`web/jets.js`): `flow=bubbles|streaks|rings|mix` or the `J` key choose how the running water is drawn;
 the picture is deliberately narrower and straighter than the physical flow field.
 
-**The eel** (a joke; browser version only: `web/sim/eel.js`, drawn by `web/eel.js`): the `L` key calls an electric eel out of the lower wall outlet. It chases the ROV (a little faster the longer it takes, so it always gets there), coils round it and shocks it for 4 s: sparks and lightning arcs under the water, and the ROV shakes. From the grab on the ROV is dead: the prop keeps every thruster and the claw at zero (`locked`), the page ignores every key but `V` and the Reset button, and smoke rises from it until Reset. The eel then swims back into the outlet. It is an **optional add-on**: delete `web/sim/eel.js` and `web/eel.js` (and the `eel` lines in `backend-local.js` / `app.js`) and nothing else changes. Tests: `web/sim/tests/eel.test.js`; the headless `?selftest` calls it too.
-
 **The green crab** (`rov_crab.py` / `web/sim/crab.js`, drawn by `web/crab.js`): the 2026 scout task is to remove the invasive European green crab, so a small crab now crawls (sideways, like a real one) on
 the floor of the shallow end. It scuttles away when the ROV comes close, but it is about five times slower than the ROV, and when the ROV touches it (any part of the frame, thrusters, jaws
 or nose, as long as it is low enough) it is simply **shoved out of the way**, like a ring. It never leaves the shallow end. It is an **optional add-on**: delete `rov_crab.py` (and `web/crab.js`,
@@ -274,8 +272,8 @@ breaches. Together they provide all the lift (each is half of `max_thrust`).
 
 (approximate on purpose: it should *feel* like water, not be a research model)
 - Thrust accelerates the ROV; water drag slows it, so it speeds up gradually and **coasts to a stop**. "Added mass" makes it feel heavy.
-- Like a real ROV it is **slightly positively buoyant** (1.5 N spare): thrusters off, it drifts up and **floats with the top of the frame ~6 cm out
-  of the water**. Pushing it down takes a little thrust (about 12% down on `t3`/`t4` holds a depth). The **Buoyancy** button cycles
+- It starts **neutrally buoyant** (it hovers where you leave it; the **Buoyancy** button / `B` switches to **floats**: 1.5 N spare, like a real ROV, so with the thrusters off it drifts up and **floats with the top of the frame ~6 cm out
+  of the water**). Pushing it down while floating takes a little thrust (about 12% down on `t3`/`t4` holds a depth). The **Buoyancy** button cycles
   **floats → neutral** (hovers wherever you leave it) **→ sinks** (settles on the floor).
 - It loses buoyancy as its top comes out of the water, so it can **pop up out of the water and sink back**: held up at 80% lift it rests ~14 cm out.
   On the floor it **bumps** (small bounce, a puff of silt, a little rocking). `--hard-limits` / `-p hard_limits:=true` gives plain stop-dead walls.
@@ -374,7 +372,7 @@ Read once at startup. `ros2 run`-style for `rov_sim.py`: `--ros-args -p name:=va
 | `speed` | 1 | power of the red and green (horizontal) thrusters, 0.25 to 4 (`--speed`). **1 is the normal speed, which is half of what these thrusters used to give** (`SIDE_THRUST = 0.5` in `rov_physics.py`); 2 is the old strength |
 | `max_thrust` | 12 | newtons the thrusters could give at full command; the horizontal ones give `SIDE_THRUST x speed` of it (6 N at the normal speed), the two vertical thrusters share one such budget (6 N each) |
 | `mass` | 8 | kg including added mass |
-| `buoyancy` | 1.5 | N of spare buoyancy: positive floats, `0` hovers, negative sinks |
+| `buoyancy` | 0 | N of spare buoyancy: positive floats, `0` hovers, negative sinks |
 | `hard_limits` | false | stop dead at surface and floor (no overshoot, no bounce) |
 | `imu_noise` | 0 | accelerometer noise, m/s² standard deviation (try 0.05) |
 | `imu_resolution` | 0 | accelerometer step, m/s² (0 = exact, 0.01 = BNO055-like) |

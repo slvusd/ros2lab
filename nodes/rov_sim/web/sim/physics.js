@@ -37,6 +37,7 @@ export const CLAW_TIME = 0.6;
 
 const SURF_DEPTH = ROV_HALF;
 export const BUOYANCY = 1.5;
+export const DEFAULT_BUOYANCY = 0.0;     // a new ROV is neutrally buoyant (it hovers); the page's Buoyancy button picks floats / neutral / sinks
 export const BUOYANCY_MODES = { positive: BUOYANCY, neutral: 0.0, negative: -BUOYANCY };
 const EMERGE_SOFT = 0.08, EMERGE_K1 = 25.0, EMERGE_K2 = 140.0, EMERGE_DAMP = 45.0, EMERGE_MAX = 0.45;
 const FLOOR_BOUNCE = 0.2, THRUSTER_UP = -0.15;
@@ -117,7 +118,7 @@ export function nearestIn(regions, x, y, margin = 0.0) {
 }
 
 export class Rov {
-  constructor({ maxThrust = 12.0, mass = 8.0, buoyancy = BUOYANCY, hardLimits = false, tool = "claw", imuNoise = 0.0, imuResolution = 0.0, speed = 1.0, thrusters = 4 } = {}) {
+  constructor({ maxThrust = 12.0, mass = 8.0, buoyancy = DEFAULT_BUOYANCY, hardLimits = false, tool = "claw", imuNoise = 0.0, imuResolution = 0.0, speed = 1.0, thrusters = 4 } = {}) {
     this.max_thrust = maxThrust; this.mass = mass; this.buoyancy = buoyancy;
     this.speed_mult = clamp(Number(speed), 0.25, 4.0);       // multiplies the red / green thrusters' power (1 = normal)
     this.hard_limits = hardLimits;
