@@ -268,18 +268,38 @@ function buildPool() {
     solid(deck, (c) => c.y < 0.01);
   }
 
-  // lane line + 1 m tick marks on the deep floor: makes motion easy to see
+  // lane line down the middle of the deep floor, with a "T" at each end like a real pool, and short 1 m ruler ticks across it (they stay short in a wide
+  // pool: long ticks made a big pool look like it had lanes). Together they make motion easy to see.
   {
     const deep = regions.reduce((a, b) => (b.d > a.d ? b : a)), dark = new THREE.MeshBasicMaterial({ color: 0x14384d });
-    const mz = (deep.z0 + deep.z1) / 2, len = deep.x1 - deep.x0;
-    const lane = new THREE.Mesh(new THREE.BoxGeometry(len, 0.005, 0.06), dark);
-    lane.position.set((deep.x0 + deep.x1) / 2, -deep.d + 0.004, mz);
-    pool.add(lane);
-    for (let x = Math.ceil(deep.x0 + 1e-6); x < deep.x1; x += 1) {
-      const tick = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.005, (deep.z1 - deep.z0) * 0.5), dark);
-      tick.position.set(x, -deep.d + 0.004, mz);
-      pool.add(tick);
+    const mz = (deep.z0 + deep.z1) / 2, len = deep.x1 - deep.x0, y = -deep.d + 0.004;
+    const mark = (w, h, x, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.005, h), dark); m.position.set(x, y, z); pool.add(m); };
+    mark(len - 1.0, 0.06, (deep.x0 + deep.x1) / 2, mz);                                   // the line stops short of the walls...
+    for (const sx of [deep.x0 + 0.5, deep.x1 - 0.5]) mark(0.06, 0.7, sx, mz);             // ... where a T crosses it
+    for (let x = Math.ceil(deep.x0 + 1.5); x < deep.x1 - 1.0; x += 1) mark(0.05, 0.3, x, mz);
+  }
+
+  // ---- a ladder on the shallow end's outer wall (so the pool can be climbed out of): two rails and rungs, bent over the deck at the top ----
+  {
+    const sh = regions.reduce((a, b) => (b.d < a.d ? b : a)), steel = new THREE.MeshStandardMaterial({ color: 0xe6eaed, roughness: 0.4, metalness: 0.2 });
+    const side = sh.x1 >= bbox.x1 - EPS ? { ax: "x", at: sh.x1, out: 1, lo: sh.z0, hi: sh.z1 } : sh.z1 >= bbox.z1 - EPS ? { ax: "z", at: sh.z1, out: 1, lo: sh.x0, hi: sh.x1 }
+      : sh.x0 <= bbox.x0 + EPS ? { ax: "x", at: sh.x0, out: -1, lo: sh.z0, hi: sh.z1 } : { ax: "z", at: sh.z0, out: -1, lo: sh.x0, hi: sh.x1 };
+    const mid = (side.lo + side.hi) / 2, gap = 0.2, inset = 0.045;                        // rails 0.4 m apart, a little way in front of the wall
+    const P = (d, along, up) => (side.ax === "x" ? new THREE.Vector3(side.at - side.out * (inset + d), up, mid + along) : new THREE.Vector3(mid + along, up, side.at - side.out * (inset + d)));
+    const rod = (a, b, r) => {
+      const len = a.distanceTo(b), m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 10), steel);
+      m.position.copy(a).add(b).multiplyScalar(0.5);
+      m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+      pool.add(m);
+    };
+    const bottom = Math.max(-sh.d + 0.2, -1.1), top = 0.55;
+    for (const k of [-1, 1]) {
+      rod(P(0, k * gap, bottom), P(0, k * gap, top - 0.1), 0.017);                         // the rail down into the water
+      rod(P(0, k * gap, top - 0.1), P(-0.12, k * gap, top - 0.1 + 0.1), 0.017);            // bends out over the deck...
+      rod(P(-0.12, k * gap, top), P(-0.3, k * gap, top), 0.017);                           // ... and the handrail
+      rod(P(-0.3, k * gap, top), P(-0.3, k * gap, 0.0), 0.017);                            // back down to the deck
     }
+    for (let u = -0.12; u > bottom + 0.1; u -= 0.3) rod(P(0, -gap, u), P(0, gap, u), 0.013);   // rungs
   }
 
   // ---- water surface: one wavy grid over the pool's bounding box, only the cells that are water are drawn ----
