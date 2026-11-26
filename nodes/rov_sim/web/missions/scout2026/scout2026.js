@@ -9,6 +9,7 @@ import { Carryable } from "../common/carry.js";
 import { RUN_SECONDS, atStairs, deckRect, deckSlot, startPose } from "./layout.js";
 import { BasketStar, Connector, Coral, EdnaSquare, Iceberg, Marker, MissionCrab, Observatory, Sensor, Transect } from "./items.js";
 import { Cable } from "../common/cable.js";
+import { LobsterPot } from "./pot.js";
 import { SPOTS } from "./layout.js";
 
 /** The 17 scored items (125 points): [id, label, points, group]. */
@@ -136,6 +137,10 @@ export function addTo(rov) {
     const standing = newSensor.mode === "floor" && !newSensor.held && square.holds(newSensor.x, newSensor.y);
     mm.score("new_sensor", standing && mm.board.get("old_sensor"));                                    // the old sensor has to be out first
   });
+  // task 2.3: the whale-safe lobster pot
+  const pot = new LobsterPot(SPOTS.pot);
+  rov.props.push(pot);
+  m.judges.push((mm) => { mm.score("pot_open", pot.released); mm.score("pot_surface", pot.surfaced); });
   const transect = new Transect(0.5);
   rov.props.push(transect);
   m.judges.push((mm) => { if (transect.done) mm.score("transect", true); });

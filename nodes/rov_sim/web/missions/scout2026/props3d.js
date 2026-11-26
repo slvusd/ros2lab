@@ -4,7 +4,7 @@ import { PVC_R, pipe, standard } from "../common/view3d.js";
 
 export class MissionView {
   constructor(scene, THREE) {
-    this.scene = scene; this.T = THREE; this.items = new Map(); this.transect = null; this.iceberg = null; this.zone = null; this.obs = null; this.cables = new Map(); this.deck = null;
+    this.scene = scene; this.T = THREE; this.items = new Map(); this.transect = null; this.iceberg = null; this.pot = null; this.zone = null; this.obs = null; this.cables = new Map(); this.deck = null;
     this.white = standard(THREE, 0xf2f2ec); this.glow = new THREE.MeshStandardMaterial({ color: 0x31d46b, emissive: 0x0a4a22, roughness: 0.5 });
   }
 
@@ -117,6 +117,31 @@ export class MissionView {
     this.scene.add(line);
     return line;
   }
+  buildPot(p) {
+    const T = this.T, g = new T.Group(), black = standard(T, 0x161616, 0.8), w = this.white;
+    const h = p.half, H = p.height;
+    for (const [sx, sz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {                                                       // the milk crate: four slatted walls and a base
+      for (let k = 0; k < 4; k++) {
+        const slat = new T.Mesh(new T.BoxGeometry(sx ? 0.012 : 2 * h, 0.035, sz ? 0.012 : 2 * h), black);
+        slat.position.set(sx * h, 0.045 + k * 0.07, sz * h); g.add(slat);
+      }
+    }
+    const base = new T.Mesh(new T.BoxGeometry(2 * h, 0.012, 2 * h), black); base.position.y = 0.006; g.add(base);
+    const brick = new T.Mesh(new T.BoxGeometry(0.2, 0.06, 0.09), standard(T, 0x9a4a32)); brick.position.set(0.04, 0.04, 0.09); g.add(brick);   // the brick that weighs it down
+    const holder = new T.Mesh(new T.CylinderGeometry(0.0445, 0.0445, p.holder, 20, 1, true), black); holder.position.set(0, p.holder / 2 + 0.012, -0.05); g.add(holder);
+    // the release mechanism, outside the wall on the +y side: the shaft (pivot), the red handle, the plate
+    this.potShaft = pipe(T, [p.pivot[0] - p.x, 0.0, -(p.pivot[1] - p.y)], [p.pivot[0] - p.x, 0.26, -(p.pivot[1] - p.y)], PVC_R, w); g.add(this.potShaft);
+    this.potHandle = new T.Group();
+    this.potHandle.add(pipe(T, [0, 0, 0], [p.handle, 0, 0], 0.0115, standard(T, 0xd62d2d)));
+    this.potHandle.position.set(p.pivot[0] - p.x, 0.22, -(p.pivot[1] - p.y)); g.add(this.potHandle);
+    this.potPlate = new T.Mesh(new T.BoxGeometry(0.1, 0.004, 0.1), standard(T, 0xe8e6dc)); this.potPlate.position.set(0, p.holder + 0.02, -0.05); g.add(this.potPlate);
+    this.scene.add(g);
+    // the buoy (2" pipe, 15 cm) and its rope, in the scene itself (it rises out of the crate)
+    this.buoy = new T.Mesh(new T.CylinderGeometry(0.0302, 0.0302, p.buoy.len, 16), standard(T, 0xf4f4f0)); this.scene.add(this.buoy);
+    const geo = new T.BufferGeometry(); geo.setAttribute("position", new T.BufferAttribute(new Float32Array(6), 3));
+    this.buoyRope = new T.Line(geo, new T.LineBasicMaterial({ color: 0x8a4fd6 })); this.buoyRope.frustumCulled = false; this.scene.add(this.buoyRope);
+    return g;
+  }
   build(p) {
     const g = p.kind === "basket_star" ? this.basketStar() : p.kind === "coral" ? this.coral(p.id) : p.kind === "crab" ? this.crab() : p.kind === "marker" ? this.marker() : p.kind === "edna_old" ? this.sensor(0x2f6fe0) : p.kind === "edna_new" ? this.sensor(0x8a4fd6) : p.kind === "connector" ? this.connector()
       : new this.T.Mesh(new this.T.BoxGeometry(0.1, 0.1, 0.1), standard(this.T, 0xcccccc));                                // (unknown kind: a plain box)
@@ -164,6 +189,14 @@ export class MissionView {
         const a = line.geometry.attributes.position, n = Math.min(p.pts.length, 160);
         for (let i = 0; i < n; i++) { const q = p.pts[p.pts.length - n + i]; a.setXYZ(i, q[0], Math.max(q[2], -floorAt(q[0], -q[1]) + 0.012), -q[1]); }
         a.needsUpdate = true; line.geometry.setDrawRange(0, n); line.material.color.setHex(p.taut ? 0xff3030 : p.id === "edna_cable" ? 0xf2c500 : 0xe03030);
+      } else if (p.type === "m_pot") {
+        if (!this.pot) this.pot = this.buildPot(p);
+        this.pot.position.set(p.x, -p.floor, -p.y);
+        this.potHandle.rotation.y = p.theta;                                                                          // (sim angle: from +x towards +y = three.js -z)
+        this.potPlate.visible = !p.open;
+        const bx = p.x, bz = -p.y - 0.05, by = -p.buoy.depth;
+        this.buoy.position.set(bx, by, bz);
+        const a = this.buoyRope.geometry.attributes.position; a.setXYZ(0, bx, by - p.buoy.len / 2, bz); a.setXYZ(1, p.x, -p.floor + 0.2, -p.y); a.needsUpdate = true;
       } else if (p.type === "m_iceberg") {
         if (!this.iceberg) this.iceberg = this.buildIceberg(p);
         this.iceberg.position.set(p.x, 0, -p.y);
