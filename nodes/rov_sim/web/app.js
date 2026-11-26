@@ -4,7 +4,8 @@ import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
 import { GAME_KEYS, SWITCHES, computeCommand, switchValues } from "./controls.js";
 import { MAX_RINGS, parseConfig, toQuery, poolSizeText } from "./config.js";
-import { layoutFor } from "./sim/physics.js";                      // (the thruster layouts: the same table the server uses; the state carries its own)
+import { layoutFor } from "./sim/physics.js";
+import { deckEye, nearestSide } from "./deckcam.js";                      // (the thruster layouts: the same table the server uses; the state carries its own)
 
 // Which simulation? A Python server answers GET ping -> talk to it; a plain web host (GitHub Pages...) does not -> run the sim in this page.
 // Override with ?mode=local or ?mode=server.
@@ -1022,6 +1023,13 @@ function resetView() {
 }
 renderer.domElement.addEventListener("dblclick", resetView);
 let view = "orbit";
+/** The rectangle of the pool region the ROV is over (or the nearest one): the edges the Deck view's person stands at. */
+function deckRegion(x, z) {
+  const inR = regions.filter((r) => x >= r.x0 && x <= r.x1 && z >= r.z0 && z <= r.z1);
+  if (inR.length) return inR.reduce((a, b) => (b.d > a.d ? b : a));
+  const dist = (r) => Math.hypot(Math.max(r.x0 - x, 0, x - r.x1), Math.max(r.z0 - z, 0, z - r.z1));
+  return regions.reduce((a, b) => (dist(b) < dist(a) ? b : a));
+}
 const deck = { side: null, eye: new THREE.Vector3(), focus: new THREE.Vector3(), zoom: 1.0 };       // the Deck view: where the person stands and what they look at
 renderer.domElement.addEventListener("wheel", (e) => { if (view !== "deck") return; e.preventDefault(); deck.zoom = Math.max(0.35, Math.min(2.5, deck.zoom * (e.deltaY > 0 ? 1.12 : 1 / 1.12))); }, { passive: false });
 function setView(v) {
@@ -1157,14 +1165,9 @@ function frame(now) {
   }
 
   if (view === "deck") {                                  // a person on the deck at the pool's edge, looking down at the ROV and at what its nose is working on
-    const rx = rov.position.x, rz = rov.position.z, sides = [rx - bbox.x0, bbox.x1 - rx, rz - bbox.z0, bbox.z1 - rz];      // distance to the west, east, north, south edge
-    let best = 0; for (let i = 1; i < 4; i++) if (sides[i] < sides[best]) best = i;
-    if (deck.side === null || sides[best] < sides[deck.side] - 1.0) deck.side = best;                              // (stay on a side until another is clearly nearer)
-    const lean = Math.max(0, Math.min(1, (rov.position.y * -1 - 0.3) / 0.9));                                       // 0 while the ROV is near the surface, 1 once it is 1.2 m down
-    const E = 1.2 - 1.8 * lean, H = 1.8 - 0.4 * lean;     // standing 1.2 m outside the wall; as the ROV goes under they lean out over the water (0.6 m past the edge) and bend down
-    const along = (a, lo, hi) => Math.max(lo + 0.3, Math.min(hi - 0.3, a));
-    const eye = deck.side === 0 ? [bbox.x0 - E, H, along(rz, bbox.z0, bbox.z1)] : deck.side === 1 ? [bbox.x1 + E, H, along(rz, bbox.z0, bbox.z1)]
-      : deck.side === 2 ? [along(rx, bbox.x0, bbox.x1), H, bbox.z0 - E] : [along(rx, bbox.x0, bbox.x1), H, bbox.z1 + E];
+    const rect = deckRegion(rov.position.x, rov.position.z);                                                       // the water's edges where the ROV is (not the stairs sticking out of the wall)
+    deck.side = nearestSide(rect, { x: rov.position.x, z: rov.position.z }, deck.side);
+    const eye = deckEye(rect, deck.side, rov.position).eye;                                                       // standing outside the wall, leaning out over the water as far as it takes to see the ROV
     const ahead = new THREE.Vector3(0.35, -0.12, 0).applyAxisAngle(ey, shown.yaw);                                 // look a little ahead of the ROV: that is where the nose works
     deck.focus.lerp(want.copy(rov.position).add(ahead), 1 - Math.exp(-dt * 4));
     deck.eye.lerp(want.set(...eye), 1 - Math.exp(-dt * 2.5));
