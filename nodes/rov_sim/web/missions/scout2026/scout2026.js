@@ -6,7 +6,8 @@
 import { RunClock } from "../common/clock.js";
 import { ScoreBoard } from "../common/board.js";
 import { Carryable } from "../common/carry.js";
-import { RUN_SECONDS, atStairs, deckSlot, startPose } from "./layout.js";
+import { RUN_SECONDS, atStairs, deckRect, deckSlot, startPose } from "./layout.js";
+import { BasketStar, Coral, MissionCrab, Transect } from "./items.js";
 
 /** The 17 scored items (125 points): [id, label, points, group]. */
 export const SCORED = [
@@ -73,6 +74,7 @@ export class Mission {
     while ((slot = deckSlot(k)) && used.has(slot.join())) k++;
     item.toDeck(rov, slot);
     this.say(`On the deck: ${item.label ?? item.id}`);
+    if (item.scoreId) this.score(item.scoreId, true);                     // (it stays scored when the crew hands it back later)
     return this.msg.text;
   }
   /** The inventory: what is on the deck. */
@@ -90,7 +92,7 @@ export class Mission {
   state(rov) {
     return {
       type: this.type, id: this.id, locked: this.locked, clock: this.clock.data(), board: this.board.data(), inventory: this.inventory(),
-      carrying: this.rov.mission_carry ? this.rov.mission_carry.id : null, atStairs: atStairs(this.rov), msg: this.msg,
+      carrying: this.rov.mission_carry ? this.rov.mission_carry.id : null, atStairs: atStairs(this.rov), msg: this.msg, deck: deckRect(),
     };
   }
 }
@@ -102,6 +104,17 @@ export function addTo(rov) {
   rov.props.push(m);
   rov.mission = m;
   m.addItem = (item) => { m.items.push(item); rov.props.push(item); return item; };
+  // task 1: the coral garden (positions are wall-relative: u out from the wall, v to the left)
+  m.addItem(new BasketStar("star1", "Basket star 1", "star1", 1.6, 0.9, 0.3));
+  m.addItem(new BasketStar("star2", "Basket star 2", "star2", 2.9, -1.0, -0.4));
+  m.addItem(new Coral("coral1", "Coral 1", "coral1", 2.3, 0.8, 0.0));
+  m.addItem(new Coral("coral2", "Coral 2", "coral2", 3.3, -0.6, 0.0));
+  // task 2.1: two invasive European green crabs
+  m.addItem(new MissionCrab("crab1", "Green crab 1", "crab1", 1.2, -0.9, 0.5));
+  m.addItem(new MissionCrab("crab2", "Green crab 2", "crab2", 3.4, 0.9, -0.6));
+  const transect = new Transect(0.5);
+  rov.props.push(transect);
+  m.judges.push((mm) => { if (transect.done) mm.score("transect", true); });
   rov.reset();
   return m;
 }

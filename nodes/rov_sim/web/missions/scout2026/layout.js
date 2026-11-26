@@ -41,3 +41,10 @@ export function deckSlot(i) {
   const cols = 4, col = i % cols, row = Math.floor(i / cols);
   return [r[0] + 0.3 + 0.45 * col, r[3] + 0.5 + 0.4 * row];
 }
+
+/** The crew's table: [x0, x1, y0, y1] around all the deck slots, or null. */
+export function deckRect() {
+  const a = deckSlot(0), b = deckSlot(19);
+  if (!a || !b) return null;
+  return [a[0] - 0.25, a[0] + 3 * 0.45 + 0.25, a[1] - 0.25, b[1] + 0.25];
+}
