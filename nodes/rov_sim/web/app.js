@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
 import { GAME_KEYS, SWITCHES, computeCommand, switchValues } from "./controls.js";
-import { MAX_RINGS, parseConfig, toQuery } from "./config.js";
+import { MAX_RINGS, parseConfig, toQuery, poolSizeText } from "./config.js";
 import { layoutFor } from "./sim/physics.js";                      // (the thruster layouts: the same table the server uses; the state carries its own)
 
 // Which simulation? A Python server answers GET ping -> talk to it; a plain web host (GitHub Pages...) does not -> run the sim in this page.
@@ -665,6 +665,7 @@ function stepSilt(dt) {
     sp.scale.setScalar(0.12 + (1 - f) * 0.3);
   }
 }
+let jPresses = [];                    // when the J key was pressed lately
 let wobble = 0;                       // decaying rocking after a splash or a bump
 rov.rotation.order = "YXZ";           // yaw first, then roll about the ROV's own forward axis
 
@@ -694,6 +695,7 @@ let lastMsg = 0;
   if (!f.imu) hide(".imu");
   if (!f.rings) hide("#help-ring");
   if (!f.current) hide("#help-jets");
+  if (!backend.growPool) hide("#help-grow");
   if (!f.claw) { hide("#help-claw"); const t = $("help-tool"); if (t) t.textContent = "B buoyancy   V reset view (or double-click)"; }
   if (!f.claw) { const c = $("claw"); if (c && !f.rings) c.parentElement.style.display = "none"; }
 }
@@ -783,7 +785,8 @@ function updateHud() {
   }
   const bu = state.buoyancy ?? 0;
   showFoam(bu);
-  $("buoy").textContent = "Buoyancy: " + (bu > 0.05 ? "floats" : bu < -0.05 ? "sinks" : "neutral");
+  $("current").textContent = "Current: " + (jetsRunning() ? "on" : "off");
+  $("current").classList.toggle("on", jetsRunning());
   joys.forEach((j, i) => {
     const jy = (state.joys && state.joys[i]) || [0, 0];
     if (!j.down) j.knob.style.transform = `translate(${-jy[0] * JOY_REACH}px, ${-jy[1] * JOY_REACH}px)`;   // show the shared value
@@ -829,7 +832,19 @@ window.addEventListener("keydown", (e) => {
   if (e.code === "KeyB" && !e.repeat) { nextBuoyancy(); return; }
   if (e.code === "KeyT" && !e.repeat) { if (backend.features.claw) setTool(tool === "claw" ? "nose" : "claw"); return; }
   if (e.code === "KeyN" && !e.repeat) { if (backend.features.rings) dropRing(); return; }
-  if (e.code === "KeyJ" && !e.repeat) { if (jets) toast("Water look: " + jets.cycleLook() + " (J changes it)"); return; }
+  if (e.code === "KeyJ" && !e.repeat) {
+    if (jets) toast("Water look: " + jets.cycleLook() + " (J changes it)");
+    const now = performance.now();                                    // (easter egg: J pressed over and over)
+    jPresses = jPresses.filter((t) => now - t < 5000); jPresses.push(now);
+    if (jPresses.length >= 8) { jPresses = []; if (backend.features.eel) backend.summonEel(); }
+    return;
+  }
+  if ((e.code === "Comma" || e.code === "Period" || e.code === "Slash") && !e.repeat) {      // the pool grows (never shrinks), the ROV stays where it is
+    if (!backend.growPool) return;
+    const what = { Comma: "length", Period: "width", Slash: "depth" }[e.code], r = backend.growPool(what);
+    if (r) { userMoved = false; toast(`Pool: ${poolSizeText(r[0], r[1])}, ${r[2]} m deep`); } else toast(`The pool cannot get any ${what === "depth" ? "deeper" : what === "length" ? "longer" : "wider"}`);
+    return;
+  }
   if (!state.keys) return;
   if (GAME_KEYS.has(e.code)) { held.add(e.code); e.preventDefault(); }
   else if (e.code === "KeyH" && !e.repeat) { if (!hLocked) setHOnly(!hOnly); return; }
@@ -918,7 +933,10 @@ function nextBuoyancy() {
   const next = b > 0.05 ? "neutral" : b < -0.05 ? "positive" : "negative";   // + -> 0 -> - -> +
   backend.buoyancy(next);
 }
-$("buoy").addEventListener("click", nextBuoyancy);
+if (backend.features.current && backend.setCurrent) {                // the toolbar's Current button: water out of the wall outlets, on or off
+  $("current").style.display = "";
+  $("current").addEventListener("click", () => { const on = !jetsRunning(); backend.setCurrent(on); liveCfg.current = on; syncAddress(); });
+}
 
 // ---------- two on-screen joysticks (joy1, joy2): drag with the mouse; the sim publishes each as sensor_msgs/Joy ----------
 // Same convention as a real joy_node: axes[0] is LEFT/right with LEFT positive, axes[1] is up/down with UP positive.
@@ -1380,6 +1398,7 @@ const live = {
   current: backend.features.current && backend.setCurrent ? { get: jetsRunning, set: (on) => backend.setCurrent(on) } : null,
   flow: { get: () => (jets ? jets.look : liveCfg.flow), set: (v) => { if (jets) jets.setLook(v); } },
   pool: backend.setPoolSize ? { get: mainPoolSize, set: (L, W, D) => { backend.setPoolSize(L, W, D); userMoved = false; } } : null,   // (puts everything back at the start; the camera refits)
+  buoyancy: { get: () => { const b = state.buoyancy ?? 0; return b > 0.05 ? "positive" : b < -0.05 ? "negative" : "neutral"; }, set: (m) => backend.buoyancy(m) },
   speed: backend.setSpeed ? { get: () => liveCfg.speed, set: (v) => backend.setSpeed(v) } : null,
   thrusters: backend.setThrusters ? { get: () => state.thrusters || 4, set: (n) => backend.setThrusters(n) } : null,
   changed: (c) => { for (const k of ["current", "flow", "speed", "thrusters", "poollength", "poolwidth", "pooldepth"]) liveCfg[k] = c[k]; syncAddress(); },

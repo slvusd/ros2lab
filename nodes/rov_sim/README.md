@@ -147,7 +147,7 @@ page's readout (`joy1`, `joy2`).
 **Conventions.** Axes follow ROS: **x forward, y left, z up**. Angles are radians in messages. **Pitch is positive nose-down.** Distances are metres.
 
 ### Not channels (page-only settings)
-**Buoyancy** (the **Buoyancy** button / `B`) is a setting of the pool, not a channel: a real ROV has no buoyancy control. See [What the physics does](#what-the-physics-does).
+**Buoyancy** (**Config** / `B`) is a setting of the pool, not a channel: a real ROV has no buoyancy control. See [What the physics does](#what-the-physics-does).
 The model shows it as pipe insulation on the top four sticks: a long dark foam piece on each when it **floats**, a few short pieces when it is **neutral**, none when it **sinks**
 (`/?buoyancy=positive|neutral|negative` in the page address sets it). The foam is only drawn: it is not part of the collision shape.
 
@@ -202,7 +202,7 @@ data: 0.191
 
 ## The page
 
-Buttons (top right): **Orbit** (drag to rotate, scroll to zoom), **Follow** (chase camera), **Top**, **Buoyancy**, **Tool**, **Water FX**, **Reset**.
+Buttons (top right): **Orbit** (drag to rotate, scroll to zoom), **Follow** (chase camera), **Top**, **Current**, **Water FX**, **Reset**, **Config**.
 Under them, the two joysticks, and under those the [**ROV camera**](#the-rov-camera). The left panel shows the thruster commands, claw, depth, heading, the IMU, and the joysticks, so you can check a
 channel is doing what your code thinks. Press **V** (or double-click the pool) to reset the camera; it re-fits itself if the window is resized
 (until you orbit by hand yourself). Orbit all the way round: walls, floor or deck that are between you and the pool fade to see-through, and under
@@ -212,7 +212,7 @@ the water you look up at the rippling surface. `?view=follow`, `?cam=x,y,z`, `?t
 (a key you aren't touching never overwrites what your code sent; releasing a key sets that thruster to 0). `-p keys:=false` turns it off.
 The **switch box** (see below) is driven by `1` `2` (red), the left and right arrow keys (green) and the up and down arrow keys. The extra keys
 W or Shift forward, S or Space reverse, A/D turn, R/F all vertical thrusters up/down, I/K tilt nose up/down, Z/C left/right side only (with 6 or 8 thrusters also Q/E slide left/right, and with 8 U/O roll)
-work too unless you press H (H-bridge only: just the switch box). `[` `]` close/open the claw gradually, T claw/nose, B buoyancy, V reset the view, X stop.
+work too unless you press H (H-bridge only: just the switch box). `[` `]` close/open the claw gradually, T claw/nose, B buoyancy, `, . /` grow the pool (browser), V reset the view, X stop.
 (These keys mix `t1`..`t4` for you.
 Your ROS code only has the individual thrusters, by design.)
 
@@ -272,8 +272,8 @@ breaches. Together they provide all the lift (each is half of `max_thrust`).
 
 (approximate on purpose: it should *feel* like water, not be a research model)
 - Thrust accelerates the ROV; water drag slows it, so it speeds up gradually and **coasts to a stop**. "Added mass" makes it feel heavy.
-- It starts **neutrally buoyant** (it hovers where you leave it; the **Buoyancy** button / `B` switches to **floats**: 1.5 N spare, like a real ROV, so with the thrusters off it drifts up and **floats with the top of the frame ~6 cm out
-  of the water**). Pushing it down while floating takes a little thrust (about 12% down on `t3`/`t4` holds a depth). The **Buoyancy** button cycles
+- It starts **neutrally buoyant** (it hovers where you leave it; **Config** / `B` switches to **floats**: 1.5 N spare, like a real ROV, so with the thrusters off it drifts up and **floats with the top of the frame ~6 cm out
+  of the water**). Pushing it down while floating takes a little thrust (about 12% down on `t3`/`t4` holds a depth). `B` cycles
   **floats → neutral** (hovers wherever you leave it) **→ sinks** (settles on the floor).
 - It loses buoyancy as its top comes out of the water, so it can **pop up out of the water and sink back**: held up at 80% lift it rests ~14 cm out.
   On the floor it **bumps** (small bounce, a puff of silt, a little rocking). `--hard-limits` / `-p hard_limits:=true` gives plain stop-dead walls.

@@ -172,3 +172,28 @@ test("the main pool can be 2, 3, 4 or 6 m deep; the shallow end and the stairs s
   sp(1, 1, 2); assert.equal(POOL_WATER[0][4], 2);
   sp(1, 1);    assert.equal(POOL_WATER[0][4], 2, "no depth given: the normal 2 m");
 });
+
+test("growing the pool (the , . / keys) keeps the ROV where it is; the shallow end, crab and outlets follow the far wall", async () => {
+  globalThis.location = { search: "" }; globalThis.document = { addEventListener() {} };
+  const bl = await import("../../backend-local.js");
+  const { POOL_WATER } = await import("../physics.js");
+  bl.setPoolSize(1, 1, 2);
+  const world = bl.world ?? null;
+  const rov = (await import("../physics.js")).Rov && bl.rov;
+  assert.ok(rov, "the backend exports its ROV for tests");
+  rov.x = -1.2; rov.y = 0.4; rov.depth = 0.9;
+  const crab = rov.props.find((p) => p.type === "crab"), jets = rov.props.find((p) => p.type === "jets");
+  const [cx, cy] = [crab.x, crab.y], shelf0 = [...POOL_WATER[1]];
+  assert.deepEqual(bl.growPool("length"), [2, 1, 2]);
+  assert.equal(rov.x, -1.2); assert.equal(rov.y, 0.4); assert.equal(rov.depth, 0.9, "the ROV did not move");
+  assert.ok(Math.abs(POOL_WATER[1][0] - shelf0[0] - 6) < 1e-9, "the shallow end is at the new far wall");
+  assert.ok(Math.abs(crab.x - cx - 6) < 1e-9 && Math.abs(crab.y - cy) < 1e-9, "and the crab went with it");
+  assert.ok(crab.x >= POOL_WATER[1][0] && crab.x <= POOL_WATER[1][1], "still on the shallow end");
+  assert.deepEqual(bl.growPool("width"), [2, 2, 2]);
+  assert.deepEqual(bl.growPool("depth"), [2, 2, 3]);
+  assert.ok(jets.outlets.every((o) => Math.abs(o.y - POOL_WATER[0][3]) < 1e-9), "the outlets are in the new wall");
+  assert.equal(bl.growPool("depth") && bl.growPool("depth") && bl.growPool("depth"), null, "6 m is the deepest");
+  assert.equal(bl.growPool("length"), null, "and 12 m the longest");
+  assert.equal(rov.x, -1.2); assert.equal(rov.depth, 0.9);
+  bl.setPoolSize(1, 1, 2);
+});

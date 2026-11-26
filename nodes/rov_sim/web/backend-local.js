@@ -1,7 +1,7 @@
 // backend-local.js — the simulation runs right here in the browser (no server needed). Same shape as backend-net.js.
 // A page-load-time loop steps the World and hands state to the page ~30 times a second.
 import { World } from "./sim/world.js";
-import { Rov, setPool } from "./sim/physics.js";
+import { Rov, setPool, POOL_WATER, POOL_DEPTHS } from "./sim/physics.js";
 import { parseConfig } from "./config.js";
 import { DeviceLink } from "./sim/devicelink.js";
 
@@ -27,6 +27,7 @@ let eelMod = null;                               // the optional eel joke (sim/e
 try { eelMod = await import("./sim/eel.js"); eelMod.addTo(rov); } catch (e) { /* optional add-on: no eel without eel.js */ }
 export const features = { eel: !!eelMod, keys: true, joys: false, claw: true, imu: true, rings: !!ringsMod, fish: fishAdded, crabs: crabsAdded, current: !!currentMod, serial: true };
 const world = new World(rov);
+export { rov, world };                          // (for the tests)
 if (ringsMod) world.ringDropper = ringsMod.dropRing;
 export const link = new DeviceLink(world);       // a micro:bit / Pico plugged in over USB (see serial.js)
 let timer = null;
@@ -56,6 +57,27 @@ export function setSpeed(v) { rov.speed_mult = Math.max(0.25, Math.min(4, Number
 export function setPoolSize(length, width, depth) {
   setPool(length, width, depth);
   world.reset();
+}
+/** The pool keys: make the pool one step bigger in one direction ("length", "width" or "depth") WITHOUT moving the ROV, the rings or the fish (it cannot shrink).
+ *  The shallow end stays at the far wall, so the crabs on it move with it; the water outlets move to the new wall; rings that were on the floor sink to the new one.
+ *  Returns [length, width, depth] now, or null when it cannot grow that way (already the biggest, or the eel is out). */
+export function growPool(what) {
+  const eel = rov.props.find((p) => p.type === "eel");
+  if (eel && eel.mode !== "idle") return null;
+  const [main, shelf] = [POOL_WATER[0], POOL_WATER[1]];
+  let L = Math.round((main[1] - main[0]) / 6), W = Math.round((main[3] - main[2]) / 3), D = main[4];
+  if (what === "length" && L < 2) L += 1;
+  else if (what === "width" && W < 3) W += 1;
+  else if (what === "depth" && POOL_DEPTHS.some((d) => d > D)) D = POOL_DEPTHS.find((d) => d > D);
+  else return null;
+  const [sx, sy] = [shelf[0], shelf[2]];
+  setPool(L, W, D);
+  const dx = POOL_WATER[1][0] - sx, dy = POOL_WATER[1][2] - sy;
+  for (const p of rov.props) {
+    if (p.type === "crab") { p.x += dx; p.y += dy; if (p.target) { p.target = [p.target[0] + dx, p.target[1] + dy]; } }
+    else if (p.type === "jets") p.reset();                                      // (the outlets go to the new wall; `on` stays as it was)
+  }
+  return [L, W, D];
 }
 /** The Config dialog's Current box: make the water run, or stop it. (The outlets stay in the wall either way.) */
 export function setCurrent(on) {

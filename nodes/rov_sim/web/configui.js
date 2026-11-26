@@ -38,7 +38,7 @@ const CSS = `
 #configui a { color: #8fd0f5; }
 `;
 
-/** `live` (from app.js) has { tool, current, flow, pool, speed, thrusters } each either null (this version cannot change it now) or { get(), set(...) }, and changed(cur). */
+/** `live` (from app.js) has { tool, current, flow, pool, speed, thrusters, buoyancy } each either null (this version cannot change it now) or { get(), set(...) }, and changed(cur). */
 export function showConfig({ cfg, configurable = {}, live = {} }) {
   if (document.getElementById("configui")) return;
   const cur = {}; for (const k of CONFIG_KEYS) cur[k] = cfg[k];
@@ -48,6 +48,7 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
   if (live.thrusters) cur.thrusters = live.thrusters.get();
   if (live.pool) [cur.poollength, cur.poolwidth, cur.pooldepth] = live.pool.get();
   let tool = live.tool ? live.tool.get() : "nose";
+  const buoy = live.buoyancy ? live.buoyancy.get() : "neutral";
   const style = document.createElement("style"); style.textContent = CSS; document.head.appendChild(style);
   const el = document.createElement("div"); el.id = "configui"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Configure the pool");
   const can = (k) => configurable[k] !== false;                                   // the restart options: only the Python server cannot do some of them
@@ -65,6 +66,7 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
       <div class="row inline ${off(live.tool)}"><span>Front tool</span><span class="tools">
         <label><input type="radio" name="cfg-tool" value="nose"${tool === "nose" ? " checked" : ""}${dis(live.tool)}> Nose</label>
         <label><input type="radio" name="cfg-tool" value="claw"${tool === "claw" ? " checked" : ""}${dis(live.tool)}> Claw</label></span></div>
+      <div class="row ${off(live.buoyancy)}"><label for="cfg-buoy">Buoyancy <small>(B does this too)</small></label><select id="cfg-buoy"${dis(live.buoyancy)}>${[["positive", "floats (a little positive)"], ["neutral", "neutral (hovers)"], ["negative", "sinks"]].map(([v, t]) => opt(v, t, buoy === v)).join("")}</select></div>
       <div class="row ${off(live.pool)}"><label for="cfg-pool">Main pool size</label><select id="cfg-pool"${dis(live.pool)}>${presets.join("")}</select></div>
       <div class="row ${off(live.pool)}"><label for="cfg-depth">Main pool depth</label><select id="cfg-depth"${dis(live.pool)}>${POOL_DEPTHS.map((d) => opt(d, `${d} m${d === 2 ? " (normal)" : ""}`, cur.pooldepth === d)).join("")}</select></div>
       <div class="row ${off(live.current)}"><label><input type="checkbox" id="cfg-current"${cur.current ? " checked" : ""}${dis(live.current)}><span>Run the water<br><small>from the two outlets in the side wall, as if filling the pool: it pushes and tilts the ROV (the outlets are always there)</small></span></label></div>
@@ -116,6 +118,7 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
     cur.poollength = L; cur.poolwidth = W; cur.pooldepth = Number($("cfg-depth").value) || DEFAULTS.pooldepth;
     if (which === "cfg-current" && live.current) live.current.set(cur.current);
     if (which === "cfg-flow" && live.flow) live.flow.set(cur.flow);
+    if (which === "cfg-buoy" && live.buoyancy) live.buoyancy.set($("cfg-buoy").value);
     if (which === "cfg-speed" && live.speed) live.speed.set(cur.speed);
     if (which === "cfg-thrusters" && live.thrusters && cur.thrusters !== was.thrusters) live.thrusters.set(cur.thrusters);
     if ((which === "cfg-pool" || which === "cfg-depth") && live.pool && (L !== was.poollength || W !== was.poolwidth || cur.pooldepth !== was.pooldepth)) live.pool.set(L, W, cur.pooldepth);
@@ -129,8 +132,8 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
     Object.assign(cur, DEFAULTS);
     el.querySelectorAll('input[name="cfg-controls"]').forEach((r) => { r.checked = r.value === cur.controls; });
     $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-crabs").value = cur.crabs; $("cfg-camera").checked = cur.camera;
-    $("cfg-current").checked = cur.current; $("cfg-flow").value = cur.flow; $("cfg-speed").value = cur.speed; $("cfg-thrusters").value = cur.thrusters; $("cfg-pool").value = `${cur.poollength}x${cur.poolwidth}`; $("cfg-depth").value = cur.pooldepth;
-    for (const id of ["cfg-current", "cfg-flow", "cfg-speed", "cfg-thrusters", "cfg-pool", "cfg-depth"]) read(id);
+    $("cfg-current").checked = cur.current; $("cfg-flow").value = cur.flow; $("cfg-speed").value = cur.speed; $("cfg-thrusters").value = cur.thrusters; $("cfg-pool").value = `${cur.poollength}x${cur.poolwidth}`; $("cfg-depth").value = cur.pooldepth; $("cfg-buoy").value = "neutral";
+    for (const id of ["cfg-current", "cfg-flow", "cfg-speed", "cfg-thrusters", "cfg-pool", "cfg-depth", "cfg-buoy"]) read(id);
   });
   $("cfg-go").addEventListener("click", () => { location.href = url().href; });
   const close = () => {
