@@ -7,6 +7,7 @@ import { MISSION_POOL, at, stairsRect } from "../layout.js";
 import { noseTip } from "../../common/carry.js";
 
 const DT = 1 / 60;
+const F = MISSION_POOL.pooldepth;                                     // the floor's depth
 function make(tool = "nose") {
   setPool(MISSION_POOL.poollength, MISSION_POOL.poolwidth, MISSION_POOL.pooldepth);
   const rov = new Rov({ tool, buoyancy: 0.0 });
@@ -22,7 +23,7 @@ test("the coral garden is in the pool: 2 basket stars, 2 corals and 2 crabs on t
   const ids = m.items.filter((i) => i.home_pose && /^(star|coral|crab)/.test(i.id)).map((i) => i.id);
   assert.deepEqual(ids, ["star1", "star2", "coral1", "coral2", "crab1", "crab2"]);
   for (const it of m.items.filter((i) => i.home_pose && /^(star|coral|crab)/.test(i.id))) {
-    assert.equal(it.mode, "floor"); assert.equal(it.depth, 3, "on the 3 m deep floor");
+    assert.equal(it.mode, "floor"); assert.equal(it.depth, F, "on the floor");
     assert.ok(Math.abs(it.y - at(0, 0)[1]) > 0.5 && Math.abs(it.y - at(0, 0)[1]) < 1.5, "beside the transect, not on it");
   }
   const [a, b] = transect.ends();

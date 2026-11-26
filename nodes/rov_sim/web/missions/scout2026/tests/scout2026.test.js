@@ -8,6 +8,7 @@ import { MISSION_POOL, at, atStairs, deckSlot, stairsRect, startPose } from "../
 import { parseConfig } from "../../../config.js";
 
 const DT = 1 / 60;
+const F = MISSION_POOL.pooldepth;                                     // the floor's depth
 function make() {
   setPool(MISSION_POOL.poollength, MISSION_POOL.poolwidth, MISSION_POOL.pooldepth);
   const rov = new Rov({ tool: "nose", buoyancy: 0.0 });
@@ -22,11 +23,11 @@ test("17 scored items, 125 points, none earned at the start", () => {
   assert.equal(new Set(SCORED.map((i) => i.id)).size, 17, "unique ids");
 });
 
-test("the mission's start-up is the 6 x 6 m, 3 m deep pool; the ROV starts at the surface by the stairs, inside the pool", () => {
+test("the mission's start-up is the 6 x 6 m, 2 m deep pool; the ROV starts at the surface by the stairs, inside the pool", () => {
   const c = parseConfig("?mission=scout2026");
-  assert.deepEqual([c.poollength, c.poolwidth, c.pooldepth], [1, 2, 3]);
+  assert.deepEqual([c.poollength, c.poolwidth, c.pooldepth], [1, 2, 2]);
   const { rov } = make();
-  assert.equal(POOL_WATER[0][4], 3); assert.equal(POOL_WATER[0][3] - POOL_WATER[0][2], 6);
+  assert.equal(POOL_WATER[0][4], 2); assert.equal(POOL_WATER[0][3] - POOL_WATER[0][2], 6);
   const s = startPose();
   assert.deepEqual([rov.x, rov.y, rov.depth, rov.yaw], [s.x, s.y, s.depth, s.yaw]);
   assert.ok(POOL_REGIONS.some((r) => r[0] <= rov.x && rov.x <= r[1] && r[2] <= rov.y && rov.y <= r[3]), "inside the water");

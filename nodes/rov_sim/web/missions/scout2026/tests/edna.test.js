@@ -6,6 +6,7 @@ import { addTo } from "../scout2026.js";
 import { MISSION_POOL, SPOTS, at, stairsRect } from "../layout.js";
 
 const DT = 1 / 60;
+const F = MISSION_POOL.pooldepth;                                     // the floor's depth
 function make() {
   setPool(MISSION_POOL.poollength, MISSION_POOL.poolwidth, MISSION_POOL.pooldepth);
   const rov = new Rov({ tool: "nose", buoyancy: 0.0 });
@@ -47,10 +48,10 @@ test("the new sensor stands in the yellow square: +10, but only once the old one
   atStairs(rov);
   assert.equal(m.give(rov, "new_sensor"), true);
   // the square still holds the old sensor: put the new one down inside it anyway
-  hold(rov, 1.0, cx + 0.05, cy + 0.05, -3 + 0.28 + 0.4);
-  hold(rov, 1.0, cx + 0.05, cy + 0.05, -3 + 0.28);                        // lowered to the floor (the loop is 28 cm up)
+  hold(rov, 1.0, cx + 0.05, cy + 0.05, -F + 0.28 + 0.4);
+  hold(rov, 1.0, cx + 0.05, cy + 0.05, -F + 0.28);                        // lowered to the floor (the loop is 28 cm up)
   assert.equal(nw.supported, true);
-  hold(rov, 0.5, cx + 0.05 - 0.4, cy + 0.05, -3 + 0.28);                  // backs away: it stays
+  hold(rov, 0.5, cx + 0.05 - 0.4, cy + 0.05, -F + 0.28);                  // backs away: it stays
   assert.equal(nw.held, null); assert.equal(nw.mode, "floor");
   assert.ok(Math.abs(nw.x - (cx + 0.05)) < 0.1);
   assert.equal(m.board.get("new_sensor"), false, "the old sensor is still in the pool: not yet");
@@ -71,7 +72,7 @@ test("a new sensor set down only partly in the square does not count", () => {
   const { rov, m, get, square } = make();
   const nw = get("new_sensor"), [cx, cy] = square.centre();
   m.board.set("old_sensor", true, 1);
-  nw.mode = "floor"; nw.depth = 3; nw.x = cx + 0.22; nw.y = cy; run(rov, 0.1);
+  nw.mode = "floor"; nw.depth = F; nw.x = cx + 0.22; nw.y = cy; run(rov, 0.1);
   assert.equal(m.board.get("new_sensor"), false);
   nw.x = cx + 0.1; run(rov, 0.1);
   assert.equal(m.board.get("new_sensor"), true);
@@ -82,15 +83,15 @@ test("the connector: hung from the nose with the stem down, lowered into the por
   const con = get("connector"), [px, py] = obs.port();
   atStairs(rov);
   assert.equal(m.give(rov, "connector"), true);
-  hold(rov, 0.8, px - 0.3, py, -3 + 0.21 + 0.6);                          // over the observatory, 60 cm above the port level
+  hold(rov, 0.8, px - 0.3, py, -F + 0.21 + 0.6);                          // over the observatory, 60 cm above the port level
   assert.equal(con.stuck_to, null);
-  hold(rov, 1.0, px, py + 0.1, -3 + 0.21 + 0.02);                         // lowered 10 cm beside the port: it just rests on the floor
+  hold(rov, 1.0, px, py + 0.1, -F + 0.21 + 0.02);                         // lowered 10 cm beside the port: it just rests on the floor
   assert.equal(con.stuck_to, null); assert.equal(m.board.get("connector"), false);
-  hold(rov, 0.5, px, py + 0.1, -3 + 0.21 + 0.6);                          // lifted again
-  hold(rov, 1.0, px, py, -3 + 0.21 + 0.6);
-  for (let i = 0; i < 60; i++) { noseAt(rov, px, py, -3 + 0.21 + 0.6 - 0.6 * (i / 59)); rov.step(DT); }      // straight down into the port
+  hold(rov, 0.5, px, py + 0.1, -F + 0.21 + 0.6);                          // lifted again
+  hold(rov, 1.0, px, py, -F + 0.21 + 0.6);
+  for (let i = 0; i < 60; i++) { noseAt(rov, px, py, -F + 0.21 + 0.6 - 0.6 * (i / 59)); rov.step(DT); }      // straight down into the port
   assert.equal(con.stuck_to, "port"); assert.equal(m.board.get("connector"), false, "still on the ROV: not yet");
-  hold(rov, 0.5, px - 0.4, py, -3 + 0.21);                                // the nose backs away
+  hold(rov, 0.5, px - 0.4, py, -F + 0.21);                                // the nose backs away
   assert.equal(con.mode, "stuck"); assert.equal(rov.mission_carry, null);
   run(rov, 0.1);
   assert.equal(m.board.get("connector"), true); assert.equal(m.board.total, 5);
@@ -100,17 +101,17 @@ test("the connector: hung from the nose with the stem down, lowered into the por
 test("the 2 m cable runs from the new sensor along the path the connector took; backing up takes it in", () => {
   const { rov, m, get, cable } = make();
   const nw = get("new_sensor"), con = get("connector");
-  nw.mode = "floor"; nw.x = at(...SPOTS.edna)[0]; nw.y = at(...SPOTS.edna)[1]; nw.depth = 3;
+  nw.mode = "floor"; nw.x = at(...SPOTS.edna)[0]; nw.y = at(...SPOTS.edna)[1]; nw.depth = F;
   atStairs(rov); m.give(rov, "connector");
   const [sx, sy] = [nw.x, nw.y];
-  for (let i = 0; i <= 80; i++) { noseAt(rov, sx - 0.2 - 0.02 * i, sy + 0.01 * i, -2.5); rov.step(DT); }
+  for (let i = 0; i <= 80; i++) { noseAt(rov, sx - 0.2 - 0.02 * i, sy + 0.01 * i, -F + 0.5); rov.step(DT); }
   const n1 = cable.points().length;
   assert.ok(n1 >= 5, `the trail grows as the connector moves (${n1} points)`);
   assert.ok(cable.path > 1.5, `about 1.7 m of cable is out (${cable.path.toFixed(2)})`);
-  for (let i = 80; i >= 0; i--) { noseAt(rov, sx - 0.2 - 0.02 * i, sy + 0.01 * i, -2.5); rov.step(DT); }
+  for (let i = 80; i >= 0; i--) { noseAt(rov, sx - 0.2 - 0.02 * i, sy + 0.01 * i, -F + 0.5); rov.step(DT); }
   assert.ok(cable.points().length < n1, "backing up takes the cable in");
   const long = [];
-  for (let i = 0; i <= 140; i++) { noseAt(rov, sx - 0.2 - 0.03 * i, sy, -2.5); rov.step(DT); }
+  for (let i = 0; i <= 140; i++) { noseAt(rov, sx - 0.2 - 0.03 * i, sy, -F + 0.5); rov.step(DT); }
   assert.equal(cable.taut, true, "more than 2 m is out: taut");
   assert.ok(cable.state().pts.length > 5);
   rov.reset();

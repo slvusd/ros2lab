@@ -7,6 +7,7 @@ import { MISSION_POOL, SPOTS, stairsRect } from "../layout.js";
 import { LobsterPot } from "../pot.js";
 
 const DT = 1 / 60;
+const F = MISSION_POOL.pooldepth;                                     // the floor's depth
 function noseAt(rov, x, y, z, yaw = 0) { rov.yaw = yaw; rov.pitch = 0; rov.x = x - 0.485 * Math.cos(yaw); rov.y = y - 0.485 * Math.sin(yaw); rov.depth = -z - 0.195; rov.u = rov.v = rov.w = 0; }
 test("a nose-only run through every physical task scores all 125 points", () => {
   setPool(MISSION_POOL.poollength, MISSION_POOL.poolwidth, MISSION_POOL.pooldepth);
@@ -41,15 +42,15 @@ test("a nose-only run through every physical task scores all 125 points", () => 
   // new sensor into the yellow square
   const sq = by("m_zone"), [qx, qy] = sq.centre();
   give("new_sensor");
-  fly([rov.x, rov.y], [qx, qy], -3 + 0.28 + 0.3, 120);
-  hold(0.6, qx, qy, -3 + 0.28);
-  hold(0.6, qx - 0.4, qy, -3 + 0.28);
+  fly([rov.x, rov.y], [qx, qy], -F + 0.28 + 0.3, 120);
+  hold(0.6, qx, qy, -F + 0.28);
+  hold(0.6, qx - 0.4, qy, -F + 0.28);
   // the connector into the observatory's port
   const obs = by("m_observatory"), [ox, oy] = obs.port();
   give("connector");
-  fly([rov.x, rov.y], [ox, oy], -3 + 0.21 + 0.5, 140);
-  for (let i = 0; i < 60; i++) { noseAt(rov, ox, oy, -3 + 0.71 - 0.5 * i / 59); rov.step(DT); }
-  hold(0.5, ox - 0.4, oy, -3 + 0.21);
+  fly([rov.x, rov.y], [ox, oy], -F + 0.21 + 0.5, 140);
+  for (let i = 0; i < 60; i++) { noseAt(rov, ox, oy, -F + 0.71 - 0.5 * i / 59); rov.step(DT); }
+  hold(0.5, ox - 0.4, oy, -F + 0.21);
   // the lobster pot
   const pot = by("m_pot");
   for (let k = 0; k < 8 && !pot.open; k++) {
@@ -61,12 +62,12 @@ test("a nose-only run through every physical task scores all 125 points", () => 
   // the power connector: off the stand, through the waypoint, into the oil port
   const pc = item("power_connector"), way = by("m_waypoint"), [wx, wy] = way.centre(), oil = by("m_oilport"), [px, py] = oil.port();
   carry("power_connector");
-  fly([pc.x, pc.y], [wx + 1.0, wy], -3 + 0.6, 100);
-  fly([wx + 1.0, wy], [wx - 1.0, wy], -3 + 0.6, 140);
-  fly([wx - 1.0, wy], [px + 0.0, py], -3 + 0.17 + 0.5, 140);
-  for (let i = 0; i < 60; i++) { noseAt(rov, px, py, -3 + 0.67 - 0.5 * i / 59); rov.step(DT); }
-  hold(0.5, px - 0.4, py, -3 + 0.22);
-  hold(0.3, px - 0.4, py, -3 + 0.22);
+  fly([pc.x, pc.y], [wx + 1.0, wy], -F + 0.6, 100);
+  fly([wx + 1.0, wy], [wx - 1.0, wy], -F + 0.6, 140);
+  fly([wx - 1.0, wy], [px + 0.0, py], -F + 0.17 + 0.5, 140);
+  for (let i = 0; i < 60; i++) { noseAt(rov, px, py, -F + 0.67 - 0.5 * i / 59); rov.step(DT); }
+  hold(0.5, px - 0.4, py, -F + 0.22);
+  hold(0.3, px - 0.4, py, -F + 0.22);
   const earned = m.board.items.filter((i) => i.earned).map((i) => i.id), missed = m.board.items.filter((i) => !i.earned).map((i) => i.id);
   assert.deepEqual(missed, [], `missed: ${missed.join(", ")}`);
   assert.equal(m.board.total, 125);

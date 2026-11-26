@@ -3,7 +3,7 @@
 import { POOL_REGIONS, POOL_WATER } from "../../sim/physics.js";
 
 export const RUN_SECONDS = 600;                              // the manual: a 10 minute performance
-export const MISSION_POOL = { poollength: 1, poolwidth: 2, pooldepth: 3 };
+export const MISSION_POOL = { poollength: 1, poolwidth: 2, pooldepth: 2 };                // the SCOUT class is done in a 2 m deep pool
 
 /** The main pool's wall geometry now: x of the wall, y of the middle line. */
 export function frame() {

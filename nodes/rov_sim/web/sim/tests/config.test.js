@@ -148,7 +148,7 @@ test("mission: none or scout2026; a mission sets its own start-up, the address s
   assert.equal(parseConfig("?mission=SCOUT2026").mission, "scout2026");
   assert.equal(parseConfig("?mission=banana").mission, "none"); assert.equal(parseConfig("?mission=banana").explicit.has("mission"), false);
   const m = parseConfig("?mission=scout2026");
-  assert.deepEqual([m.rings, m.crabs, m.fish, m.poollength, m.poolwidth, m.pooldepth, m.camera], [0, 0, false, 1, 2, 3, false]);
+  assert.deepEqual([m.rings, m.crabs, m.fish, m.poollength, m.poolwidth, m.pooldepth, m.camera], [0, 0, false, 1, 2, 2, false]);
   const o = parseConfig("?mission=scout2026&rings=2&pooldepth=4");
   assert.equal(o.rings, 2); assert.equal(o.pooldepth, 4); assert.equal(o.explicit.has("rings"), true);
   assert.equal(toQuery({ ...DEFAULTS, mission: "scout2026" }), "mission=scout2026");
