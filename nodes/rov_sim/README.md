@@ -212,7 +212,7 @@ the water you look up at the rippling surface. `?view=follow`, `?cam=x,y,z`, `?t
 (a key you aren't touching never overwrites what your code sent; releasing a key sets that thruster to 0). `-p keys:=false` turns it off.
 The **switch box** (see below) is driven by `1` `2` (red), the left and right arrow keys (green) and the up and down arrow keys. The extra keys
 W or Shift forward, S or Space reverse, A/D turn, R/F all vertical thrusters up/down, I/K tilt nose up/down, Z/C left/right side only (with 6 or 8 thrusters also Q/E slide left/right, and with 8 U/O roll)
-work too unless you press H (H-bridge only: just the switch box). `[` `]` close/open the claw gradually, T claw/nose, B buoyancy, `, . /` grow the pool (browser), V reset the view, X stop.
+work too unless you press H (H-bridge only: just the switch box). `[` `]` close/open the claw gradually, T claw/nose, B buoyancy, Ctrl + `, . /` grow the pool (browser), V reset the view, X stop.
 (These keys mix `t1`..`t4` for you.
 Your ROS code only has the individual thrusters, by design.)
 

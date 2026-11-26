@@ -282,6 +282,23 @@ function buildPool() {
     }
   }
 
+  // ---- depth marks in metres on the near end wall of the main pool (so a ROV's depth can be read off the wall): a ruler with a number plate every metre ----
+  {
+    const deep = regions.reduce((a, b) => (b.d > a.d ? b : a)), x = deep.x0 + 0.012, zc = (deep.z0 + deep.z1) / 2;
+    const ink = new THREE.MeshBasicMaterial({ color: 0x0b2a3d });
+    const strip = (w, h, y, z) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h).rotateY(Math.PI / 2), ink); m.position.set(x, y, z); pool.add(m); };
+    strip(0.05, deep.d - 0.02, -deep.d / 2, zc - 0.3);                                       // the ruler's rail, then a tick every half metre and a plate every metre
+    for (let k = 0.5; k < deep.d - 0.01; k += 0.5) strip(Number.isInteger(k) ? 0.3 : 0.15, 0.03, -k, zc - (Number.isInteger(k) ? 0.15 : 0.225));
+    for (let k = 0; k < deep.d - 0.01; k += 1) {                                              // 0 m is the surface
+      const c = document.createElement("canvas"); c.width = 128; c.height = 64;
+      const g = c.getContext("2d"); g.fillStyle = "#0b2a3d"; g.fillRect(0, 0, 128, 64);
+      g.fillStyle = "#ffffff"; g.font = "bold 40px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(`${k} m`, 64, 34);
+      const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.18).rotateY(Math.PI / 2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c) }));
+      plate.position.set(x + 0.002, -k - (k === 0 ? 0.12 : 0), zc - 0.55);
+      pool.add(plate);
+    }
+  }
+
   // ---- water surface: one wavy grid over the pool's bounding box, only the cells that are water are drawn ----
   const cell = CELL * Math.max(1, Math.sqrt(bw * bh / 33));      // a bigger pool gets coarser water cells: the grid never has more cells than the original pool's (33 m2), so it stays cheap on a Chromebook
   NX = Math.max(8, Math.round(bw / cell)); NZ = Math.max(8, Math.round(bh / cell));
@@ -825,6 +842,13 @@ function sendCommand() {
 }
 window.addEventListener("keydown", (e) => {
   if (document.getElementById("configui")) return;                    // the ?config panel is open: typing in it must not drive the ROV
+  if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && (e.code === "Comma" || e.code === "Period" || e.code === "Slash")) {      // Ctrl + , . /  : the pool grows (never shrinks), the ROV stays where it is
+    e.preventDefault();
+    if (e.repeat || !backend.growPool || document.getElementById("configui")) return;
+    const what = { Comma: "length", Period: "width", Slash: "depth" }[e.code], r = backend.growPool(what);
+    if (r) { userMoved = false; toast(`Pool: ${poolSizeText(r[0], r[1])}, ${r[2]} m deep`); } else toast(`The pool cannot get any ${what === "depth" ? "deeper" : what === "length" ? "longer" : "wider"}`);
+    return;
+  }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.code === "KeyV" && !e.repeat) { resetView(); return; }
   if (eelDead()) { e.preventDefault(); return; }
@@ -837,12 +861,6 @@ window.addEventListener("keydown", (e) => {
     const now = performance.now();                                    // (easter egg: J pressed over and over)
     jPresses = jPresses.filter((t) => now - t < 5000); jPresses.push(now);
     if (jPresses.length >= 8) { jPresses = []; if (backend.features.eel) backend.summonEel(); }
-    return;
-  }
-  if ((e.code === "Comma" || e.code === "Period" || e.code === "Slash") && !e.repeat) {      // the pool grows (never shrinks), the ROV stays where it is
-    if (!backend.growPool) return;
-    const what = { Comma: "length", Period: "width", Slash: "depth" }[e.code], r = backend.growPool(what);
-    if (r) { userMoved = false; toast(`Pool: ${poolSizeText(r[0], r[1])}, ${r[2]} m deep`); } else toast(`The pool cannot get any ${what === "depth" ? "deeper" : what === "length" ? "longer" : "wider"}`);
     return;
   }
   if (!state.keys) return;
