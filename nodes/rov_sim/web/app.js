@@ -33,6 +33,7 @@ const scene = new THREE.Scene();
 const SKY = new THREE.Color(0xbfe3f5), WATER = new THREE.Color(0x0b5f8a);
 scene.background = SKY;
 const camera = new THREE.PerspectiveCamera(55, 1, 0.05, 60);
+const FOV0 = 55;                                  // (the other views; the deck view zooms in)
 camera.position.set(-2.6, 1.6, 3.0);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, -0.8, 0);
@@ -1021,12 +1022,16 @@ function resetView() {
 }
 renderer.domElement.addEventListener("dblclick", resetView);
 let view = "orbit";
+const deck = { side: null, eye: new THREE.Vector3(), focus: new THREE.Vector3(), zoom: 1.0 };       // the Deck view: where the person stands and what they look at
+renderer.domElement.addEventListener("wheel", (e) => { if (view !== "deck") return; e.preventDefault(); deck.zoom = Math.max(0.35, Math.min(2.5, deck.zoom * (e.deltaY > 0 ? 1.12 : 1 / 1.12))); }, { passive: false });
 function setView(v) {
   const was = view;
   view = v;
   controls.enabled = v === "orbit";
+  if (v !== "deck" && camera.fov !== FOV0) { camera.fov = FOV0; camera.updateProjectionMatrix(); }
   document.querySelectorAll("[data-view]").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
   const pc = poolCenter();
+  if (v === "deck") { deck.side = null; deck.eye.set(rov.position.x, 1.8, rov.position.z + 4); deck.focus.copy(rov.position); }        // (start where the ROV is: it then slides to the edge)
   if (v === "top") { camera.position.set(pc.x, 7.5 * fitFactor() * poolScale(), pc.z + 0.01); camera.lookAt(pc.x, 0, pc.z); }
   if (v === "orbit") { controls.target.copy(pc); if (was !== "orbit" && typeof overviewCamera === "function") { overviewCamera(); userMoved = false; } }       // coming back from Follow or Top: the whole pool again, not wherever the chase camera was
 }
@@ -1044,7 +1049,7 @@ $("reset").addEventListener("click", () => {
   backend.reset();
   held.clear(); clawCmd = 0; sendCommand();
 });
-setView(new URLSearchParams(location.search).get("view") || "orbit");   // e.g. /?view=follow
+setView(new URLSearchParams(location.search).get("view") || (cfg.mission !== "none" ? "deck" : "orbit"));   // e.g. /?view=follow (a mission starts on the deck)
 { const c = new URLSearchParams(location.search).get("cam");               // e.g. /?cam=6,-1,0
   const tg = new URLSearchParams(location.search).get("target");            // e.g. /?cam=..&target=-1,-1,0
   if (tg) controls.target.set(...tg.split(",").map(Number));
@@ -1151,7 +1156,22 @@ function frame(now) {
     mat.depthWrite = mat.opacity > 0.98;
   }
 
-  if (view === "follow") {
+  if (view === "deck") {                                  // a person on the deck at the pool's edge, looking down at the ROV and at what its nose is working on
+    const rx = rov.position.x, rz = rov.position.z, sides = [rx - bbox.x0, bbox.x1 - rx, rz - bbox.z0, bbox.z1 - rz];      // distance to the west, east, north, south edge
+    let best = 0; for (let i = 1; i < 4; i++) if (sides[i] < sides[best]) best = i;
+    if (deck.side === null || sides[best] < sides[deck.side] - 1.0) deck.side = best;                              // (stay on a side until another is clearly nearer)
+    const E = 1.2, H = 1.8;                                                                                         // 1.2 m outside the wall, 1.8 m above the water: eyes of a standing person
+    const along = (a, lo, hi) => Math.max(lo + 0.3, Math.min(hi - 0.3, a));
+    const eye = deck.side === 0 ? [bbox.x0 - E, H, along(rz, bbox.z0, bbox.z1)] : deck.side === 1 ? [bbox.x1 + E, H, along(rz, bbox.z0, bbox.z1)]
+      : deck.side === 2 ? [along(rx, bbox.x0, bbox.x1), H, bbox.z0 - E] : [along(rx, bbox.x0, bbox.x1), H, bbox.z1 + E];
+    const ahead = new THREE.Vector3(0.35, -0.12, 0).applyAxisAngle(ey, shown.yaw);                                 // look a little ahead of the ROV: that is where the nose works
+    deck.focus.lerp(want.copy(rov.position).add(ahead), 1 - Math.exp(-dt * 4));
+    deck.eye.lerp(want.set(...eye), 1 - Math.exp(-dt * 2.5));
+    camera.position.copy(deck.eye);
+    camera.lookAt(deck.focus);
+    const d = camera.position.distanceTo(deck.focus), fov = Math.max(14, Math.min(50, 2 * Math.atan(1.3 * deck.zoom / d) * 180 / Math.PI));   // about 2.6 m across at the ROV, whatever the distance
+    if (Math.abs(fov - camera.fov) > 0.1) { camera.fov = fov; camera.updateProjectionMatrix(); }
+  } else if (view === "follow") {
     off.set(-1.25, 0.55, 0).applyAxisAngle(ey, shown.yaw);
     want.copy(rov.position).add(off);
     camera.position.lerp(want, 1 - Math.exp(-dt * 4));
