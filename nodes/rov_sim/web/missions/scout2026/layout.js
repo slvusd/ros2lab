@@ -48,3 +48,13 @@ export function deckRect() {
   if (!a || !b) return null;
   return [a[0] - 0.25, a[0] + 3 * 0.45 + 0.25, a[1] - 0.25, b[1] + 0.25];
 }
+
+/** Wall-relative spots of the stations (u out from the wall, v to the left). */
+export const SPOTS = {
+  edna: [1.3, -1.6],           // the yellow 0.50 m square (the old sensor starts in it)
+  observatory: [3.0, -1.6],    // the observatory with its 3" port
+  pot: [4.7, -1.6],            // the lobster pot
+  stand: [1.4, 1.6],           // the wind farm power-connector stand
+  waypoint: [3.0, 1.6],        // the waypoint (four posts)
+  oilPort: [4.7, 1.6],         // the oil platform port
+};

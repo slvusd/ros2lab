@@ -172,7 +172,7 @@ export class Carryable extends Pushable {
     const k = 1 - Math.exp(-dt * 14);                                           // (it follows a little behind the tip, so it does not jump when hooked)
     this.x = lerp(this.x, tip[0], k); this.y = lerp(this.y, tip[1], k);
     const f = floorAt(this.x, this.y) ?? POOL_MAX_DEPTH;
-    if (want >= f) { this.depth = f; this.supported = true; this.rested_at = [this.x, this.y]; }
+    if (want >= f) { this.x = tip[0]; this.y = tip[1]; this.depth = floorAt(this.x, this.y) ?? POOL_MAX_DEPTH; this.supported = true; this.rested_at = [this.x, this.y]; }       // (set down right under the tip)
     else this.depth = lerp(this.depth, want, k);
     this.yaw = lerp(this.yaw, rov.yaw + this.hang_yaw, k);
   }

@@ -7,7 +7,9 @@ import { RunClock } from "../common/clock.js";
 import { ScoreBoard } from "../common/board.js";
 import { Carryable } from "../common/carry.js";
 import { RUN_SECONDS, atStairs, deckRect, deckSlot, startPose } from "./layout.js";
-import { BasketStar, Coral, Iceberg, Marker, MissionCrab, Transect } from "./items.js";
+import { BasketStar, Connector, Coral, EdnaSquare, Iceberg, Marker, MissionCrab, Observatory, Sensor, Transect } from "./items.js";
+import { Cable } from "../common/cable.js";
+import { SPOTS } from "./layout.js";
 
 /** The 17 scored items (125 points): [id, label, points, group]. */
 export const SCORED = [
@@ -121,6 +123,19 @@ export function addTo(rov) {
   rov.props.push(iceberg);
   const markers = [m.addItem(new Marker("marker1", "Survey marker 1")), m.addItem(new Marker("marker2", "Survey marker 2"))];
   m.judges.push((mm, r) => { iceberg.step(r, 0, markers); iceberg.points.forEach((p) => mm.score(p.scoreId, !!p.marker)); });
+  // task 2.4: the eDNA station: yellow square (old sensor in it), new sensor + connector on the deck, observatory with its 3" port
+  const square = new EdnaSquare(SPOTS.edna), obs = new Observatory(SPOTS.observatory);
+  const oldSensor = m.addItem(new Sensor("old_sensor", "Old eDNA sensor", "edna_old", "old_sensor", SPOTS.edna));
+  const newSensor = m.addItem(new Sensor("new_sensor", "New eDNA sensor", "edna_new", null, null));
+  const connector = m.addItem(new Connector("connector", "eDNA connector"));
+  const eCable = new Cable("edna_cable", () => [newSensor.x, newSensor.y, -newSensor.depth + 0.18], () => (connector.mode === "deck" ? null : [connector.x, connector.y, -connector.depth + 0.15]), 2.0);
+  rov.props.push(square, obs, eCable);
+  m.judges.push((mm, r) => {
+    obs.step(r, 0, connector);
+    mm.score("connector", connector.mode === "stuck" && connector.stuck_to === "port");                // (in the port and off the ROV)
+    const standing = newSensor.mode === "floor" && !newSensor.held && square.holds(newSensor.x, newSensor.y);
+    mm.score("new_sensor", standing && mm.board.get("old_sensor"));                                    // the old sensor has to be out first
+  });
   const transect = new Transect(0.5);
   rov.props.push(transect);
   m.judges.push((mm) => { if (transect.done) mm.score("transect", true); });

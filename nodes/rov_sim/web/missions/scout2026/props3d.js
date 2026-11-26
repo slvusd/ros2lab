@@ -4,7 +4,7 @@ import { PVC_R, pipe, standard } from "../common/view3d.js";
 
 export class MissionView {
   constructor(scene, THREE) {
-    this.scene = scene; this.T = THREE; this.items = new Map(); this.transect = null; this.iceberg = null; this.deck = null;
+    this.scene = scene; this.T = THREE; this.items = new Map(); this.transect = null; this.iceberg = null; this.zone = null; this.obs = null; this.cables = new Map(); this.deck = null;
     this.white = standard(THREE, 0xf2f2ec); this.glow = new THREE.MeshStandardMaterial({ color: 0x31d46b, emissive: 0x0a4a22, roughness: 0.5 });
   }
 
@@ -71,8 +71,54 @@ export class MissionView {
     this.scene.add(g);
     return g;
   }
+  sensor(color) {
+    const T = this.T, g = new T.Group(), w = this.white;
+    g.add(pipe(T, [-0.10, 0.011, 0], [0.10, 0.011, 0], PVC_R, w));                                                        // the H base: a 20 cm crossbar, a tee at each end, 10 cm legs
+    for (const sx of [-0.10, 0.10]) g.add(pipe(T, [sx, 0.011, -0.10], [sx, 0.011, 0.10], PVC_R, w));
+    const body = new T.Mesh(new T.CylinderGeometry(0.0302, 0.0302, 0.20, 18), w); body.position.y = 0.12; g.add(body);        // the 20 cm 2" pipe
+    const top = new T.Mesh(new T.CylinderGeometry(0.036, 0.036, 0.012, 18), standard(T, 0xdad8d0)); top.position.y = 0.226; g.add(top);
+    for (const [cx, cz] of [[-0.014, -0.014], [0.014, -0.014], [-0.014, 0.014], [0.014, 0.014]]) {                          // four 1/2" end caps on top
+      const cap = new T.Mesh(new T.CylinderGeometry(0.011, 0.011, 0.02, 10), w); cap.position.set(cx, 0.242, cz); g.add(cap);
+    }
+    const rope = new T.Mesh(new T.TorusGeometry(0.07, 0.004, 6, 22), standard(T, color, 0.9)); rope.position.y = 0.30; g.add(rope);   // the rope loop
+    const weight = new T.Mesh(new T.BoxGeometry(0.02, 0.03, 0.02), standard(T, 0x111111)); weight.position.set(0.07, 0.30, 0); g.add(weight);
+    return g;
+  }
+  connector() {
+    const T = this.T, g = new T.Group();
+    g.add(pipe(T, [0, 0, 0], [0, 0.20, 0], PVC_R, this.white));                                                           // the 20 cm stem (its tip is the base)
+    g.add(pipe(T, [-0.05, 0.21, 0], [0.05, 0.21, 0], PVC_R, standard(T, 0xf2c500)));                                       // the yellow 10 cm crossbar of the T
+    const tee = new T.Mesh(new T.CylinderGeometry(PVC_R * 1.3, PVC_R * 1.3, 0.03, 10), standard(T, 0xf2c500)); tee.position.y = 0.21; tee.rotation.z = Math.PI / 2; g.add(tee);
+    return g;
+  }
+  buildZone(p) {
+    const T = this.T, g = new T.Group(), y = standard(T, 0xf2c500), h = p.half;
+    const c = [[-h, -h], [h, -h], [h, h], [-h, h]];
+    for (let i = 0; i < 4; i++) { const a = c[i], b = c[(i + 1) % 4]; g.add(pipe(T, [a[0], 0.011, a[1]], [b[0], 0.011, b[1]], PVC_R, y)); }
+    for (const [x, z] of c) { const e = new T.Mesh(new T.SphereGeometry(PVC_R * 1.4, 8, 6), this.white); e.position.set(x, 0.011, z); g.add(e); }
+    this.scene.add(g);
+    return g;
+  }
+  buildObservatory(p) {
+    const T = this.T, g = new T.Group(), w = this.white;
+    for (const z of [-0.10, 0.10]) g.add(pipe(T, [-0.15, 0.011, z], [0.15, 0.011, z], PVC_R, w));                          // the ladder frame: two 30 cm sides ...
+    for (const x of [-0.15, 0, 0.15]) g.add(pipe(T, [x, 0.011, -0.10], [x, 0.011, 0.10], PVC_R, w));                       // ... and three rungs
+    const port = new T.Mesh(new T.CylinderGeometry(0.0445, 0.0445, p.port_height, 20, 1, true), standard(T, 0x1a1a1a, 0.7)); port.position.y = p.port_height / 2 + 0.02; g.add(port);
+    const band = new T.Mesh(new T.CylinderGeometry(0.0455, 0.0455, 0.03, 20, 1, true), standard(T, 0xff8a1a, 0.6)); band.position.y = p.port_height - 0.005 + 0.02; g.add(band);
+    this.scene.add(g);
+    return g;
+  }
+  buildCable(p) {
+    const T = this.T, geo = new T.BufferGeometry();
+    geo.setAttribute("position", new T.BufferAttribute(new Float32Array(160 * 3), 3));
+    geo.setDrawRange(0, 0);
+    const line = new T.Line(geo, new T.LineBasicMaterial({ color: p.id === "edna_cable" ? 0xf2c500 : 0xe03030 }));
+    line.frustumCulled = false;
+    this.scene.add(line);
+    return line;
+  }
   build(p) {
-    const g = p.kind === "basket_star" ? this.basketStar() : p.kind === "coral" ? this.coral(p.id) : p.kind === "crab" ? this.crab() : p.kind === "marker" ? this.marker()
+    const g = p.kind === "basket_star" ? this.basketStar() : p.kind === "coral" ? this.coral(p.id) : p.kind === "crab" ? this.crab() : p.kind === "marker" ? this.marker() : p.kind === "edna_old" ? this.sensor(0x2f6fe0) : p.kind === "edna_new" ? this.sensor(0x8a4fd6) : p.kind === "connector" ? this.connector()
       : new this.T.Mesh(new this.T.BoxGeometry(0.1, 0.1, 0.1), standard(this.T, 0xcccccc));                                // (unknown kind: a plain box)
     this.scene.add(g);
     return g;
@@ -106,6 +152,18 @@ export class MissionView {
         const y = p.mode === "deck" ? 0.06 : -p.depth;
         g.position.set(p.x, y, -p.y);
         g.rotation.y = p.yaw;
+      } else if (p.type === "m_zone") {
+        if (!this.zone) { this.zone = this.buildZone(p); }
+        this.zone.position.set(p.x, -floorAt(p.x, -p.y), -p.y);
+      } else if (p.type === "m_observatory") {
+        if (!this.obs) this.obs = this.buildObservatory(p);
+        this.obs.position.set(p.x, -floorAt(p.x, -p.y), -p.y);
+      } else if (p.type === "m_cable") {
+        let line = this.cables.get(p.id);
+        if (!line) { line = this.buildCable(p); this.cables.set(p.id, line); }
+        const a = line.geometry.attributes.position, n = Math.min(p.pts.length, 160);
+        for (let i = 0; i < n; i++) { const q = p.pts[p.pts.length - n + i]; a.setXYZ(i, q[0], Math.max(q[2], -floorAt(q[0], -q[1]) + 0.012), -q[1]); }
+        a.needsUpdate = true; line.geometry.setDrawRange(0, n); line.material.color.setHex(p.taut ? 0xff3030 : p.id === "edna_cable" ? 0xf2c500 : 0xe03030);
       } else if (p.type === "m_iceberg") {
         if (!this.iceberg) this.iceberg = this.buildIceberg(p);
         this.iceberg.position.set(p.x, 0, -p.y);

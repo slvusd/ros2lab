@@ -19,9 +19,9 @@ function noseAt(rov, x, y, z, yaw = 0) { rov.yaw = yaw; rov.pitch = 0; rov.x = x
 
 test("the coral garden is in the pool: 2 basket stars, 2 corals and 2 crabs on the floor beside the transect, wall-relative", () => {
   const { rov, m, transect } = make();
-  const ids = m.items.filter((i) => i.home_pose).map((i) => i.id);                        // (the markers start on the deck)
+  const ids = m.items.filter((i) => i.home_pose && /^(star|coral|crab)/.test(i.id)).map((i) => i.id);
   assert.deepEqual(ids, ["star1", "star2", "coral1", "coral2", "crab1", "crab2"]);
-  for (const it of m.items.filter((i) => i.home_pose)) {
+  for (const it of m.items.filter((i) => i.home_pose && /^(star|coral|crab)/.test(i.id))) {
     assert.equal(it.mode, "floor"); assert.equal(it.depth, 3, "on the 3 m deep floor");
     assert.ok(Math.abs(it.y - at(0, 0)[1]) > 0.5 && Math.abs(it.y - at(0, 0)[1]) < 1.5, "beside the transect, not on it");
   }

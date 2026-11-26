@@ -102,9 +102,9 @@ test("a second delivered item gets the next deck slot; Reset puts carried and de
     rov.x = R[0] + 0.3; rov.y = (R[2] + R[3]) / 2; rov.depth = 0.35;
     m.deliver(rov);
   }
-  assert.notDeepEqual([a.x, a.y], [b.x, b.y]); assert.deepEqual([b.x, b.y], deckSlot(3));       // (slots 0 and 1: the markers)
+  assert.notDeepEqual([a.x, a.y], [b.x, b.y]); assert.deepEqual([b.x, b.y], deckSlot(5));       // (slots 0-3: the markers, the new sensor and the connector)
   rov.reset();
-  assert.equal(a.mode, "floor"); assert.equal(b.mode, "floor"); assert.equal(m.inventory().length, 2, "only the two markers are on the deck");
+  assert.equal(a.mode, "floor"); assert.equal(b.mode, "floor"); assert.equal(m.inventory().length, 4, "only the four deck-start things are on the deck");
 });
 
 test("without a mission nothing else is changed: a plain ROV has no mission prop", () => {

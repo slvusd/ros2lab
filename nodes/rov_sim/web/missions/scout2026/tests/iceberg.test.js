@@ -19,7 +19,7 @@ const atStairs = (rov) => { const R = stairsRect(); rov.x = R[0] + 0.3; rov.y = 
 
 test("the markers start on the deck: they are in the crew's inventory, not in the pool", () => {
   const { rov, m, marker } = make();
-  assert.deepEqual(m.inventory().map((i) => i.id), ["marker1", "marker2"]);
+  assert.ok(["marker1", "marker2"].every((id) => m.inventory().some((i) => i.id === id)));
   assert.equal(marker("marker1").mode, "deck"); assert.notDeepEqual([marker("marker1").x, marker("marker1").y], [marker("marker2").x, marker("marker2").y], "different deck slots");
   run(rov, 1);
   assert.equal(marker("marker1").mode, "deck");
@@ -73,5 +73,5 @@ test("Reset: markers back on the deck, points un-stuck, score zero", () => {
   rov.reset();
   assert.equal(m.board.total, 0); assert.equal(marker("marker1").mode, "deck"); assert.equal(marker("marker1").stuck_to, null);
   assert.equal(iceberg.points.every((p) => p.marker === null), true);
-  assert.equal(m.inventory().length, 2);
+  assert.equal(m.inventory().length, 4, "back to the four things on the deck at the start");
 });

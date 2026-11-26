@@ -4,7 +4,8 @@
 //   crab        : a 1 1/2" end cap (5 cm) with 30 cm pipe-cleaner legs and claws, about 30 cm across                                -> carry it by the legs (nose) or the cap (claw)
 // More (crab, markers, sensors, connectors ...) are added phase by phase. Every one is worth points only when it is on the deck (`scoreId`).
 import { Carryable } from "../common/carry.js";
-import { at, frame } from "./layout.js";
+import { at, frame, SPOTS } from "./layout.js";
+import { floorAt } from "../../sim/physics.js";
 
 export class BasketStar extends Carryable {
   static RADIUS = 0.075; static BODY_HIGH = 0.05;
@@ -77,6 +78,53 @@ export class Iceberg {
     }
   }
   state() { return { type: this.type, x: at(this.u, this.v)[0], y: at(this.u, this.v)[1], side: Iceberg.SIDE, leg: Iceberg.LEG, points: this.spots().map((s, k) => ({ x: s[0], y: s[1], z: s[2], marker: this.points[k].marker })) }; }
+}
+
+/** The eDNA sensors: a 20 cm 2" pipe on an H base (20 x 20 cm) with four 1/2" caps on top and a rope loop. The OLD one starts in the yellow square (bring it to the deck);
+ *  the NEW one starts on the deck (set it down upright inside the yellow square). */
+export class Sensor extends Carryable {
+  static RADIUS = 0.10; static BODY_HIGH = 0.20;
+  constructor(id, label, kind, scoreId, spot) {
+    super(id, kind, spot ? at(...spot)[0] : null, spot ? at(...spot)[1] : null, [{ id: "rope", up: 0.28, r: 0.09, kind: "loop" }, { id: "pipe", up: 0.14, r: 0.04, kind: "claw" }]);
+    this.label = label; this.scoreId = scoreId;
+  }
+}
+/** The eDNA sensor connector: a 1/2" PVC "T" (yellow crossbar 10 cm, white stem 20 cm). Hangs from its crossbar with the stem down; the stem's tip is its base. It starts on the deck;
+ *  inserted into the observatory's 3" port it stays. Its 2 m cable runs to the new sensor. */
+export class Connector extends Carryable {
+  static RADIUS = 0.04; static BODY_HIGH = 0.10;
+  constructor(id, label) {
+    super(id, "connector", null, null, [{ id: "handle", up: 0.21, r: 0.06, kind: "loop" }, { id: "stem", up: 0.10, r: 0.03, kind: "claw" }]);
+    this.label = label;
+  }
+}
+/** The yellow 0.50 m square the new sensor must stand in. */
+export class EdnaSquare {
+  static HALF = 0.25;
+  constructor(spot) { this.type = "m_zone"; this.spot = spot; }
+  centre() { return at(...this.spot); }
+  /** Is a 20 x 20 cm base centred at (x, y) completely inside the square? */
+  holds(x, y, half = 0.10) { const [cx, cy] = this.centre(); return Math.abs(x - cx) <= EdnaSquare.HALF - half + 0.01 && Math.abs(y - cy) <= EdnaSquare.HALF - half + 0.01; }
+  reset() {} step() {}
+  state() { const [x, y] = this.centre(); return { type: this.type, x, y, half: EdnaSquare.HALF }; }
+}
+/** The Holyrood observatory: a 1/2" ladder frame (30 x 20 cm) with a 20 cm vertical 3" pipe (the connection port, about 7.8 cm inside, black with an orange band). */
+export class Observatory {
+  static PORT_RADIUS = 0.035; static PORT_HEIGHT = 0.20; static DEPTH = 0.12;       // the stem must be this deep in the port (its tip within DEPTH of the floor)
+  constructor(spot) { this.type = "m_observatory"; this.spot = spot; this.connector = null; }
+  port() { return at(...this.spot); }
+  reset() { this.connector = null; }
+  /** A carried connector with its stem tip over the port and lowered into it is inserted for good. */
+  step(rov, dt, connector) {
+    if (!connector || connector.stuck_to || connector.mode !== "held") return;
+    const [px, py] = this.port();
+    const lowered = connector.depth >= (floorAt(px, py) ?? 3) - Observatory.DEPTH;
+    if (Math.hypot(connector.x - px, connector.y - py) <= Observatory.PORT_RADIUS && lowered) {
+      this.connector = connector.id; connector.stuck_to = "port";
+      connector.x = px; connector.y = py; connector.depth = floorAt(px, py) ?? 3; connector.supported = true;
+    }
+  }
+  state() { const [x, y] = this.port(); return { type: this.type, x, y, port_height: Observatory.PORT_HEIGHT, connector: this.connector }; }
 }
 
 /** The transect: a 3.1 m "I" of 1/2" PVC on the floor, running out from the wall (0.5 m to 3.6 m). Flying along it, staying over it from one end to the other, scores. */
