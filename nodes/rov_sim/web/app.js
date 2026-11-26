@@ -712,7 +712,6 @@ let lastMsg = 0;
   if (!f.imu) hide(".imu");
   if (!f.rings) hide("#help-ring");
   if (!f.current) hide("#help-jets");
-  if (!backend.growPool) hide("#help-grow");
   if (!f.claw) { hide("#help-claw"); const t = $("help-tool"); if (t) t.textContent = "B buoyancy   V reset view (or double-click)"; }
   if (!f.claw) { const c = $("claw"); if (c && !f.rings) c.parentElement.style.display = "none"; }
 }
@@ -842,10 +841,10 @@ function sendCommand() {
 }
 window.addEventListener("keydown", (e) => {
   if (document.getElementById("configui")) return;                    // the ?config panel is open: typing in it must not drive the ROV
-  if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && (e.code === "Comma" || e.code === "Period" || e.code === "Slash")) {      // Ctrl + , . /  : the pool grows (never shrinks), the ROV stays where it is
+  if (e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && (e.code === "KeyL" || e.code === "KeyW" || e.code === "KeyD" || e.code === "Period")) {      // Ctrl + L / W / D (Ctrl + . also widens): the pool grows (never shrinks), the ROV stays where it is
     e.preventDefault();
     if (e.repeat || !backend.growPool || document.getElementById("configui")) return;
-    const what = { Comma: "length", Period: "width", Slash: "depth" }[e.code], r = backend.growPool(what);
+    const what = { KeyL: "length", KeyW: "width", Period: "width", KeyD: "depth" }[e.code], r = backend.growPool(what);
     if (r) { userMoved = false; toast(`Pool: ${poolSizeText(r[0], r[1])}, ${r[2]} m deep`); } else toast(`The pool cannot get any ${what === "depth" ? "deeper" : what === "length" ? "longer" : "wider"}`);
     return;
   }
