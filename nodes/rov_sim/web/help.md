@@ -74,7 +74,7 @@ is lost again). When the time is up the ROV stops, and the final score shows unt
 | 3.1 Wind farm | lift the power connector off its stand (10); its wire between the four waypoint posts (10); its Velcro tip in the oil platform port (10) | 30 |
 
 **Everything can be done with just the nose** (the tool normally selected); the claw works too where you choose it (**T**). To pick something up, hold the **nose tip inside its loop, hook or branches** for a moment: it hooks on
-and then **hangs from the nose** (so a connector hangs with its tip pointing down, ready to be lowered into a port). To put something down, lower it until it rests and **back the nose away**: it slides off. With the claw,
+and then **hangs from the nose** (so a connector hangs with its tip pointing down, ready to be lowered into a port). To put something down, lower it until it rests and **back the nose away**: it slides off. **`G` away from the stairs lets go** of what the nose carries (it sinks from where it is, and cannot be picked up again for 2 seconds); the nose can only carry one thing at a time, and the page says so when it is busy. With the claw,
 open it around the loop or pipe and close it.
 
 **The deck is the stairs.** Carry things to the stairs (the ROV has to be near the top step, close to the surface) and press **`G`**: the crew takes what the ROV carries and sets it on the deck table beside the stairs, which scores it.

@@ -40,6 +40,7 @@ export class Carryable extends Pushable {
   static SINK = 0.15;                                                          // m/s: how fast it sinks once nothing holds it up
   static CATCH_DWELL = 0.2;                                                    // s the nose tip must stay in a catch point to hook it
   static RELEASE = 0.14;                                                       // m the nose tip may drift from where the item rests before it slides off
+  static COOLDOWN = 2.0;                                                       // s after being let go before it can be hooked again (or it would jump straight back on)
   static SUPPORT_SNAP = 0.01;                                                  // m: within this of the floor it counts as resting on it
 
   /** id: unique name ("star1"); kind: what the page draws; catches: [{ id, up, r, kind }]; (x, y): where it starts on the floor (mode "floor"), or null to start on the deck. */
@@ -70,7 +71,7 @@ export class Carryable extends Pushable {
     this.pushed = false;
     this.held = null;                                                          // null | "nose" | "claw"
     this.supported = false;
-    this.dwell = 0.0; this.prev_claw = 0.0;
+    this.dwell = 0.0; this.prev_claw = 0.0; this.cooldown = 0.0;
     this.rel = [0, 0, 0, 0]; this.hang_yaw = 0.0;
     this.rested_at = [this.x, this.y];
     this.depth = this.home_pose ? this._floor_here() : 0.0;                    // the depth of its BASE (on the floor: the floor's depth)
@@ -113,6 +114,7 @@ export class Carryable extends Pushable {
 
   _catch(rov, dt) {
     const C = Carryable;
+    if (this.cooldown > 0) { this.cooldown -= dt; this.dwell = 0.0; this.prev_claw = rov.claw; return; }
     if (rov.mission_carry) { this.dwell = 0.0; this.prev_claw = rov.claw; return; }                // the ROV has its hands full
     if (rov.tool === "nose") {
       const tip = noseTip(rov);
@@ -143,7 +145,7 @@ export class Carryable extends Pushable {
   release(rov) {
     if (this.held === "claw" && rov.claw_holder === this) rov.claw_holder = null;
     if (rov.mission_carry === this) rov.mission_carry = null;
-    this.held = null; this.mode = this.stuck_to ? "stuck" : "sink"; this.supported = false;
+    this.held = null; this.mode = this.stuck_to ? "stuck" : "sink"; this.supported = false; this.cooldown = Carryable.COOLDOWN;
     this.rested_at = [this.x, this.y];
     this.pvx = this.pvy = this.pw = 0.0;
   }

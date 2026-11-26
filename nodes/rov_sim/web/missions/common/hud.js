@@ -22,7 +22,7 @@ export function setupMissionHud({ backend, toast }) {
   const style = document.createElement("style"); style.textContent = CSS; document.head.appendChild(style);
   const panel = document.createElement("div"); panel.id = "mission"; panel.setAttribute("aria-label", "Mission score board and clock");
   panel.innerHTML = `<div class="top"><span class="clock" id="mclock">10:00</span><span class="score" id="mscore">0 / 0</span></div><div class="state" id="mstate"></div><div id="mlist"></div>
-    <div class="hint">G: crew takes what the ROV carries (at the stairs) &nbsp; Tab: inventory</div>`;
+    <div class="hint">G: at the stairs the crew takes what the ROV carries; anywhere else it lets go of it &nbsp; Tab: inventory</div>`;
   document.body.appendChild(panel);
   const inv = document.createElement("div"); inv.id = "minv";
   inv.innerHTML = `<div class="box" role="dialog" aria-label="Inventory"><h2>Inventory</h2><div class="sub" id="minvsub"></div><div id="minvlist"></div><div class="sub" style="margin-top:8px">&uarr; &darr; choose, Enter gives it to the ROV, Esc or Tab closes</div></div>`;
@@ -45,7 +45,7 @@ export function setupMissionHud({ backend, toast }) {
     const c = st.clock;
     $("mclock").textContent = c.text;
     $("mclock").className = "clock" + (c.state === "over" ? " over" : c.state === "running" && c.remaining <= 30 ? " red" : c.state === "running" && c.remaining <= 120 ? " amber" : "");
-    $("mstate").textContent = c.state === "ready" ? "Ready: the clock starts when the ROV moves" : c.state === "over" ? "TIME IS UP. Press Reset to try again." : st.carrying ? `Carrying: ${st.carrying}` : "";
+    $("mstate").textContent = c.state === "ready" ? "Ready: the clock starts when the ROV moves" : c.state === "over" ? "TIME IS UP. Press Reset to try again." : st.carrying ? `Carrying: ${st.carrying}  (G lets go)` : "";
   };
 
   const drawInv = () => {

@@ -72,8 +72,7 @@ test("the stairs: the crew takes what the ROV carries (only at the stairs) and h
   run(rov, 0.6);
   assert.equal(item.held, "nose");
   assert.equal(atStairs(rov), false);
-  m.deliver(rov);
-  assert.match(m.msg.text, /stairs/); assert.equal(item.mode, "held", "still on the ROV");
+  assert.equal(item.held, "nose");
   // carry it to the stairs
   rov.x = R[0] + 0.3; rov.y = (R[2] + R[3]) / 2; rov.depth = 0.35; rov.u = rov.v = rov.w = 0;
   run(rov, 1);
@@ -113,4 +112,21 @@ test("without a mission nothing else is changed: a plain ROV has no mission prop
   assert.equal(rov.props.some((p) => p.type === "mission"), false);
   assert.equal(rov.start_pose, undefined);
   assert.equal(rov.x, -1.5);
+});
+
+test("G away from the stairs lets go of what the nose carries (so the nose is free again); the nose says when it is busy", () => {
+  const { rov, m } = make();
+  const a = m.addItem(new Carryable("a", "box", at(3, -1)[0], at(3, -1)[1], [{ id: "l", up: 0.12, r: 0.06, kind: "loop" }]));
+  const b = m.addItem(new Carryable("b", "box", at(3, 0.5)[0], at(3, 0.5)[1], [{ id: "l", up: 0.12, r: 0.06, kind: "loop" }]));
+  const tipAt = (x, y, z) => { rov.yaw = 0; rov.pitch = 0; rov.x = x - 0.485; rov.y = y; rov.depth = -z - 0.195; rov.u = rov.v = rov.w = 0; };
+  for (let i = 0; i < 40; i++) { tipAt(a.x, a.y, -a.depth + 0.12); rov.step(DT); }
+  assert.equal(a.held, "nose");
+  for (let i = 0; i < 90; i++) { tipAt(a.x, a.y, -a.depth + 0.4); rov.step(DT); }                // lift it a little
+  for (let i = 0; i < 100; i++) { tipAt(b.x, b.y, -b.depth + 0.12); rov.step(DT); }              // now at the other one: the nose is busy
+  assert.equal(b.held, null, "it cannot take a second thing");
+  assert.match(m.msg.text, /press G/);
+  m.deliver(rov);
+  assert.match(m.msg.text, /Let go/); assert.equal(rov.mission_carry, null); assert.equal(a.held, null);
+  for (let i = 0; i < 40; i++) { tipAt(b.x, b.y, -b.depth + 0.12); rov.step(DT); }
+  assert.equal(b.held, "nose", "the nose is free again");
 });

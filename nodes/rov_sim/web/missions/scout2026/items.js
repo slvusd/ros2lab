@@ -11,7 +11,7 @@ export class BasketStar extends Carryable {
   static RADIUS = 0.075; static BODY_HIGH = 0.05;
   constructor(id, label, scoreId, u, v, yaw = 0) {
     const [x, y] = at(u, v);
-    super(id, "basket_star", x, y, [{ id: "ball", up: 0.08, r: 0.07, kind: "lattice" }, { id: "h", up: 0.015, r: 0.05, kind: "claw" }], yaw);
+    super(id, "basket_star", x, y, [{ id: "ball", up: 0.08, r: 0.08, kind: "lattice" }, { id: "h", up: 0.015, r: 0.05, kind: "claw" }], yaw);
     this.label = label; this.scoreId = scoreId;
   }
 }
@@ -19,7 +19,7 @@ export class Coral extends Carryable {
   static RADIUS = 0.05; static BODY_HIGH = 0.10;
   constructor(id, label, scoreId, u, v, yaw = 0) {
     const [x, y] = at(u, v);
-    super(id, "coral", x, y, [{ id: "branches", up: 0.20, r: 0.08, kind: "branch" }, { id: "tee", up: 0.03, r: 0.04, kind: "claw" }], yaw);
+    super(id, "coral", x, y, [{ id: "branches", up: 0.18, r: 0.11, kind: "branch" }, { id: "tee", up: 0.03, r: 0.04, kind: "claw" }], yaw);
     this.label = label; this.scoreId = scoreId;
   }
 }
@@ -28,7 +28,7 @@ export class MissionCrab extends Carryable {
   static RADIUS = 0.07; static BODY_HIGH = 0.04;
   constructor(id, label, scoreId, u, v, yaw = 0) {
     const [x, y] = at(u, v);
-    super(id, "crab", x, y, [{ id: "legs", up: 0.04, r: 0.09, kind: "branch" }, { id: "cap", up: 0.02, r: 0.04, kind: "claw" }], yaw);
+    super(id, "crab", x, y, [{ id: "legs", up: 0.05, r: 0.12, kind: "branch" }, { id: "cap", up: 0.02, r: 0.04, kind: "claw" }], yaw);
     this.label = label; this.scoreId = scoreId;
   }
 }
@@ -38,7 +38,7 @@ export class MissionCrab extends Carryable {
 export class Marker extends Carryable {
   static RADIUS = 0.05; static BODY_HIGH = 0.12; static CONTACT_UP = 0.015;
   constructor(id, label) {
-    super(id, "marker", null, null, [{ id: "rope", up: 0.20, r: 0.07, kind: "loop" }, { id: "pipe", up: 0.07, r: 0.03, kind: "claw" }]);
+    super(id, "marker", null, null, [{ id: "rope", up: 0.20, r: 0.09, kind: "loop" }, { id: "pipe", up: 0.07, r: 0.03, kind: "claw" }]);
     this.label = label;
   }
   /** World [x, y, z up] of the Velcro patch (the middle of the cap). */
@@ -85,7 +85,7 @@ export class Iceberg {
 export class Sensor extends Carryable {
   static RADIUS = 0.10; static BODY_HIGH = 0.20;
   constructor(id, label, kind, scoreId, spot) {
-    super(id, kind, spot ? at(...spot)[0] : null, spot ? at(...spot)[1] : null, [{ id: "rope", up: 0.28, r: 0.09, kind: "loop" }, { id: "pipe", up: 0.14, r: 0.04, kind: "claw" }]);
+    super(id, kind, spot ? at(...spot)[0] : null, spot ? at(...spot)[1] : null, [{ id: "rope", up: 0.28, r: 0.11, kind: "loop" }, { id: "pipe", up: 0.14, r: 0.04, kind: "claw" }]);
     this.label = label; this.scoreId = scoreId;
   }
 }
@@ -94,7 +94,7 @@ export class Sensor extends Carryable {
 export class Connector extends Carryable {
   static RADIUS = 0.04; static BODY_HIGH = 0.10;
   constructor(id, label) {
-    super(id, "connector", null, null, [{ id: "handle", up: 0.21, r: 0.06, kind: "loop" }, { id: "stem", up: 0.10, r: 0.03, kind: "claw" }]);
+    super(id, "connector", null, null, [{ id: "handle", up: 0.21, r: 0.08, kind: "loop" }, { id: "stem", up: 0.10, r: 0.03, kind: "claw" }]);
     this.label = label;
   }
 }
@@ -143,7 +143,7 @@ export class PowerConnector extends Carryable {
   static RADIUS = 0.05; static BODY_HIGH = 0.08;
   constructor(id, label, stand) {
     const [x, y] = stand.centre();
-    super(id, "power_connector", x, y, [{ id: "hook", up: 0.17, r: 0.06, kind: "loop" }, { id: "pipe", up: 0.08, r: 0.03, kind: "claw" }]);
+    super(id, "power_connector", x, y, [{ id: "hook", up: 0.17, r: 0.08, kind: "loop" }, { id: "pipe", up: 0.08, r: 0.03, kind: "claw" }]);
     this.label = label; this.stand = stand;
     this.reset();
   }

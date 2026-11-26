@@ -5,7 +5,7 @@
 // The physical tasks and their points are the manual's (task 1.1 ... 3.1); the paper tasks and the float are not part of this version. See the plan in the repo history.
 import { RunClock } from "../common/clock.js";
 import { ScoreBoard } from "../common/board.js";
-import { Carryable } from "../common/carry.js";
+import { Carryable, noseTip } from "../common/carry.js";
 import { RUN_SECONDS, atStairs, deckRect, deckSlot, startPose } from "./layout.js";
 import { BasketStar, Connector, Coral, EdnaSquare, Iceberg, Marker, MissionCrab, Observatory, OilPort, PowerConnector, Sensor, Stand, Transect, Waypoint } from "./items.js";
 import { floorAt } from "../../sim/physics.js";
@@ -57,7 +57,18 @@ export class Mission {
       rov.claw_target = rov.claw;
     }
     for (const j of this.judges) j(this, rov);
+    this._busyHint(rov, dt);
     if (!this.done && this.board.total === this.board.max) { this.done = true; this.say(`All tasks done! ${this.board.total} points, ${this.clock.text()} left on the clock`); }
+  }
+
+  /** The nose is right in something's catch point while it is already carrying another thing: tell the student how to let go. */
+  _busyHint(rov, dt) {
+    const carried = rov.mission_carry;
+    if (!carried || rov.tool !== "nose") { this.busy_t = 0; return; }
+    const tip = noseTip(rov);
+    const near = this.items.some((i) => i !== carried && (i.mode === "floor" || i.mode === "sink") && i.catches.some((c) => c.kind !== "claw" && Math.hypot(tip[0] - i.x, tip[1] - i.y, tip[2] + i.depth - c.up) < c.r));
+    this.busy_t = near ? (this.busy_t ?? 0) + dt : 0;
+    if (this.busy_t > 0.6 && (this.busy_say ?? -99) < this.clock.elapsed - 6) { this.busy_say = this.clock.elapsed; this.say(`The nose is busy with ${carried.label ?? carried.id}: press G to let go of it`); }
   }
 
   /** Set a scored item (true = earned, false = lost again) with the clock's time; announces what changed. */
@@ -75,7 +86,11 @@ export class Mission {
     if (this.locked) return "";
     const item = rov.mission_carry;
     if (!item) { this.say("Nothing on the ROV to hand over"); return this.msg.text; }
-    if (!atStairs(rov)) { this.say("Bring it to the stairs first"); return this.msg.text; }
+    if (!atStairs(rov)) {                                                    // not at the stairs: G just lets go of it (it sinks from where it is)
+      item.release(rov);
+      this.say(`Let go of ${item.label ?? item.id} (at the stairs, G hands it to the crew)`);
+      return this.msg.text;
+    }
     const used = new Set(this.items.filter((i) => i.mode === "deck" && i.slot).map((i) => i.slot.join()));
     let k = 0, slot;
     while ((slot = deckSlot(k)) && used.has(slot.join())) k++;
