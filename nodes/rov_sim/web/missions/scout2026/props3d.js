@@ -4,7 +4,7 @@ import { PVC_R, pipe, standard } from "../common/view3d.js";
 
 export class MissionView {
   constructor(scene, THREE) {
-    this.scene = scene; this.T = THREE; this.items = new Map(); this.transect = null; this.deck = null;
+    this.scene = scene; this.T = THREE; this.items = new Map(); this.transect = null; this.iceberg = null; this.deck = null;
     this.white = standard(THREE, 0xf2f2ec); this.glow = new THREE.MeshStandardMaterial({ color: 0x31d46b, emissive: 0x0a4a22, roughness: 0.5 });
   }
 
@@ -49,8 +49,30 @@ export class MissionView {
     for (const side of [-1, 1]) { const eye = new T.Mesh(new T.SphereGeometry(0.005, 6, 5), legs); eye.position.set(0.022, 0.045, side * 0.012); g.add(eye); }
     return g;
   }
+  marker() {
+    const T = this.T, g = new T.Group(), w = this.white;
+    const disc = new T.Mesh(new T.CylinderGeometry(0.045, 0.045, 0.01, 20), standard(T, 0x6d6d6d)); disc.position.y = 0.005; g.add(disc);        // the 3" knockout cap
+    const patch = new T.Mesh(new T.BoxGeometry(0.025, 0.004, 0.025), standard(T, 0x111111)); patch.position.y = 0.012; g.add(patch);               // Velcro loops
+    g.add(pipe(T, [0, 0.01, 0], [0, 0.11, 0], PVC_R, w));                                                                                           // the 10 cm pipe
+    const rope = new T.Mesh(new T.TorusGeometry(0.05, 0.003, 6, 20), standard(T, 0x2f6fe0, 0.9)); rope.position.y = 0.16; g.add(rope);              // the rope loop
+    return g;
+  }
+  buildIceberg(p) {
+    const T = this.T, g = new T.Group(), w = this.white, h = p.side / 2;
+    const corners = [[-h, -h], [h, -h], [h, h], [-h, h]];
+    for (let i = 0; i < 4; i++) { const a = corners[i], b = corners[(i + 1) % 4]; g.add(pipe(T, [a[0], -0.01, a[1]], [b[0], -0.01, b[1]], PVC_R, w)); }       // the square frame
+    const wrap = new T.Mesh(new T.BoxGeometry(p.side, 0.004, p.side), new T.MeshStandardMaterial({ color: 0xcfeaff, transparent: true, opacity: 0.45, roughness: 0.2 }));
+    wrap.position.y = -0.005; g.add(wrap);                                                                                                         // bubble wrap on top
+    for (const [lx, lz] of [[h, -h], [-h, h]]) {                                                                                                   // two 25 cm legs; Velcro hooks on their lower ends
+      g.add(pipe(T, [lx, -0.01, lz], [lx, -p.leg, lz], PVC_R, w));
+      g.add(pipe(T, [lx, -p.leg + 0.05, lz], [lx, -p.leg, lz], PVC_R * 1.5, standard(T, 0x222222, 0.9)));
+    }
+    g.add(pipe(T, [-h, -0.01, -h], [-h, -0.01, -h - 1.2], PVC_R, w));                                                                              // the pole from the wall (it ends at the corner)
+    this.scene.add(g);
+    return g;
+  }
   build(p) {
-    const g = p.kind === "basket_star" ? this.basketStar() : p.kind === "coral" ? this.coral(p.id) : p.kind === "crab" ? this.crab()
+    const g = p.kind === "basket_star" ? this.basketStar() : p.kind === "coral" ? this.coral(p.id) : p.kind === "crab" ? this.crab() : p.kind === "marker" ? this.marker()
       : new this.T.Mesh(new this.T.BoxGeometry(0.1, 0.1, 0.1), standard(this.T, 0xcccccc));                                // (unknown kind: a plain box)
     this.scene.add(g);
     return g;
@@ -84,6 +106,9 @@ export class MissionView {
         const y = p.mode === "deck" ? 0.06 : -p.depth;
         g.position.set(p.x, y, -p.y);
         g.rotation.y = p.yaw;
+      } else if (p.type === "m_iceberg") {
+        if (!this.iceberg) this.iceberg = this.buildIceberg(p);
+        this.iceberg.position.set(p.x, 0, -p.y);
       } else if (p.type === "m_transect") {
         if (!this.transect) { this.transect = this.buildTransect(p, floorAt(p.a[0], -p.a[1])); this.transectFloor = null; }
         this.transect.position.y = -(floorAt(p.a[0], -p.a[1]));

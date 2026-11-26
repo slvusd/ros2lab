@@ -66,6 +66,7 @@ test("the stairs: the crew takes what the ROV carries (only at the stairs) and h
   item.label = "Test box";
   const R = stairsRect();
   assert.ok(R && deckSlot(0)[1] > R[3], "the deck slots are beside the stairs, on the deck");
+  const slotBase = m.items.filter((i) => i.mode === "deck").length;                  // (the two survey markers already sit on the deck)
   // hook it far from the stairs
   rov.yaw = 0; rov.pitch = 0; rov.x = item.x - 0.485; rov.y = item.y; rov.depth = item.depth - 0.12 - 0.195;
   run(rov, 0.6);
@@ -78,12 +79,12 @@ test("the stairs: the crew takes what the ROV carries (only at the stairs) and h
   run(rov, 1);
   assert.equal(atStairs(rov), true); assert.equal(item.held, "nose");
   m.deliver(rov);
-  assert.equal(item.mode, "deck"); assert.equal(rov.mission_carry, null); assert.deepEqual([item.x, item.y], deckSlot(0));
-  assert.deepEqual(m.inventory(), [{ id: "box", kind: "box", label: "Test box" }]);
-  assert.equal(m.state().inventory.length, 1);
+  assert.equal(item.mode, "deck"); assert.equal(rov.mission_carry, null); assert.deepEqual([item.x, item.y], deckSlot(slotBase));
+  assert.ok(m.inventory().some((i) => i.id === "box" && i.label === "Test box"));
+  assert.equal(m.state().inventory.length, slotBase + 1);
   // give it back
   assert.equal(m.give(rov, "box"), true);
-  assert.equal(item.held, "nose"); assert.equal(m.inventory().length, 0);
+  assert.equal(item.held, "nose"); assert.equal(m.inventory().length, slotBase);
   assert.equal(m.give(rov, "box"), false, "it is on the ROV now");
   m.deliver(rov);
   rov.x = at(3, 0)[0]; rov.y = 0;
@@ -101,9 +102,9 @@ test("a second delivered item gets the next deck slot; Reset puts carried and de
     rov.x = R[0] + 0.3; rov.y = (R[2] + R[3]) / 2; rov.depth = 0.35;
     m.deliver(rov);
   }
-  assert.notDeepEqual([a.x, a.y], [b.x, b.y]); assert.deepEqual([b.x, b.y], deckSlot(1));
+  assert.notDeepEqual([a.x, a.y], [b.x, b.y]); assert.deepEqual([b.x, b.y], deckSlot(3));       // (slots 0 and 1: the markers)
   rov.reset();
-  assert.equal(a.mode, "floor"); assert.equal(b.mode, "floor"); assert.equal(m.inventory().length, 0);
+  assert.equal(a.mode, "floor"); assert.equal(b.mode, "floor"); assert.equal(m.inventory().length, 2, "only the two markers are on the deck");
 });
 
 test("without a mission nothing else is changed: a plain ROV has no mission prop", () => {

@@ -7,7 +7,7 @@ import { RunClock } from "../common/clock.js";
 import { ScoreBoard } from "../common/board.js";
 import { Carryable } from "../common/carry.js";
 import { RUN_SECONDS, atStairs, deckRect, deckSlot, startPose } from "./layout.js";
-import { BasketStar, Coral, MissionCrab, Transect } from "./items.js";
+import { BasketStar, Coral, Iceberg, Marker, MissionCrab, Transect } from "./items.js";
 
 /** The 17 scored items (125 points): [id, label, points, group]. */
 export const SCORED = [
@@ -103,7 +103,11 @@ export function addTo(rov) {
   rov.start_pose = startPose();
   rov.props.push(m);
   rov.mission = m;
-  m.addItem = (item) => { m.items.push(item); rov.props.push(item); return item; };
+  m.addItem = (item) => {
+    m.items.push(item); rov.props.push(item);
+    if (!item.home_pose) { item.start_slot = deckSlot(m.items.filter((i) => !i.home_pose).length - 1); item.reset(); }       // deck-start props begin in the crew's inventory
+    return item;
+  };
   // task 1: the coral garden (positions are wall-relative: u out from the wall, v to the left)
   m.addItem(new BasketStar("star1", "Basket star 1", "star1", 1.6, 0.9, 0.3));
   m.addItem(new BasketStar("star2", "Basket star 2", "star2", 2.9, -1.0, -0.4));
@@ -112,6 +116,11 @@ export function addTo(rov) {
   // task 2.1: two invasive European green crabs
   m.addItem(new MissionCrab("crab1", "Green crab 1", "crab1", 1.2, -0.9, 0.5));
   m.addItem(new MissionCrab("crab2", "Green crab 2", "crab2", 3.4, 0.9, -0.6));
+  // task 2.2: the iceberg at the surface and two survey markers (they start on the deck: ask the crew for them with Tab at the stairs)
+  const iceberg = new Iceberg(1.0, -2.3);
+  rov.props.push(iceberg);
+  const markers = [m.addItem(new Marker("marker1", "Survey marker 1")), m.addItem(new Marker("marker2", "Survey marker 2"))];
+  m.judges.push((mm, r) => { iceberg.step(r, 0, markers); iceberg.points.forEach((p) => mm.score(p.scoreId, !!p.marker)); });
   const transect = new Transect(0.5);
   rov.props.push(transect);
   m.judges.push((mm) => { if (transect.done) mm.score("transect", true); });

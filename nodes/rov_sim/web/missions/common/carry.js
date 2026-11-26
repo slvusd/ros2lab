@@ -74,7 +74,9 @@ export class Carryable extends Pushable {
     this.rel = [0, 0, 0, 0]; this.hang_yaw = 0.0;
     this.rested_at = [this.x, this.y];
     this.depth = this.home_pose ? this._floor_here() : 0.0;                    // the depth of its BASE (on the floor: the floor's depth)
-    this.slot = null;                                                          // where it sits on the deck: [x, y], set by the mission
+    this.stuck_to = null;                                                      // stuck (Velcro) to something that holds it for good, e.g. "icebergA"
+    this.slot = this.start_slot ?? null;                                       // where it sits on the deck: [x, y], set by the mission (deck-start props begin there)
+    if (!this.home_pose && this.slot) [this.x, this.y] = this.slot;
   }
 
   _floor_here() { return floorAt(this.x, this.y) ?? POOL_MAX_DEPTH; }
@@ -84,7 +86,7 @@ export class Carryable extends Pushable {
 
   // ------------------------------------------------------------------ per step
   step(rov, dt) {
-    if (this.mode === "deck") return;
+    if (this.mode === "deck" || this.mode === "stuck") return;
     if (this.held) { this._follow(rov, dt); return; }
     this._catch(rov, dt);
     if (this.held) return;
@@ -139,7 +141,7 @@ export class Carryable extends Pushable {
   release(rov) {
     if (this.held === "claw" && rov.claw_holder === this) rov.claw_holder = null;
     if (rov.mission_carry === this) rov.mission_carry = null;
-    this.held = null; this.mode = "sink"; this.supported = false;
+    this.held = null; this.mode = this.stuck_to ? "stuck" : "sink"; this.supported = false;
     this.rested_at = [this.x, this.y];
     this.pvx = this.pvy = this.pw = 0.0;
   }
@@ -156,6 +158,10 @@ export class Carryable extends Pushable {
     }
     const tip = noseTip(rov), floor = this._floor_here();
     const want = -(tip[2] - up);                                                // the base's depth if it just hangs from the tip
+    if (this.stuck_to) {                                                        // stuck to something: it stays; the nose slides off when it backs away
+      if (dist3(tip, [this.x, this.y, -this.depth + up]) > Carryable.RELEASE) this.release(rov);
+      return;
+    }
     if (this.supported) {                                                       // resting on something: it stays
       if (want < this.depth - Carryable.SUPPORT_SNAP) this.supported = false;  // the nose rises: it is lifted again
       else {

@@ -32,6 +32,53 @@ export class MissionCrab extends Carryable {
   }
 }
 
+/** A survey marker: a 3" knockout cap (the Velcro loop patch) on a 10 cm pipe with a 20 cm rope loop. It starts on the deck. Carried by the rope (nose) or the pipe (claw);
+ *  pressed against a survey point of the iceberg it sticks for good. */
+export class Marker extends Carryable {
+  static RADIUS = 0.05; static BODY_HIGH = 0.12; static CONTACT_UP = 0.015;
+  constructor(id, label) {
+    super(id, "marker", null, null, [{ id: "rope", up: 0.20, r: 0.07, kind: "loop" }, { id: "pipe", up: 0.07, r: 0.03, kind: "claw" }]);
+    this.label = label;
+  }
+  /** World [x, y, z up] of the Velcro patch (the middle of the cap). */
+  contact() { return [this.x, this.y, -this.depth + Marker.CONTACT_UP]; }
+}
+
+/** The iceberg: a 55 cm square of 1/2" PVC floating at the surface on a pole from the wall, two 25 cm legs at opposite corners; the lower ends of the legs carry Velcro hooks
+ *  (the survey points, about 20 cm below the surface). */
+export class Iceberg {
+  static SIDE = 0.55; static LEG = 0.25; static POINT_DEPTH = 0.20; static REACH = 0.07;       // REACH: how close a marker's Velcro must get to stick
+  constructor(u, v) {
+    this.type = "m_iceberg";
+    this.u = u; this.v = v;
+    this.points = ["A", "B"].map((n, k) => ({ id: "ice" + n, scoreId: k === 0 ? "marker1" : "marker2", marker: null }));
+    this.reset();
+  }
+  /** The survey points in world coordinates [x, y, z up]. */
+  spots() {
+    const [cx, cy] = at(this.u, this.v), h = Iceberg.SIDE / 2;
+    return [[cx + h, cy + h, -Iceberg.POINT_DEPTH], [cx - h, cy - h, -Iceberg.POINT_DEPTH]];
+  }
+  reset() { for (const p of this.points) p.marker = null; }
+  /** A marker that is carried and touches a free survey point sticks to it. `markers`: the Marker items. */
+  step(rov, dt, markers = []) {
+    const spots = this.spots();
+    for (const m of markers) {
+      if (m.mode !== "held" || m.stuck_to) continue;
+      const c = m.contact();
+      this.points.forEach((p, k) => {
+        if (p.marker || m.stuck_to) return;
+        const d = Math.hypot(c[0] - spots[k][0], c[1] - spots[k][1], c[2] - spots[k][2]);
+        if (d <= Iceberg.REACH) {                                           // Velcro on contact: the marker is stuck to the leg's hooks for good
+          p.marker = m.id; m.stuck_to = p.id;
+          m.x = spots[k][0]; m.y = spots[k][1]; m.depth = -(spots[k][2] - Marker.CONTACT_UP); m.supported = true;
+        }
+      });
+    }
+  }
+  state() { return { type: this.type, x: at(this.u, this.v)[0], y: at(this.u, this.v)[1], side: Iceberg.SIDE, leg: Iceberg.LEG, points: this.spots().map((s, k) => ({ x: s[0], y: s[1], z: s[2], marker: this.points[k].marker })) }; }
+}
+
 /** The transect: a 3.1 m "I" of 1/2" PVC on the floor, running out from the wall (0.5 m to 3.6 m). Flying along it, staying over it from one end to the other, scores. */
 export class Transect {
   static LENGTH = 3.1; static HALF_WIDTH = 0.27;                            // the ROV is about 0.5 m wide: its plan view must overlap the pipe
