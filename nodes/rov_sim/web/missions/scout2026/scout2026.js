@@ -35,7 +35,7 @@ export class Mission {
     this.items = [];                                           // the carryable props (also in rov.props, so the sim steps them)
     this.judges = [];                                          // functions (mission, rov) that set the board each step: one per task, added by the props
     this.resetters = [];                                       // functions that put the judges' own memory back on Reset
-    this.locked = false;
+    this.locked = false; this.done = false;
     this.msg = { n: 0, text: "" };
     this.rov = rov;
   }
@@ -43,7 +43,7 @@ export class Mission {
     this.rov.mission_carry = null;
     this.clock.reset(); this.board.reset();
     for (const f of this.resetters || []) f();
-    this.locked = false;
+    this.locked = false; this.done = false;
     this.msg = { n: this.msg.n + 1, text: "" };
   }
   say(text) { this.msg = { n: this.msg.n + 1, text }; }
@@ -57,6 +57,7 @@ export class Mission {
       rov.claw_target = rov.claw;
     }
     for (const j of this.judges) j(this, rov);
+    if (!this.done && this.board.total === this.board.max) { this.done = true; this.say(`All tasks done! ${this.board.total} points, ${this.clock.text()} left on the clock`); }
   }
 
   /** Set a scored item (true = earned, false = lost again) with the clock's time; announces what changed. */

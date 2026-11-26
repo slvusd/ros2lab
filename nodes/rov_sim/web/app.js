@@ -1304,10 +1304,10 @@ if (new URLSearchParams(location.search).has("selftest")) {
   (async () => {
     await wait(1500);
     if (!lastMsg) return fail("no state from the sim");
-    const x0 = state.x;
+    const x0 = state.x, y0 = state.y;
     backend.cmd({ t1: 0.8, t2: 0.8, t3: 0, t4: 0, claw: 0 });
     await wait(2500);
-    if (!(state.x > x0 + 0.08)) return fail(`did not drive forward (${x0.toFixed(2)} -> ${state.x.toFixed(2)})`);
+    if (!(Math.hypot(state.x - x0, state.y - y0) > 0.08)) return fail(`did not drive forward (${x0.toFixed(2)} -> ${state.x.toFixed(2)})`);        // (a mission starts the ROV facing the other way)
     const d1 = state.depth;
     backend.cmd({ t1: 0, t2: 0, t3: -0.8, t4: -0.8, claw: 0 });
     await wait(2500);
@@ -1337,11 +1337,11 @@ if (new URLSearchParams(location.search).has("selftest")) {
         if (rig.length !== n || thrusterGroup.children.length < n) return fail(`${n} thrusters: the model has ${rig.length} (state ${state.thrusters}, layout ${(state.layout || []).length}, rov ${(window.__rov || {}).thrusters})`);
         if ($("thrusters").querySelectorAll(".bar").length !== n) return fail(`${n} thrusters: the HUD has ${$("thrusters").querySelectorAll(".bar").length} bars`);
         backend.reset(); await wait(300);                                         // (back at the start, away from the wall)
-        const x1 = state.x;
+        const x1 = state.x, y1 = state.y;
         backend.cmd(computeCommand(new Set(["KeyW"]), [0, 0, 0], 0, { thrusters: n }));
         await wait(1200);
         backend.cmd(computeCommand(new Set(), [0, 0, 0], 0, { thrusters: n }));
-        if (!(state.x > x1 + 0.05)) return fail(`${n} thrusters: W did not drive forward (${x1.toFixed(2)} -> ${state.x.toFixed(2)})`);
+        if (!(Math.hypot(state.x - x1, state.y - y1) > 0.05)) return fail(`${n} thrusters: W did not drive forward (${x1.toFixed(2)} -> ${state.x.toFixed(2)})`);
       }
     }
     if (backend.features.eel) {
@@ -1357,6 +1357,12 @@ if (new URLSearchParams(location.search).has("selftest")) {
       window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyW", bubbles: true }));
       for (let k = 0; k < 200 && eelDead(); k++) await wait(100);
       if (eelDead()) return fail("the ROV never woke up again");
+    }
+    if (backend.features.mission) {                                    // a mission: its panel, the props drawn, the board
+      for (let k = 0; k < 60 && !(missionView && missionHud && missionView.items.size >= 8); k++) await wait(100);
+      const mp = (state.props || []).find((p) => p.type === "mission");
+      if (!document.getElementById("mission") || !mp || mp.board.items.length < 10) return fail("the mission panel or its state is missing");
+      if (!missionView || missionView.items.size < 8) return fail(`the mission props are not drawn (${missionView ? missionView.items.size : 0})`);
     }
     if (backend.setPoolSize && jets && jets.sys) {                    // the drawn outlets must follow the wall when the pool is resized
       for (const [L, W, D] of [[1, 3, 4], [2, 2, 6], [1, 1, 2]]) {            // (length, width, depth)

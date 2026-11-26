@@ -57,6 +57,32 @@ Buttons: **Orbit** (drag to turn the view, scroll to zoom), **Follow** (a chase 
 - A **fish** lives here. It is shy: it never lets the ROV catch it. Sit still for a few seconds and it may come to look into your camera.
 - The ROV bobs when it breaks the surface and bounces gently off the floor. The walls stop it, and it slides along them.
 
+## The 2026 SCOUT mission {#mission}
+
+Add **`?mission=scout2026`** to the address (or ask for a mission link) and the pool holds the props of the 2026 SCOUT competition instead of the rings. The pool is 6 × 6 m and 3 m deep, the ROV starts at the surface
+beside the stairs, and a **10 minute clock** starts with the ROV's first move. A **score board** on the right lists every task with its points and ticks them off (and takes the points back if something
+is lost again). When the time is up the ROV stops, and the final score shows until **Reset**. Only the physical tasks are in the simulator (125 points): the paper questions and the float are not.
+
+| Task | What to do | Points |
+|---|---|---|
+| 1.1 Coral garden | bring 2 basket stars and 2 corals to the deck | 5 each |
+| 1.2 Transect | fly the 3.1 m white pipe from one end to the other, staying over it | 10 |
+| 2.1 Invasive species | bring 2 green crabs to the deck | 5 each |
+| 2.2 Iceberg | press a survey marker onto each of the iceberg's two legs (the Velcro sticks) | 10 each |
+| 2.3 Lobster pot | push the red handle round 60 degrees so the buoy is released (5), and it reaches the surface (5) | 10 |
+| 2.4 eDNA station | old sensor to the deck (10); new sensor standing in the yellow square, after the old one is out (10); connector in the observatory's port (5) | 25 |
+| 3.1 Wind farm | lift the power connector off its stand (10); its wire between the four waypoint posts (10); its Velcro tip in the oil platform port (10) | 30 |
+
+**Everything can be done with just the nose** (the tool normally selected); the claw works too where you choose it (**T**). To pick something up, hold the **nose tip inside its loop, hook or branches** for a moment: it hooks on
+and then **hangs from the nose** (so a connector hangs with its tip pointing down, ready to be lowered into a port). To put something down, lower it until it rests and **back the nose away**: it slides off. With the claw,
+open it around the loop or pipe and close it.
+
+**The deck is the stairs.** Carry things to the stairs (the ROV has to be near the top step, close to the surface) and press **`G`**: the crew takes what the ROV carries and sets it on the deck table beside the stairs, which scores it.
+**`Tab`** opens the **inventory**: everything on the deck, including the things that start there (the two survey markers, the new sensor and the eDNA connector). Choose with the arrow keys and **Enter** (or the mouse) and
+the crew hangs it on the ROV's nose (or puts it in the open claw). Only at the stairs; **Esc** closes it.
+
+Simplifications: the ROV passes through the frames and the platform (only the pot's handle can be pushed), the wires are drawn lines (the 2 m and 4 m wires are not enforced), and what has stuck (markers, connectors) stays stuck.
+
 ## Micro:bit and Pico {#microcontrollers}
 
 This page can be driven by a micro:bit or Pico over USB, with no extra software. The board talks in plain text lines, one message per line.

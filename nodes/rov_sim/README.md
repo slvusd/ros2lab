@@ -95,6 +95,18 @@ Python is the reference: `physics.js` is a line-by-line port of `rov_physics.py`
 run `python3 tools/export_golden.py` (rewrites `web/sim/tests/golden/physics.json`), port the change to `physics.js`,
 then `node --test web/sim/tests/`. `python3 tools/export_golden.py --check` fails if the committed golden file is stale.
 
+## The 2026 SCOUT mission (browser only, optional)
+
+`?mission=scout2026` (`web/config.js`: the `mission` option and `MISSION_DEFAULTS`: 6 x 6 m, 3 m deep, no rings, crabs or fish, no camera) puts the competition props in the pool with a score board and a 10 minute clock.
+It is an **add-on in `web/missions/`**, loaded by a dynamic `import()` from `backend-local.js` and `app.js` only when the option is set; delete the folder and the `mission` lines and nothing else changes (the Python/ROS sim has no mission mode).
+Written so a second mission can sit beside it:
+- `missions/common/` (nothing 2026-specific): `carry.js` the carry engine (catch points; NOSE hook then hang, put down and back out; CLAW hold; the crew's hand-over), `clock.js`, `board.js` (score board model), `cable.js`
+  (a drawn cable: trail, retract, drape on the floor), `hud.js` (clock, score board and inventory panels, plain DOM), `view3d.js` (drawing helpers).
+- `missions/scout2026/`: `scout2026.js` (the `Mission` prop: clock, board, deck, inventory, the judges of the 17 scored items, 125 points), `layout.js` (every position, wall-relative: edit it to move things),
+  `items.js` (the carryable props and the static ones: transect, iceberg, eDNA square, observatory, stand, waypoint, oil port), `pot.js` (the lobster pot), `props3d.js` (drawing from the prop building instructions' sizes).
+- Tests: `node --test nodes/rov_sim/web/missions/`, including a scripted nose-only run that earns all 125 points (`fullrun.test.js`). Core hooks outside the folder: `rov.start_pose` (physics.js), `eelDead()` generalised to any prop
+  with `locked` (app.js), the key handling for G / Tab, and `features.mission`.
+
 ## Nodes
 
 | Program | ROS node | What it is |
