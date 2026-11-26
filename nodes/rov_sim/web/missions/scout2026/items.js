@@ -127,6 +127,67 @@ export class Observatory {
   state() { const [x, y] = this.port(); return { type: this.type, x, y, port_height: Observatory.PORT_HEIGHT, connector: this.connector }; }
 }
 
+/** The wind farm's power connector stand: a 1/2" frame 25 x 15 cm with a 35 x 20 cm plastic top, 15 cm high. The power connector starts on it. */
+export class Stand {
+  static HEIGHT = 0.15; static HALF_X = 0.175; static HALF_Y = 0.10;
+  constructor(spot) { this.type = "m_stand"; this.spot = spot; }
+  centre() { return at(...this.spot); }
+  /** Is (x, y) over the top of the stand? */
+  holds(x, y) { const [cx, cy] = this.centre(); return Math.abs(x - cx) <= Stand.HALF_X && Math.abs(y - cy) <= Stand.HALF_Y; }
+  reset() {} step() {}
+  state() { const [x, y] = this.centre(); return { type: this.type, x, y, height: Stand.HEIGHT, hx: Stand.HALF_X, hy: Stand.HALF_Y }; }
+}
+/** The power connector: a red 1/2" cross with a metal screw hook on top, a 15 cm pipe ending in a Velcro-hook patch (6 x 4 cm) and a 5 cm tail with a 4 m wire. Hanging from
+ *  its hook the pipe points down and the Velcro tip (its base) is at the bottom. It lies on the stand at the start. */
+export class PowerConnector extends Carryable {
+  static RADIUS = 0.05; static BODY_HIGH = 0.08;
+  constructor(id, label, stand) {
+    const [x, y] = stand.centre();
+    super(id, "power_connector", x, y, [{ id: "hook", up: 0.17, r: 0.06, kind: "loop" }, { id: "pipe", up: 0.08, r: 0.03, kind: "claw" }]);
+    this.label = label; this.stand = stand;
+    this.reset();
+  }
+  rest_depth(x, y) { const f = floorAt(x, y) ?? 3; return this.stand && this.stand.holds(x, y) ? f - Stand.HEIGHT : f; }
+  /** Lifted off the stand: carried, and its tip at least 3 cm clear of whatever it rested on (the stand's top or the floor). */
+  get lifted() { return this.held !== null && this.depth < this.rest_depth(this.x, this.y) - 0.03; }
+}
+/** The waypoint: a 1/2" PVC "X" on the floor whose four arm ends carry 12 cm posts. The cable must run between the four posts. */
+export class Waypoint {
+  static ARM = 0.17; static POST_HEIGHT = 0.15;
+  constructor(spot) { this.type = "m_waypoint"; this.spot = spot; }
+  centre() { return at(...this.spot); }
+  reset() {} step() {}
+  /** Does a polyline (world [x, y, z up] points, dense) pass through the space between the four posts, below the post tops? It must come in and go out again. */
+  through(pts, floorZ) {
+    const [cx, cy] = this.centre(), fz = floorZ(cx, cy);
+    const inside = (p) => Math.abs(p[0] - cx) + Math.abs(p[1] - cy) <= Waypoint.ARM && p[2] <= fz + Waypoint.POST_HEIGHT;
+    let before = false, inn = false;
+    for (const p of pts) {
+      if (inside(p)) { if (before) inn = true; }
+      else if (inn) return true;                                           // in, and out the other side
+      else before = true;
+    }
+    return false;
+  }
+  state() { const [x, y] = this.centre(); return { type: this.type, x, y, arm: Waypoint.ARM, post: Waypoint.POST_HEIGHT }; }
+}
+/** The oil platform port: a 2" tee on a 1/2" frame (45 x 15 cm), its branch pointing up, lined with Velcro loops. The power connector's Velcro tip sticks in it. */
+export class OilPort {
+  static HEIGHT = 0.12; static RADIUS = 0.03; static DEPTH = 0.04;           // the opening is 12 cm up; the tip must go 4 cm in
+  constructor(spot) { this.type = "m_oilport"; this.spot = spot; this.connector = null; }
+  port() { return at(...this.spot); }
+  reset() { this.connector = null; }
+  step(rov, dt, connector) {
+    if (!connector || connector.stuck_to || connector.mode !== "held") return;
+    const [px, py] = this.port(), f = floorAt(px, py) ?? 3;
+    if (Math.hypot(connector.x - px, connector.y - py) <= OilPort.RADIUS && connector.depth >= f - (OilPort.HEIGHT - OilPort.DEPTH)) {          // over the opening and its tip 4 cm in
+      this.connector = connector.id; connector.stuck_to = "oilport";
+      connector.x = px; connector.y = py; connector.depth = f - (OilPort.HEIGHT - OilPort.DEPTH); connector.supported = true;
+    }
+  }
+  state() { const [x, y] = this.port(); return { type: this.type, x, y, height: OilPort.HEIGHT, connector: this.connector }; }
+}
+
 /** The transect: a 3.1 m "I" of 1/2" PVC on the floor, running out from the wall (0.5 m to 3.6 m). Flying along it, staying over it from one end to the other, scores. */
 export class Transect {
   static LENGTH = 3.1; static HALF_WIDTH = 0.27;                            // the ROV is about 0.5 m wide: its plan view must overlap the pipe

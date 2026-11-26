@@ -7,7 +7,8 @@ import { RunClock } from "../common/clock.js";
 import { ScoreBoard } from "../common/board.js";
 import { Carryable } from "../common/carry.js";
 import { RUN_SECONDS, atStairs, deckRect, deckSlot, startPose } from "./layout.js";
-import { BasketStar, Connector, Coral, EdnaSquare, Iceberg, Marker, MissionCrab, Observatory, Sensor, Transect } from "./items.js";
+import { BasketStar, Connector, Coral, EdnaSquare, Iceberg, Marker, MissionCrab, Observatory, OilPort, PowerConnector, Sensor, Stand, Transect, Waypoint } from "./items.js";
+import { floorAt } from "../../sim/physics.js";
 import { Cable } from "../common/cable.js";
 import { LobsterPot } from "./pot.js";
 import { SPOTS } from "./layout.js";
@@ -33,6 +34,7 @@ export class Mission {
     this.board = new ScoreBoard(SCORED);
     this.items = [];                                           // the carryable props (also in rov.props, so the sim steps them)
     this.judges = [];                                          // functions (mission, rov) that set the board each step: one per task, added by the props
+    this.resetters = [];                                       // functions that put the judges' own memory back on Reset
     this.locked = false;
     this.msg = { n: 0, text: "" };
     this.rov = rov;
@@ -40,6 +42,7 @@ export class Mission {
   reset() {
     this.rov.mission_carry = null;
     this.clock.reset(); this.board.reset();
+    for (const f of this.resetters || []) f();
     this.locked = false;
     this.msg = { n: this.msg.n + 1, text: "" };
   }
@@ -141,6 +144,22 @@ export function addTo(rov) {
   const pot = new LobsterPot(SPOTS.pot);
   rov.props.push(pot);
   m.judges.push((mm) => { mm.score("pot_open", pot.released); mm.score("pot_surface", pot.surfaced); });
+  // task 3.1: the wind farm: the power connector on its stand, the waypoint, the oil platform port, and the 4 m wire
+  const stand = new Stand(SPOTS.stand), way = new Waypoint(SPOTS.waypoint), oil = new OilPort(SPOTS.oilPort);
+  const power = m.addItem(new PowerConnector("power_connector", "Power connector", stand));
+  const floorZ = (x, y) => -(floorAt(x, y) ?? 3);
+  const pCable = new Cable("power_cable", () => { const [x, y] = stand.centre(); return [x, y, floorZ(x, y) + 0.10]; },
+    () => (power.mode === "deck" ? null : [power.x, power.y, -power.depth + 0.17]), 4.0, floorZ);
+  rov.props.push(stand, way, oil, pCable);
+  let lifted = false;
+  m.judges.push((mm, r) => {
+    oil.step(r, 0, power);
+    if (power.lifted) lifted = true;                                                                  // lifted off the stand: kept even if it is dropped later
+    mm.score("power_lift", lifted);
+    mm.score("power_cable", way.through(pCable.dense(), floorZ));                                     // the wire runs between the four posts (and stays there)
+    mm.score("power_port", power.mode === "stuck" && power.stuck_to === "oilport");
+  });
+  m.resetters.push(() => { lifted = false; });
   const transect = new Transect(0.5);
   rov.props.push(transect);
   m.judges.push((mm) => { if (transect.done) mm.score("transect", true); });

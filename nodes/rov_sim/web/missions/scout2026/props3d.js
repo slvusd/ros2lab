@@ -4,7 +4,7 @@ import { PVC_R, pipe, standard } from "../common/view3d.js";
 
 export class MissionView {
   constructor(scene, THREE) {
-    this.scene = scene; this.T = THREE; this.items = new Map(); this.transect = null; this.iceberg = null; this.pot = null; this.zone = null; this.obs = null; this.cables = new Map(); this.deck = null;
+    this.scene = scene; this.T = THREE; this.items = new Map(); this.transect = null; this.iceberg = null; this.stand = null; this.way = null; this.oil = null; this.pot = null; this.zone = null; this.obs = null; this.cables = new Map(); this.deck = null;
     this.white = standard(THREE, 0xf2f2ec); this.glow = new THREE.MeshStandardMaterial({ color: 0x31d46b, emissive: 0x0a4a22, roughness: 0.5 });
   }
 
@@ -117,6 +117,42 @@ export class MissionView {
     this.scene.add(line);
     return line;
   }
+  powerConnector() {
+    const T = this.T, g = new T.Group(), red = standard(T, 0xd62d2d);
+    g.add(pipe(T, [0, 0, 0], [0, 0.15, 0], PVC_R, this.white));                                                          // the 15 cm pipe (the Velcro tip is its lower end)
+    const patch = new T.Mesh(new T.BoxGeometry(0.04, 0.012, 0.06), standard(T, 0x111111)); patch.position.y = 0.006; g.add(patch);   // black Velcro hooks, 6 x 4 cm
+    const cross = new T.Mesh(new T.SphereGeometry(0.022, 10, 8), red); cross.position.y = 0.16; g.add(cross);            // the red 4-way cross
+    g.add(pipe(T, [-0.03, 0.16, 0], [0.03, 0.16, 0], PVC_R, red));                                                       // its 5 cm side arm (the wire goes here)
+    const hook = new T.Mesh(new T.TorusGeometry(0.018, 0.003, 6, 14, Math.PI * 1.5), standard(T, 0xb8c2c8, 0.3)); hook.position.y = 0.19; g.add(hook);   // the metal screw hook
+    return g;
+  }
+  buildStand(p) {
+    const T = this.T, g = new T.Group(), w = this.white;
+    for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) g.add(pipe(T, [sx * 0.125, 0, sz * 0.075], [sx * 0.125, p.height - 0.01, sz * 0.075], PVC_R, w));     // the 25 x 15 cm frame
+    for (const z of [-0.075, 0.075]) g.add(pipe(T, [-0.125, p.height - 0.01, z], [0.125, p.height - 0.01, z], PVC_R, w));
+    const top = new T.Mesh(new T.BoxGeometry(2 * p.hx, 0.008, 2 * p.hy), standard(T, 0xe8e6dc, 0.7)); top.position.y = p.height; g.add(top);                // the 35 x 20 cm top
+    this.scene.add(g);
+    return g;
+  }
+  buildWaypoint(p) {
+    const T = this.T, g = new T.Group(), w = this.white, a = p.arm;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      g.add(pipe(T, [0, 0.011, 0], [dx * (a - 0.03), 0.011, dz * (a - 0.03)], PVC_R, w));                                   // the arms of the X
+      g.add(pipe(T, [dx * a, 0.011, dz * a], [dx * a, p.post, dz * a], PVC_R, w));                                          // the 12 cm posts
+      const el = new T.Mesh(new T.SphereGeometry(PVC_R * 1.5, 8, 6), w); el.position.set(dx * a, p.post, dz * a); g.add(el);
+    }
+    this.scene.add(g);
+    return g;
+  }
+  buildOilPort(p) {
+    const T = this.T, g = new T.Group(), w = this.white;
+    g.add(pipe(T, [-0.225, 0.011, 0], [0.225, 0.011, 0], PVC_R, w));                                                        // the 45 cm frame
+    for (const x of [-0.225, 0.225]) { g.add(pipe(T, [x, 0.011, -0.075], [x, 0.011, 0.075], PVC_R, w)); }
+    const tee = new T.Mesh(new T.CylinderGeometry(0.03, 0.03, p.height - 0.04, 18, 1, true), standard(T, 0xe8e6dc)); tee.position.y = 0.04 + (p.height - 0.04) / 2; g.add(tee);   // the 2" tee, branch up
+    const loops = new T.Mesh(new T.CylinderGeometry(0.026, 0.026, 0.04, 16, 1, true), standard(T, 0x222222, 0.9)); loops.position.y = p.height - 0.03; g.add(loops);      // Velcro loops inside
+    this.scene.add(g);
+    return g;
+  }
   buildPot(p) {
     const T = this.T, g = new T.Group(), black = standard(T, 0x161616, 0.8), w = this.white;
     const h = p.half, H = p.height;
@@ -143,7 +179,7 @@ export class MissionView {
     return g;
   }
   build(p) {
-    const g = p.kind === "basket_star" ? this.basketStar() : p.kind === "coral" ? this.coral(p.id) : p.kind === "crab" ? this.crab() : p.kind === "marker" ? this.marker() : p.kind === "edna_old" ? this.sensor(0x2f6fe0) : p.kind === "edna_new" ? this.sensor(0x8a4fd6) : p.kind === "connector" ? this.connector()
+    const g = p.kind === "basket_star" ? this.basketStar() : p.kind === "coral" ? this.coral(p.id) : p.kind === "crab" ? this.crab() : p.kind === "marker" ? this.marker() : p.kind === "edna_old" ? this.sensor(0x2f6fe0) : p.kind === "edna_new" ? this.sensor(0x8a4fd6) : p.kind === "connector" ? this.connector() : p.kind === "power_connector" ? this.powerConnector()
       : new this.T.Mesh(new this.T.BoxGeometry(0.1, 0.1, 0.1), standard(this.T, 0xcccccc));                                // (unknown kind: a plain box)
     this.scene.add(g);
     return g;
@@ -189,6 +225,15 @@ export class MissionView {
         const a = line.geometry.attributes.position, n = Math.min(p.pts.length, 160);
         for (let i = 0; i < n; i++) { const q = p.pts[p.pts.length - n + i]; a.setXYZ(i, q[0], Math.max(q[2], -floorAt(q[0], -q[1]) + 0.012), -q[1]); }
         a.needsUpdate = true; line.geometry.setDrawRange(0, n); line.material.color.setHex(p.taut ? 0xff3030 : p.id === "edna_cable" ? 0xf2c500 : 0xe03030);
+      } else if (p.type === "m_stand") {
+        if (!this.stand) this.stand = this.buildStand(p);
+        this.stand.position.set(p.x, -floorAt(p.x, -p.y), -p.y);
+      } else if (p.type === "m_waypoint") {
+        if (!this.way) this.way = this.buildWaypoint(p);
+        this.way.position.set(p.x, -floorAt(p.x, -p.y), -p.y);
+      } else if (p.type === "m_oilport") {
+        if (!this.oil) this.oil = this.buildOilPort(p);
+        this.oil.position.set(p.x, -floorAt(p.x, -p.y), -p.y);
       } else if (p.type === "m_pot") {
         if (!this.pot) this.pot = this.buildPot(p);
         this.pot.position.set(p.x, -p.floor, -p.y);
