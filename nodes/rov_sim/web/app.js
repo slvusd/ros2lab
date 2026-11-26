@@ -53,8 +53,28 @@ scene.add(sun);
 let regions = [{ x0: -3, x1: 3, z0: -1.5, z1: 1.5, d: 2 }];        // until the sim tells us (the original pool)
 let regionsKey = "";
 let bbox = { x0: -3, x1: 3, z0: -1.5, z1: 1.5 }, maxDepth = 2;
+// STAIRS: three steps cut into the shallow end's outer wall (a 1.2 m wide notch, one step 0.3 m deep each), drawn as three more little "regions" with shallower floors, so the
+// pool-drawing code makes their floors, riser walls, water and the cut in the deck by itself. They are only a drawing: the physics does not know them (the ROV stops
+// at the wall in front of the stairs).
+const STAIR_WIDTH = 1.2, STAIR_TREAD = 0.3;
+function withStairs(list) {
+  const sh = list.reduce((a, b) => (b.d < a.d ? b : a)), xMax = Math.max(...list.map((r) => r.x1)), zMax = Math.max(...list.map((r) => r.z1)), xMin = Math.min(...list.map((r) => r.x0)), zMin = Math.min(...list.map((r) => r.z0));
+  const n = Math.max(2, Math.round(sh.d / 0.3)), rise = sh.d / (n + 1), out = [];
+  const side = sh.x1 >= xMax - EPS ? "x1" : sh.z1 >= zMax - EPS ? "z1" : sh.x0 <= xMin + EPS ? "x0" : sh.z0 <= zMin + EPS ? "z0" : null;
+  if (!side) return list;
+  const alongX = side[0] === "z", lo = alongX ? sh.x0 : sh.z0, hi = alongX ? sh.x1 : sh.z1, mid = (lo + hi) / 2, half = Math.min(STAIR_WIDTH, hi - lo - 0.2) / 2;
+  if (half < 0.3) return list;
+  for (let i = 0; i < n; i++) {
+    const a = i * STAIR_TREAD, b = a + STAIR_TREAD, d = sh.d - rise * (i + 1);
+    if (side === "x1") out.push({ x0: sh.x1 + a, x1: sh.x1 + b, z0: mid - half, z1: mid + half, d });
+    else if (side === "x0") out.push({ x0: sh.x0 - b, x1: sh.x0 - a, z0: mid - half, z1: mid + half, d });
+    else if (side === "z1") out.push({ x0: mid - half, x1: mid + half, z0: sh.z1 + a, z1: sh.z1 + b, d });
+    else out.push({ x0: mid - half, x1: mid + half, z0: sh.z0 - b, z1: sh.z0 - a, d });
+  }
+  return [...list, ...out];
+}
 function setRegions(list) {
-  regions = list.map(([x0, x1, y0, y1, d]) => ({ x0, x1, z0: -y1, z1: -y0, d }));
+  regions = withStairs(list.map(([x0, x1, y0, y1, d]) => ({ x0, x1, z0: -y1, z1: -y0, d })));
   bbox = { x0: Math.min(...regions.map((r) => r.x0)), x1: Math.max(...regions.map((r) => r.x1)),
            z0: Math.min(...regions.map((r) => r.z0)), z1: Math.max(...regions.map((r) => r.z1)) };
   maxDepth = Math.max(...regions.map((r) => r.d));
@@ -280,29 +300,6 @@ function buildPool() {
       for (const sx of [deep.x0 + 0.5, deep.x1 - 0.5]) mark(0.06, 0.7, sx, mz);             // ... where a T crosses it
       for (let x = Math.ceil(deep.x0 + 1.5); x < deep.x1 - 1.0; x += 1) mark(0.05, 0.3, x, mz);
     }
-  }
-
-  // ---- a ladder on the shallow end's outer wall (so the pool can be climbed out of): two rails and rungs, bent over the deck at the top ----
-  {
-    const sh = regions.reduce((a, b) => (b.d < a.d ? b : a)), steel = new THREE.MeshStandardMaterial({ color: 0xe6eaed, roughness: 0.4, metalness: 0.2 });
-    const side = sh.x1 >= bbox.x1 - EPS ? { ax: "x", at: sh.x1, out: 1, lo: sh.z0, hi: sh.z1 } : sh.z1 >= bbox.z1 - EPS ? { ax: "z", at: sh.z1, out: 1, lo: sh.x0, hi: sh.x1 }
-      : sh.x0 <= bbox.x0 + EPS ? { ax: "x", at: sh.x0, out: -1, lo: sh.z0, hi: sh.z1 } : { ax: "z", at: sh.z0, out: -1, lo: sh.x0, hi: sh.x1 };
-    const mid = (side.lo + side.hi) / 2, gap = 0.2, inset = 0.045;                        // rails 0.4 m apart, a little way in front of the wall
-    const P = (d, along, up) => (side.ax === "x" ? new THREE.Vector3(side.at - side.out * (inset + d), up, mid + along) : new THREE.Vector3(mid + along, up, side.at - side.out * (inset + d)));
-    const rod = (a, b, r) => {
-      const len = a.distanceTo(b), m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 10), steel);
-      m.position.copy(a).add(b).multiplyScalar(0.5);
-      m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
-      pool.add(m);
-    };
-    const bottom = Math.max(-sh.d + 0.2, -1.1), top = 0.55;
-    for (const k of [-1, 1]) {
-      rod(P(0, k * gap, bottom), P(0, k * gap, top - 0.1), 0.017);                         // the rail down into the water
-      rod(P(0, k * gap, top - 0.1), P(-0.12, k * gap, top - 0.1 + 0.1), 0.017);            // bends out over the deck...
-      rod(P(-0.12, k * gap, top), P(-0.3, k * gap, top), 0.017);                           // ... and the handrail
-      rod(P(-0.3, k * gap, top), P(-0.3, k * gap, 0.0), 0.017);                            // back down to the deck
-    }
-    for (let u = -0.12; u > bottom + 0.1; u -= 0.3) rod(P(0, -gap, u), P(0, gap, u), 0.013);   // rungs
   }
 
   // ---- water surface: one wavy grid over the pool's bounding box, only the cells that are water are drawn ----
