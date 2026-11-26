@@ -691,6 +691,8 @@ let props = null;
 import("./props.js").then((m) => { props = new m.Props(scene, THREE); }).catch(() => { /* no props */ });
 let fish = null;                      // optional add-on: fish.js draws the coy fish (delete that file to remove it)
 import("./fish.js").then((m) => { fish = new m.Fish(scene, THREE); }).catch(() => { /* no fish */ });
+let missionHud = null;                // a mission (?mission=): the score board, the clock and the crew's inventory (missions/common/hud.js); nothing is loaded without one
+if (backend.features.mission) import("./missions/common/hud.js").then((m) => { missionHud = m.setupMissionHud({ backend, toast }); }).catch((e) => console.warn("mission panel failed:", e));
 let eels = null;                      // optional joke add-on: eel.js draws the electric eel, the sparks and the smoke (delete that file to remove them)
 import("./eel.js").then((m) => { eels = new m.Eels(scene, THREE); }).catch(() => { /* no eel */ });
 let crabs = null;                     // optional add-on: crab.js draws the green crabs (delete that file to remove them)
@@ -702,7 +704,7 @@ import("./jets.js").then((m) => { jets = new m.Jets(scene, THREE, { look: cfg.fl
 const state = { x: -1.5, y: 0, depth: 0.8, yaw: 0, thrusters: 4, t1: 0, t2: 0, t3: 0, t4: 0, claw: 0, speed: 0, pitch: 0, roll: 0, imu: null, buoyancy: 0, joys: [[0, 0], [0, 0]], joy_topics: [] };
 const seen = { splash: null, floor: null, eel: "idle" };
 const eelProp = () => (state.props || []).find((p) => p.type === "eel");
-const eelDead = () => !!(eelProp() && eelProp().locked);       // (see eel.js)
+const eelDead = () => (state.props || []).some((p) => p.locked);       // the eel got the ROV (eel.js) or the mission clock ran out (missions/): nothing works until it is over
 const shown = { ...state };
 let lastMsg = 0;
 
@@ -848,9 +850,14 @@ window.addEventListener("keydown", (e) => {
     if (r) { userMoved = false; toast(`Pool: ${poolSizeText(r[0], r[1])}, ${r[2]} m deep`); } else toast(`The pool cannot get any ${what === "depth" ? "deeper" : what === "length" ? "longer" : "wider"}`);
     return;
   }
+  if (missionHud && missionHud.modal) return;                          // the inventory is open: it has the keyboard
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.code === "KeyV" && !e.repeat) { resetView(); return; }
   if (eelDead()) { e.preventDefault(); return; }
+  if (backend.features.mission && !e.repeat) {                                // the mission's crew keys
+    if (e.code === "KeyG") { backend.missionDeliver(); return; }
+    if (e.code === "Tab" && missionHud) { e.preventDefault(); missionHud.toggleInventory(); return; }
+  }
   if (e.code === "KeyL" && !e.repeat) { if (backend.features.eel) backend.summonEel(); return; }
   if (e.code === "KeyB" && !e.repeat) { nextBuoyancy(); return; }
   if (e.code === "KeyT" && !e.repeat) { if (backend.features.claw) setTool(tool === "claw" ? "nose" : "claw"); return; }
@@ -1125,6 +1132,7 @@ function frame(now) {
   if (fish) fish.update(state.props, dt, t);
   if (crabs) crabs.update(state.props, dt, t);
   if (eels) eels.update(state.props, dt, t, rov);
+  if (missionHud) missionHud.update(state);
   { const eel = eelProp(); if (eel && eel.zap) wobble = Math.max(wobble, 0.9); }        
   if (jets) jets.update(state.props, dt);
   for (const m of solids) {                          // x-ray: fade what is between us and the pool

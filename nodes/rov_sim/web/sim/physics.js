@@ -167,7 +167,8 @@ export class Rov {
 
   reset() {
     this.props = this.props.filter((p) => !p.transient);     // rings dropped into the pool disappear on Reset
-    this.x = START.x; this.y = START.y; this.depth = START.depth; this.yaw = START.yaw;
+    const S = this.start_pose || START;               // (a mission may start the ROV somewhere else)
+    this.x = S.x; this.y = S.y; this.depth = S.depth; this.yaw = S.yaw;
     this.u = this.v = this.w = this.r = 0.0;
     this.claw = 0.0;
     for (const k in this.cmd) this.cmd[k] = 0.0;

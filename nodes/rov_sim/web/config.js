@@ -13,10 +13,12 @@
 //   current      on | off             two water outlets in the shallow end's side wall make a current across the pool (default off)
 //   flow         bubbles | streaks | rings | mix   how the running water is drawn (default mix: rings and a few bubbles; J cycles)
 //   thrusters    3 | 4 | 6 | 8         how many thrusters: 3 (one up/down), 4 (the original), 6 (four on the posts + two up/down), 8 (one tilted thruster at each of the 8 corners) (default 4)
+//   mission      none | scout2026       a mission instead of rings: scout2026 = the 2026 SCOUT competition props, with a score board and a 10 minute clock (default none)
 //   camera       on | off             the ROV has a camera: its housing on the model, the camera window, and the fish coming to look at it (default off)
 // (With no `controls` the page starts in H-circuit only mode, but the H key still switches.) When `controls` is given, it is LOCKED: the H key and the badge no longer switch modes (the link decides, not the student).
 export const POOL_DEPTHS = [2, 3, 4, 6];               // how deep the main pool can be (m); same list as sim/physics.js
-export const DEFAULTS = { controls: "h", fish: true, rings: 3, poollength: 1, poolwidth: 1, pooldepth: 2, camera: false, speed: 1, crabs: 1, current: false, flow: "mix", thrusters: 4 };
+export const MISSIONS = ["none", "scout2026"];             // what the pool is for: free driving, or a competition mission (web/missions/)
+export const DEFAULTS = { mission: "none", controls: "h", fish: true, rings: 3, poollength: 1, poolwidth: 1, pooldepth: 2, camera: false, speed: 1, crabs: 1, current: false, flow: "mix", thrusters: 4 };
 export const LIMITS = { rings: [0, 5], poollength: [1, 2], poolwidth: [1, 3], speed: [0.25, 4], crabs: [0, 5] };
 export const MAX_RINGS = 10;      // the most rings the pool can hold, counting the ones dropped with the N key (rov_props.py MAX_RINGS is the same number)
 export const CONTROL_MODES = ["all", "h", "h-hidden"];
@@ -30,6 +32,11 @@ const decimal = (v, [lo, hi]) => {                                      // any n
   if (v === null || v.trim() === "" || !Number.isFinite(Number(v))) return undefined;
   return Math.round(Math.max(lo, Math.min(hi, Number(v))) * 100) / 100;
 };
+/** What a mission changes in the start-up settings (the address can still override each of them). */
+export const MISSION_DEFAULTS = {
+  none: {},
+  scout2026: { rings: 0, crabs: 0, fish: false, poollength: 1, poolwidth: 2, pooldepth: 3, camera: false },
+};
 const whole = (v, [lo, hi]) => {
   if (v === null || v.trim() === "" || !Number.isFinite(Number(v))) return undefined;
   return Math.max(lo, Math.min(hi, Math.round(Number(v))));
@@ -39,6 +46,7 @@ const whole = (v, [lo, hi]) => {
 export function parseConfig(search = "") {
   const q = new URLSearchParams(search);
   const found = {
+    mission: q.has("mission") && MISSIONS.includes(q.get("mission").trim().toLowerCase()) ? q.get("mission").trim().toLowerCase() : undefined,
     controls: q.has("controls") && CONTROL_MODES.includes(q.get("controls").trim().toLowerCase()) ? q.get("controls").trim().toLowerCase() : undefined,
     fish: bool(q.get("fish")),
     rings: whole(q.get("rings"), LIMITS.rings),
@@ -54,6 +62,7 @@ export function parseConfig(search = "") {
   };
   const cfg = { ...DEFAULTS }, explicit = new Set();
   for (const k of CONFIG_KEYS) if (found[k] !== undefined) { cfg[k] = found[k]; explicit.add(k); }
+  for (const [k, v] of Object.entries(MISSION_DEFAULTS[cfg.mission] || {})) if (!explicit.has(k)) cfg[k] = v;     // a mission sets its own start-up (anything the address names still wins)
   return { ...cfg, explicit, open: q.has("config") };
 }
 
