@@ -4,14 +4,15 @@
 //   crab        : a 1 1/2" end cap (5 cm) with 30 cm pipe-cleaner legs and claws, about 30 cm across                                -> carry it by the legs (nose) or the cap (claw)
 // More (crab, markers, sensors, connectors ...) are added phase by phase. Every one is worth points only when it is on the deck (`scoreId`).
 import { Carryable } from "../common/carry.js";
-import { at, frame, SPOTS } from "./layout.js";
+import { ASSIST, at, frame, SPOTS } from "./layout.js";
+const A = (r) => r * ASSIST;
 import { floorAt } from "../../sim/physics.js";
 
 export class BasketStar extends Carryable {
   static RADIUS = 0.075; static BODY_HIGH = 0.05;
   constructor(id, label, scoreId, u, v, yaw = 0) {
     const [x, y] = at(u, v);
-    super(id, "basket_star", x, y, [{ id: "ball", up: 0.08, r: 0.08, kind: "lattice" }, { id: "h", up: 0.015, r: 0.05, kind: "claw" }], yaw);
+    super(id, "basket_star", x, y, [{ id: "ball", up: 0.08, r: A(0.08), kind: "lattice" }, { id: "h", up: 0.015, r: A(0.05), kind: "claw" }], yaw);
     this.label = label; this.scoreId = scoreId;
   }
 }
@@ -19,7 +20,7 @@ export class Coral extends Carryable {
   static RADIUS = 0.05; static BODY_HIGH = 0.10;
   constructor(id, label, scoreId, u, v, yaw = 0) {
     const [x, y] = at(u, v);
-    super(id, "coral", x, y, [{ id: "branches", up: 0.18, r: 0.11, kind: "branch" }, { id: "tee", up: 0.03, r: 0.04, kind: "claw" }], yaw);
+    super(id, "coral", x, y, [{ id: "branches", up: 0.18, r: A(0.11), kind: "branch" }, { id: "tee", up: 0.03, r: A(0.04), kind: "claw" }], yaw);
     this.label = label; this.scoreId = scoreId;
   }
 }
@@ -28,7 +29,7 @@ export class MissionCrab extends Carryable {
   static RADIUS = 0.07; static BODY_HIGH = 0.04;
   constructor(id, label, scoreId, u, v, yaw = 0) {
     const [x, y] = at(u, v);
-    super(id, "crab", x, y, [{ id: "legs", up: 0.05, r: 0.12, kind: "branch" }, { id: "cap", up: 0.02, r: 0.04, kind: "claw" }], yaw);
+    super(id, "crab", x, y, [{ id: "legs", up: 0.05, r: A(0.12), kind: "branch" }, { id: "cap", up: 0.02, r: A(0.04), kind: "claw" }], yaw);
     this.label = label; this.scoreId = scoreId;
   }
 }
@@ -38,7 +39,7 @@ export class MissionCrab extends Carryable {
 export class Marker extends Carryable {
   static RADIUS = 0.05; static BODY_HIGH = 0.12; static CONTACT_UP = 0.015;
   constructor(id, label) {
-    super(id, "marker", null, null, [{ id: "rope", up: 0.20, r: 0.09, kind: "loop" }, { id: "pipe", up: 0.07, r: 0.03, kind: "claw" }]);
+    super(id, "marker", null, null, [{ id: "rope", up: 0.20, r: A(0.09), kind: "loop" }, { id: "pipe", up: 0.07, r: A(0.03), kind: "claw" }]);
     this.label = label;
   }
   /** World [x, y, z up] of the Velcro patch (the middle of the cap). */
@@ -48,7 +49,7 @@ export class Marker extends Carryable {
 /** The iceberg: a 55 cm square of 1/2" PVC floating at the surface on a pole from the wall, two 25 cm legs at opposite corners; the lower ends of the legs carry Velcro hooks
  *  (the survey points, about 20 cm below the surface). */
 export class Iceberg {
-  static SIDE = 0.55; static LEG = 0.25; static POINT_DEPTH = 0.20; static REACH = 0.07;       // REACH: how close a marker's Velcro must get to stick
+  static SIDE = 0.55; static LEG = 0.25; static POINT_DEPTH = 0.20; static REACH = 0.07 * ASSIST;       // REACH: how close a marker's Velcro must get to stick
   constructor(u, v) {
     this.type = "m_iceberg";
     this.u = u; this.v = v;
@@ -85,7 +86,7 @@ export class Iceberg {
 export class Sensor extends Carryable {
   static RADIUS = 0.10; static BODY_HIGH = 0.20;
   constructor(id, label, kind, scoreId, spot) {
-    super(id, kind, spot ? at(...spot)[0] : null, spot ? at(...spot)[1] : null, [{ id: "rope", up: 0.28, r: 0.11, kind: "loop" }, { id: "pipe", up: 0.14, r: 0.04, kind: "claw" }]);
+    super(id, kind, spot ? at(...spot)[0] : null, spot ? at(...spot)[1] : null, [{ id: "rope", up: 0.28, r: A(0.11), kind: "loop" }, { id: "pipe", up: 0.14, r: A(0.04), kind: "claw" }]);
     this.label = label; this.scoreId = scoreId;
   }
 }
@@ -94,7 +95,7 @@ export class Sensor extends Carryable {
 export class Connector extends Carryable {
   static RADIUS = 0.04; static BODY_HIGH = 0.10;
   constructor(id, label) {
-    super(id, "connector", null, null, [{ id: "handle", up: 0.21, r: 0.08, kind: "loop" }, { id: "stem", up: 0.10, r: 0.03, kind: "claw" }]);
+    super(id, "connector", null, null, [{ id: "handle", up: 0.21, r: A(0.08), kind: "loop" }, { id: "stem", up: 0.10, r: A(0.03), kind: "claw" }]);
     this.label = label;
   }
 }
@@ -104,13 +105,13 @@ export class EdnaSquare {
   constructor(spot) { this.type = "m_zone"; this.spot = spot; }
   centre() { return at(...this.spot); }
   /** Is a 20 x 20 cm base centred at (x, y) completely inside the square? */
-  holds(x, y, half = 0.10) { const [cx, cy] = this.centre(); return Math.abs(x - cx) <= EdnaSquare.HALF - half + 0.01 && Math.abs(y - cy) <= EdnaSquare.HALF - half + 0.01; }
+  holds(x, y, half = 0.10) { const [cx, cy] = this.centre(); return Math.abs(x - cx) <= EdnaSquare.HALF - half + 0.01 * ASSIST * 3 && Math.abs(y - cy) <= EdnaSquare.HALF - half + 0.01 * ASSIST * 3; }
   reset() {} step() {}
   state() { const [x, y] = this.centre(); return { type: this.type, x, y, half: EdnaSquare.HALF }; }
 }
 /** The Holyrood observatory: a 1/2" ladder frame (30 x 20 cm) with a 20 cm vertical 3" pipe (the connection port, about 7.8 cm inside, black with an orange band). */
 export class Observatory {
-  static PORT_RADIUS = 0.035; static PORT_HEIGHT = 0.20; static DEPTH = 0.12;       // the stem must be this deep in the port (its tip within DEPTH of the floor)
+  static PORT_RADIUS = 0.035 * ASSIST; static PORT_HEIGHT = 0.20; static DEPTH = 0.12;       // the stem must be this deep in the port (its tip within DEPTH of the floor)
   constructor(spot) { this.type = "m_observatory"; this.spot = spot; this.connector = null; }
   port() { return at(...this.spot); }
   reset() { this.connector = null; }
@@ -143,7 +144,7 @@ export class PowerConnector extends Carryable {
   static RADIUS = 0.05; static BODY_HIGH = 0.08;
   constructor(id, label, stand) {
     const [x, y] = stand.centre();
-    super(id, "power_connector", x, y, [{ id: "hook", up: 0.17, r: 0.08, kind: "loop" }, { id: "pipe", up: 0.08, r: 0.03, kind: "claw" }]);
+    super(id, "power_connector", x, y, [{ id: "hook", up: 0.17, r: A(0.08), kind: "loop" }, { id: "pipe", up: 0.08, r: A(0.03), kind: "claw" }]);
     this.label = label; this.stand = stand;
     this.reset();
   }
@@ -153,7 +154,7 @@ export class PowerConnector extends Carryable {
 }
 /** The waypoint: a 1/2" PVC "X" on the floor whose four arm ends carry 12 cm posts. The cable must run between the four posts. */
 export class Waypoint {
-  static ARM = 0.17; static POST_HEIGHT = 0.15;
+  static ARM = 0.17 * ASSIST; static POST_HEIGHT = 0.15;
   constructor(spot) { this.type = "m_waypoint"; this.spot = spot; }
   centre() { return at(...this.spot); }
   reset() {} step() {}
@@ -173,7 +174,7 @@ export class Waypoint {
 }
 /** The oil platform port: a 2" tee on a 1/2" frame (45 x 15 cm), its branch pointing up, lined with Velcro loops. The power connector's Velcro tip sticks in it. */
 export class OilPort {
-  static HEIGHT = 0.12; static RADIUS = 0.03; static DEPTH = 0.04;           // the opening is 12 cm up; the tip must go 4 cm in
+  static HEIGHT = 0.12; static RADIUS = 0.03 * ASSIST; static DEPTH = 0.04;           // the opening is 12 cm up; the tip must go 4 cm in
   constructor(spot) { this.type = "m_oilport"; this.spot = spot; this.connector = null; }
   port() { return at(...this.spot); }
   reset() { this.connector = null; }

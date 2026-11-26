@@ -4,7 +4,7 @@
 // A Carryable stands on the pool floor (pushed by the ROV like a crab, see sim/pushable.js) or sinks until it does. It has CATCH POINTS on its vertical axis
 // (a rope loop, a screw hook, the lattice of a ball ...): `{ id, up, r, kind }`, `up` metres above its base, `r` how close the tool must get.
 //   NOSE   the nose tip stays within `r` of a catch point for CATCH_DWELL seconds: it is hooked and HANGS from the tip (straight down, whatever the ROV does).
-//          Lowered onto something (the floor, a target) it stays there; backing away more than RELEASE metres slides it off the nose. So "put it down" = lower and back out.
+//          Lowered onto something (the floor, a step) it rests there and is DRAGGED along by the nose; reversing (backing the nose away) slides it off. So "put it down" = lower and back out.
 //   CLAW   a catch point between the open jaws and the claw commanded closed: held rigidly in front of the ROV until the claw is opened.
 // Hand-over: the crew can take an item from the ROV (`toDeck`) and give it back (`giveTo`): see scout2026.js for the keys. Held items add no force to the ROV (under 5 N).
 import { POOL_MAX_DEPTH, POOL_REGIONS, floorAt } from "../../sim/physics.js";
@@ -40,7 +40,7 @@ export class Carryable extends Pushable {
   static SINK = 0.15;                                                          // m/s: how fast it sinks once nothing holds it up
   static CATCH_DWELL = 0.2;                                                    // s the nose tip must stay in a catch point to hook it
   static RELEASE = 0.14;                                                       // m the nose tip may drift from where the item rests before it slides off
-  static COOLDOWN = 2.0;                                                       // s after being let go before it can be hooked again (or it would jump straight back on)
+  static COOLDOWN = 1.0;                                                       // s after being let go before it can be hooked again (or it would jump straight back on)
   static SUPPORT_SNAP = 0.01;                                                  // m: within this of the floor it counts as resting on it
 
   /** id: unique name ("star1"); kind: what the page draws; catches: [{ id, up, r, kind }]; (x, y): where it starts on the floor (mode "floor"), or null to start on the deck. */
@@ -71,7 +71,7 @@ export class Carryable extends Pushable {
     this.pushed = false;
     this.held = null;                                                          // null | "nose" | "claw"
     this.supported = false;
-    this.dwell = 0.0; this.prev_claw = 0.0; this.cooldown = 0.0;
+    this.dwell = 0.0; this.prev_claw = 0.0; this.cooldown = 0.0; this.need_clear = false; this.support_t = 0.0;
     this.rel = [0, 0, 0, 0]; this.hang_yaw = 0.0;
     this.rested_at = [this.x, this.y];
     this.depth = this.home_pose ? this._floor_here() : 0.0;                    // the depth of its BASE (on the floor: the floor's depth)
@@ -115,6 +115,11 @@ export class Carryable extends Pushable {
   _catch(rov, dt) {
     const C = Carryable;
     if (this.cooldown > 0) { this.cooldown -= dt; this.dwell = 0.0; this.prev_claw = rov.claw; return; }
+    if (this.need_clear && rov.tool === "nose") {                                // let go of: it cannot be hooked again until the nose has left its catch points
+      const tip = noseTip(rov);
+      if (this.catches.every((c) => dist3(tip, this.catchWorld(c)) > c.r * 1.6)) this.need_clear = false;
+      else { this.dwell = 0.0; this.prev_claw = rov.claw; return; }
+    }
     if (rov.mission_carry) { this.dwell = 0.0; this.prev_claw = rov.claw; return; }                // the ROV has its hands full
     if (rov.tool === "nose") {
       const tip = noseTip(rov);
@@ -145,7 +150,7 @@ export class Carryable extends Pushable {
   release(rov) {
     if (this.held === "claw" && rov.claw_holder === this) rov.claw_holder = null;
     if (rov.mission_carry === this) rov.mission_carry = null;
-    this.held = null; this.mode = this.stuck_to ? "stuck" : "sink"; this.supported = false; this.cooldown = Carryable.COOLDOWN;
+    this.held = null; this.mode = this.stuck_to ? "stuck" : "sink"; this.supported = false; this.cooldown = Carryable.COOLDOWN; this.need_clear = true;
     this.rested_at = [this.x, this.y];
     this.pvx = this.pvy = this.pw = 0.0;
   }
@@ -166,17 +171,23 @@ export class Carryable extends Pushable {
       if (dist3(tip, [this.x, this.y, -this.depth + up]) > Carryable.RELEASE) this.release(rov);
       return;
     }
-    if (this.supported) {                                                       // resting on something: it stays
+    if (this.supported) {                                                       // resting on the floor or a step
+      const k = 1 - Math.exp(-dt * 14);
+      this.support_t += dt;
       if (want < this.depth - Carryable.SUPPORT_SNAP) this.supported = false;  // the nose rises: it is lifted again
       else {
-        if (Math.hypot(tip[0] - this.x, tip[1] - this.y) > Carryable.RELEASE) this.release(rov);   // backing away slides it off
+        const fx = Math.cos(rov.yaw), fy = Math.sin(rov.yaw), behind = -((tip[0] - this.x) * fx + (tip[1] - this.y) * fy);       // how far the tip is BEHIND the item
+        if (behind > Carryable.RELEASE || (rov.u < -0.06 && this.support_t > 0.4)) { this.release(rov); return; }       // the nose backs away: it slides off
+        this.x = lerp(this.x, tip[0], k); this.y = lerp(this.y, tip[1], k);   // otherwise it is dragged along by the nose
+        const f2 = this.rest_depth(this.x, this.y);
+        if (want < f2 - Carryable.SUPPORT_SNAP) this.supported = false; else this.depth = f2;
         return;
       }
     }
     const k = 1 - Math.exp(-dt * 14);                                           // (it follows a little behind the tip, so it does not jump when hooked)
     this.x = lerp(this.x, tip[0], k); this.y = lerp(this.y, tip[1], k);
     const f = this.rest_depth(this.x, this.y);
-    if (want >= f) { this.x = tip[0]; this.y = tip[1]; this.depth = this.rest_depth(this.x, this.y); this.supported = true; this.rested_at = [this.x, this.y]; }       // (set down right under the tip)
+    if (want >= f) { this.x = tip[0]; this.y = tip[1]; this.depth = this.rest_depth(this.x, this.y); this.supported = true; this.support_t = 0.0; this.rested_at = [this.x, this.y]; }       // (set down right under the tip)
     else this.depth = lerp(this.depth, want, k);
     this.yaw = lerp(this.yaw, rov.yaw + this.hang_yaw, k);
   }

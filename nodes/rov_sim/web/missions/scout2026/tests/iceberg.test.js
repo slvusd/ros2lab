@@ -75,3 +75,38 @@ test("Reset: markers back on the deck, points un-stuck, score zero", () => {
   assert.equal(iceberg.points.every((p) => p.marker === null), true);
   assert.equal(m.inventory().length, 4, "back to the four things on the deck at the start");
 });
+
+test("a marker handed over at the stairs stays on the nose when the ROV drives on over the steps (it is dragged, it does not fall off)", () => {
+  const { rov, m, marker } = make();
+  const R = stairsRect();
+  rov.x = R[0] - 0.3; rov.y = (R[2] + R[3]) / 2; rov.depth = 0.3; rov.yaw = 0; rov.u = rov.v = rov.w = 0;
+  run(rov, 0.5);
+  assert.equal(m.give(rov, "marker1"), true);
+  const mk = marker("marker1");
+  rov.set_cmd("t1", 0.3); rov.set_cmd("t2", 0.3);
+  for (let i = 0; i < 240; i++) {
+    rov.step(DT);
+    assert.equal(mk.held, "nose", `still on the nose after ${i} steps (ROV x ${rov.x.toFixed(2)}, depth ${rov.depth.toFixed(2)})`);
+    assert.equal(rov.mission_carry, mk);
+  }
+});
+
+test("backing the nose away lets go; and a let-go item is not silently hooked again while the nose still rests in its loop", () => {
+  const { rov, m, marker } = make();
+  const R = stairsRect();
+  rov.x = R[0] - 0.3; rov.y = (R[2] + R[3]) / 2; rov.depth = 0.3; rov.yaw = 0; rov.u = rov.v = rov.w = 0;
+  run(rov, 0.5);
+  m.give(rov, "marker1");
+  rov.set_cmd("t1", 0.3); rov.set_cmd("t2", 0.3); run(rov, 3);                 // onto the steps: it rests there and is dragged
+  const mk = marker("marker1");
+  assert.equal(mk.held, "nose");
+  rov.set_cmd("t1", -0.4); rov.set_cmd("t2", -0.4); run(rov, 1.0);             // reverse
+  rov.set_cmd("t1", 0); rov.set_cmd("t2", 0);
+  assert.equal(mk.held, null, "it slid off when the nose backed away");
+  assert.equal(rov.mission_carry, null, "the nose reports nothing on it");
+  // a nose resting at the item must not re-hook it by itself
+  mk.x = rov.x + 0.485; mk.y = rov.y; mk.mode = "floor";
+  run(rov, 6);
+  if (Math.hypot(mk.x - (rov.x + 0.485), mk.y - rov.y) < 0.1) assert.equal(rov.mission_carry, null, "not hooked again without leaving and coming back");
+  assert.equal(m.give(rov, "marker2"), true, "and the crew can hand over the next one");
+});

@@ -66,7 +66,7 @@ test("scoring: points go up and down, with a message each time", () => {
 
 test("the stairs: the crew takes what the ROV carries (only at the stairs) and hands it back from the inventory", () => {
   const { rov, m } = make();
-  const item = m.addItem(new Carryable("box", "box", at(3, -1)[0], at(3, -1)[1], [{ id: "loop", up: 0.12, r: 0.06, kind: "loop" }]));
+  const item = m.addItem(new Carryable("box", "box", at(5.3, -0.2)[0], at(5.3, -0.2)[1], [{ id: "loop", up: 0.12, r: 0.06, kind: "loop" }]));
   item.label = "Test box";
   const R = stairsRect();
   assert.ok(R && deckSlot(0)[1] > R[3], "the deck slots are beside the stairs, on the deck");
@@ -90,15 +90,15 @@ test("the stairs: the crew takes what the ROV carries (only at the stairs) and h
   assert.equal(item.held, "nose"); assert.equal(m.inventory().length, slotBase);
   assert.equal(m.give(rov, "box"), false, "it is on the ROV now");
   m.deliver(rov);
-  rov.x = at(3, 0)[0]; rov.y = 0;
+  rov.x = at(5.3, 0.6)[0]; rov.y = 0;
   assert.equal(m.give(rov, "box"), false, "away from the stairs nothing is handed over");
   assert.match(m.msg.text, /stairs/);
 });
 
 test("a second delivered item gets the next deck slot; Reset puts carried and delivered things back", () => {
   const { rov, m } = make();
-  const a = m.addItem(new Carryable("a", "box", at(3, -1)[0], at(3, -1)[1], [{ id: "l", up: 0.1, r: 0.05, kind: "loop" }]));
-  const b = m.addItem(new Carryable("b", "box", at(3, 1)[0], at(3, 1)[1], [{ id: "l", up: 0.1, r: 0.05, kind: "loop" }]));
+  const a = m.addItem(new Carryable("a", "box", at(5.3, -0.2)[0], at(5.3, -0.2)[1], [{ id: "l", up: 0.1, r: 0.05, kind: "loop" }]));
+  const b = m.addItem(new Carryable("b", "box", at(5.3, 1.0)[0], at(5.3, 1.0)[1], [{ id: "l", up: 0.1, r: 0.05, kind: "loop" }]));
   const R = stairsRect();
   for (const it of [a, b]) {
     it.mode = "held"; it.held = "nose"; rov.mission_carry = it;
@@ -120,8 +120,8 @@ test("without a mission nothing else is changed: a plain ROV has no mission prop
 
 test("G away from the stairs lets go of what the nose carries (so the nose is free again); the nose says when it is busy", () => {
   const { rov, m } = make();
-  const a = m.addItem(new Carryable("a", "box", at(3, -1)[0], at(3, -1)[1], [{ id: "l", up: 0.12, r: 0.06, kind: "loop" }]));
-  const b = m.addItem(new Carryable("b", "box", at(3, 0.5)[0], at(3, 0.5)[1], [{ id: "l", up: 0.12, r: 0.06, kind: "loop" }]));
+  const a = m.addItem(new Carryable("a", "box", at(5.3, -0.2)[0], at(5.3, -0.2)[1], [{ id: "l", up: 0.12, r: 0.06, kind: "loop" }]));
+  const b = m.addItem(new Carryable("b", "box", at(5.3, 1.4)[0], at(5.3, 1.4)[1], [{ id: "l", up: 0.12, r: 0.06, kind: "loop" }]));
   const tipAt = (x, y, z) => { rov.yaw = 0; rov.pitch = 0; rov.x = x - 0.485; rov.y = y; rov.depth = -z - 0.195; rov.u = rov.v = rov.w = 0; };
   for (let i = 0; i < 40; i++) { tipAt(a.x, a.y, -a.depth + 0.12); rov.step(DT); }
   assert.equal(a.held, "nose");

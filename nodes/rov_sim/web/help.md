@@ -74,14 +74,14 @@ is lost again). When the time is up the clock **does not stop**: it keeps counti
 | 3.1 Wind farm | lift the power connector off its stand (10); its wire between the four waypoint posts (10); its Velcro tip in the oil platform port (10) | 30 |
 
 **Everything can be done with just the nose** (the tool normally selected); the claw works too where you choose it (**T**). To pick something up, hold the **nose tip inside its loop, hook or branches** for a moment: it hooks on
-and then **hangs from the nose** (so a connector hangs with its tip pointing down, ready to be lowered into a port). To put something down, lower it until it rests and **back the nose away**: it slides off. **`G` away from the stairs lets go** of what the nose carries (it sinks from where it is, and cannot be picked up again for 2 seconds); the nose can only carry one thing at a time, and the page says so when it is busy. With the claw,
+and then **hangs from the nose** (so a connector hangs with its tip pointing down, ready to be lowered into a port). To put something down, lower it until it rests and **reverse** (back the nose away): it slides off. Until you do, something resting on the floor or a step is **dragged along** by the nose. **`G` away from the stairs lets go** of what the nose carries (it sinks from where it is, and cannot be picked up again for 2 seconds); the nose can only carry one thing at a time, and the page says so when it is busy. With the claw,
 open it around the loop or pipe and close it.
 
 **The deck is the stairs.** Carry things to the stairs (the ROV has to be near the top step, close to the surface) and press **`G`**: the crew takes what the ROV carries and sets it on the deck table beside the stairs, which scores it.
 **`Tab`** opens the **inventory**: everything on the deck, including the things that start there (the two survey markers, the new sensor and the eDNA connector). Choose with the arrow keys and **Enter** (or the mouse) and
 the crew hangs it on the ROV's nose (or puts it in the open claw). Only at the stairs; **Esc** closes it.
 
-Simplifications: the ROV passes through the frames and the platform (only the pot's handle can be pushed), the wires are drawn lines (the 2 m and 4 m wires are not enforced), and what has stuck (markers, connectors) stays stuck.
+To make it a little easier to see and steer in a simulation, the props are about **1.5 times more forgiving** than the real ones (the catch zones, the targets and the waypoint are a bit bigger). Simplifications: the ROV passes through the frames and the platform (only the pot's handle can be pushed), the wires are drawn lines (the 2 m and 4 m wires are not enforced), and what has stuck (markers, connectors) stays stuck.
 
 ## Micro:bit and Pico {#microcontrollers}
 

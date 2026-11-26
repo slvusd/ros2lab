@@ -2,6 +2,7 @@
 // `v` metres to the left of the pool's middle line when looking out from the wall (sim y = middle + v). The manual only shows "a possible layout": change the numbers here.
 import { POOL_REGIONS, POOL_WATER } from "../../sim/physics.js";
 
+export const ASSIST = 1.5;                                   // props are a little bigger and the targets a little more forgiving than in real life: it is harder to see and steer in a simulation
 export const RUN_SECONDS = 600;                              // the manual: a 10 minute performance
 export const MISSION_POOL = { poollength: 1, poolwidth: 2, pooldepth: 2 };                // the SCOUT class is done in a 2 m deep pool
 
