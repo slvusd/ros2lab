@@ -186,6 +186,7 @@ for anyone you send it to. Every setting is also a plain option you can add to t
 | `fish=on` or `off` | the fish (normally off) |
 | `rings=0` to `5` | how many pick-up rings (normally 3) |
 | `poollength=1` or `2` | the main pool is 6 m times this long (normally 1, so 6 m; 2 is 12 m) |
+| `pooldepth=2`, `3`, `4` or `6` | how deep the main pool is, in metres (normally 2; the shallow end stays 1 m). Also in **Config** |
 | `poolwidth=1`, `2` or `3` | the main pool is 3 m times this wide (normally 1, so 3 m; 3 is 9 m) |
 | `speed=0.25` to `4` | the power of the red and green thrusters (normally 1). **1 is the normal speed, half of what these thrusters used to give**; 2 is the old strength. The up/down thrusters do not change |
 | `thrusters=3`, `4`, `6` or `8` | how many thrusters the ROV has (normally 4: red, green and two up/down). **3**: one up/down thruster, so no nose trim. **6**: four angled thrusters on the corner posts (`t1` front left, `t2` front right, `t3` rear left, `t4` rear right) that can also slide the ROV sideways (**`Q`** left, **`E`** right), plus two up/down (`t5`, `t6`). **8**: one thruster at each of the cube's 8 corners, just outside it and tilted 45°, the rear ones the mirror images of the front ones (`t1` to `t4` on the top corners, `t5` to `t8` on the bottom ones: front left, front right, rear left, rear right). They can move the ROV every way, including rolling it (**`U`** / **`O`**). The red switch drives the left thrusters, the green one the right ones, up/down all of them (the keys mix them for you) |

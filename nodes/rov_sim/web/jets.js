@@ -12,7 +12,7 @@
 // =============================================================================
 const LOOKS = ["bubbles", "streaks", "rings", "mix"];
 const BUBBLES = 260, STREAKS = 110, MAX_RINGS = 9;
-const VIS_BUBBLE = 0.5, VIS_STREAK = 0.35, VIS_RING = 0.22;     // how narrow the picture is next to the physical jet (b = r0 + spread * s)
+const VIS_BUBBLE = 0.5, VIS_STREAK = 0.35, VIS_RING = 0.12;     // how narrow the picture is next to the physical jet (b = r0 + spread * s)
 
 export class Jets {
   /** `opts.ripple(x, z, radius, strength)` disturbs the water surface where the stream wells up (the page owns the wave simulation);

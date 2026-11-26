@@ -8,10 +8,11 @@
 // the main pool grows away from it (longer = further along x, wider = both sides of y = 0); the shallow end keeps its 2.5 m x 2.5 m size and stays
 // flush with the far wall, joined along the main pool's +y wall.
 export const MAIN_LENGTH = 6.0, MAIN_WIDTH = 3.0, SHELF = 2.5;
-export function poolRegions(lengthMul = 1, widthMul = 1) {
+export const POOL_DEPTHS = [2, 3, 4, 6];                 // the main pool can be this deep (m); the shallow end stays 1 m
+export function poolRegions(lengthMul = 1, widthMul = 1, depth = 2.0) {
   const x1 = -3.0 + MAIN_LENGTH * lengthMul, half = (MAIN_WIDTH * widthMul) / 2;
   return [
-    [-3.0, x1, -half, half, 2.0],                       // x0, x1, y0, y1, floor depth: the main pool (deep end)
+    [-3.0, x1, -half, half, depth],                     // x0, x1, y0, y1, floor depth: the main pool (deep end)
     [x1 - SHELF, x1, half, half + SHELF, 1.0],          // the shallow end: a 1 m deep shelf
   ];
 }
@@ -38,10 +39,11 @@ export function makeStairs(water) {
 export const POOL_WATER = poolRegions(1, 1);              // the pool proper (the same array object is edited in place by setPool, so every importer sees the change)
 export const POOL_REGIONS = [...POOL_WATER, ...makeStairs(POOL_WATER)];   // everything the ROV and the rings can be over
 export let POOL_MAX_DEPTH = Math.max(...POOL_REGIONS.map((r) => r[4]));
-/** Resize the main pool (whole numbers: length 1..2 times 6 m, width 1..3 times 3 m). Call it BEFORE creating the ROV, rings and fish. */
-export function setPool(lengthMul = 1, widthMul = 1) {
+/** Resize the main pool (whole numbers: length 1..2 times 6 m, width 1..3 times 3 m, depth 2, 3, 4 or 6 m). Call it BEFORE creating the ROV, rings and fish. */
+export function setPool(lengthMul = 1, widthMul = 1, depth = 2) {
   const L = Math.max(1, Math.min(2, Math.round(lengthMul))), W = Math.max(1, Math.min(3, Math.round(widthMul)));
-  POOL_WATER.splice(0, POOL_WATER.length, ...poolRegions(L, W));
+  const D = POOL_DEPTHS.reduce((a, b) => (Math.abs(b - depth) < Math.abs(a - depth) ? b : a));     // the nearest allowed depth
+  POOL_WATER.splice(0, POOL_WATER.length, ...poolRegions(L, W, D));
   POOL_REGIONS.splice(0, POOL_REGIONS.length, ...POOL_WATER, ...makeStairs(POOL_WATER));
   POOL_MAX_DEPTH = Math.max(...POOL_REGIONS.map((r) => r[4]));
 }

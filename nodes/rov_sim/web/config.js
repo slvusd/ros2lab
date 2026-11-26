@@ -7,6 +7,7 @@
 //   rings        0 .. 5               pick-up rings in the pool (default 3)
 //   poollength   1 | 2                the main pool is 6 m x this long (default 1)
 //   poolwidth    1 | 2 | 3            the main pool is 3 m x this wide (default 1)
+//   pooldepth    2 | 3 | 4 | 6        the main pool is this many metres deep (default 2); the shallow end stays 1 m
 //   speed        0.25 .. 4            power of the red and green thrusters, 1 = normal (itself half of the old full power); 2 decimals (default 1)
 //   crabs        0 .. 5               green crabs crawling on the floor of the shallow end (default 1; the 2026 task has two)
 //   current      on | off             two water outlets in the shallow end's side wall make a current across the pool (default off)
@@ -14,7 +15,8 @@
 //   thrusters    3 | 4 | 6 | 8         how many thrusters: 3 (one up/down), 4 (the original), 6 (four on the posts + two up/down), 8 (one tilted thruster at each of the 8 corners) (default 4)
 //   camera       on | off             the ROV has a camera: its housing on the model, the camera window, and the fish coming to look at it (default off)
 // (With no `controls` the page starts in H-circuit only mode, but the H key still switches.) When `controls` is given, it is LOCKED: the H key and the badge no longer switch modes (the link decides, not the student).
-export const DEFAULTS = { controls: "h", fish: true, rings: 3, poollength: 1, poolwidth: 1, camera: false, speed: 1, crabs: 1, current: false, flow: "mix", thrusters: 4 };
+export const POOL_DEPTHS = [2, 3, 4, 6];               // how deep the main pool can be (m); same list as sim/physics.js
+export const DEFAULTS = { controls: "h", fish: true, rings: 3, poollength: 1, poolwidth: 1, pooldepth: 2, camera: false, speed: 1, crabs: 1, current: false, flow: "mix", thrusters: 4 };
 export const LIMITS = { rings: [0, 5], poollength: [1, 2], poolwidth: [1, 3], speed: [0.25, 4], crabs: [0, 5] };
 export const MAX_RINGS = 10;      // the most rings the pool can hold, counting the ones dropped with the N key (rov_props.py MAX_RINGS is the same number)
 export const CONTROL_MODES = ["all", "h", "h-hidden"];
@@ -42,6 +44,7 @@ export function parseConfig(search = "") {
     rings: whole(q.get("rings"), LIMITS.rings),
     poollength: whole(q.get("poollength"), LIMITS.poollength),
     poolwidth: whole(q.get("poolwidth"), LIMITS.poolwidth),
+    pooldepth: q.has("pooldepth") && POOL_DEPTHS.includes(Number(q.get("pooldepth"))) ? Number(q.get("pooldepth")) : undefined,
     camera: bool(q.get("camera")),
     speed: decimal(q.get("speed"), LIMITS.speed),
     crabs: whole(q.get("crabs"), LIMITS.crabs),

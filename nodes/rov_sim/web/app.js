@@ -1313,9 +1313,10 @@ if (new URLSearchParams(location.search).has("selftest")) {
       if (eelDead()) return fail("the ROV never woke up again");
     }
     if (backend.setPoolSize && jets && jets.sys) {                    // the drawn outlets must follow the wall when the pool is resized
-      for (const [L, W] of [[1, 3], [2, 2], [1, 1]]) {
-        backend.setPoolSize(L, W);
-        await wait(500);
+      for (const [L, W, D] of [[1, 3, 4], [2, 2, 6], [1, 1, 2]]) {            // (length, width, depth)
+        backend.setPoolSize(L, W, D);
+        const drawnRight = () => { const os = state.props.find((p) => p.type === "jets").outlets; return !!jets.sys && os.every((o, k) => Math.hypot(jets.sys[k].origin.x - o.x, jets.sys[k].origin.y + o.depth, jets.sys[k].origin.z + o.y) < 1e-6); };
+        for (let k = 0; k < 40 && !drawnRight(); k++) await wait(100);       // (a slow computer draws the new outlets a little later)
         const outlets = state.props.find((p) => p.type === "jets").outlets;
         if (!jets.sys) return fail("the outlets were not drawn after the pool was resized");
         for (let k = 0; k < outlets.length; k++) {
@@ -1366,7 +1367,7 @@ window.__rov = { state, backend, camera, controls, jets: () => jets, rings: () =
 // ---------- ?config: a panel to set all of these and make the link ----------
 // The Config dialog (configui.js): the toolbar's Config button, or ?config. The "right now" settings (tool, water, pool size, thruster power) are changed through `live`.
 const liveCfg = { ...cfg };                                     // the page's settings as they are NOW (the address is kept in step with them)
-const mainPoolSize = () => { const m = regions.reduce((a, b) => (b.d > a.d ? b : a)); return [Math.round((m.x1 - m.x0) / 6), Math.round((m.z1 - m.z0) / 3)]; };
+const mainPoolSize = () => { const m = regions.reduce((a, b) => (b.d > a.d ? b : a)); return [Math.round((m.x1 - m.x0) / 6), Math.round((m.z1 - m.z0) / 3), m.d]; };
 const jetsRunning = () => (state.props || []).some((p) => p.type === "jets" && p.on);
 function syncAddress() {                                         // a reload or a shared link then keeps these settings
   const sp = new URLSearchParams(toQuery(liveCfg, location.search));
@@ -1378,10 +1379,10 @@ const live = {
   tool: { get: () => tool, set: (t) => { if (t === "nose" || backend.features.claw) setTool(t); } },
   current: backend.features.current && backend.setCurrent ? { get: jetsRunning, set: (on) => backend.setCurrent(on) } : null,
   flow: { get: () => (jets ? jets.look : liveCfg.flow), set: (v) => { if (jets) jets.setLook(v); } },
-  pool: backend.setPoolSize ? { get: mainPoolSize, set: (L, W) => { backend.setPoolSize(L, W); userMoved = false; } } : null,   // (puts everything back at the start; the camera refits)
+  pool: backend.setPoolSize ? { get: mainPoolSize, set: (L, W, D) => { backend.setPoolSize(L, W, D); userMoved = false; } } : null,   // (puts everything back at the start; the camera refits)
   speed: backend.setSpeed ? { get: () => liveCfg.speed, set: (v) => backend.setSpeed(v) } : null,
   thrusters: backend.setThrusters ? { get: () => state.thrusters || 4, set: (n) => backend.setThrusters(n) } : null,
-  changed: (c) => { for (const k of ["current", "flow", "speed", "thrusters", "poollength", "poolwidth"]) liveCfg[k] = c[k]; syncAddress(); },
+  changed: (c) => { for (const k of ["current", "flow", "speed", "thrusters", "poollength", "poolwidth", "pooldepth"]) liveCfg[k] = c[k]; syncAddress(); },
 };
 async function openConfig() {
   try { (await import("./configui.js")).showConfig({ cfg: liveCfg, configurable: backend.configurable || {}, live }); }

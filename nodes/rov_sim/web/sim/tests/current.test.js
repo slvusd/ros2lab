@@ -117,7 +117,7 @@ test("the current tilts the ROV: roll from the side, pitch from ahead or behind,
   const [pitchBehind] = runPeak(behind, 1.5, "pitch");
   assert.ok(pitchBehind > 0.03, `push from behind: peak pitch ${(pitchBehind * 180 / Math.PI).toFixed(1)} deg should be nose DOWN (positive)`);
   const high = make();
-  place(high, JET_X, 0.5, jetsOf(high).outlets[0].depth + 0.25, Math.PI / 2);    // the jet axis is level with the top of the frame
+  place(high, JET_X, 0.5, jetsOf(high).outlets[0].depth + 0.12, Math.PI / 2);    // the jet axis is a little above the middle of the frame (the jet is narrow, so it hits the upper part harder)
   const [pitchHigh] = runPeak(high, 1.5, "pitch");
   assert.ok(pitchHigh < pitchHead, `the shear should add to the pitch: ${(pitchHigh * 180 / Math.PI).toFixed(1)} vs ${(pitchHead * 180 / Math.PI).toFixed(1)} deg`);
 });

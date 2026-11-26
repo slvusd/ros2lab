@@ -11,7 +11,7 @@ import { POOL_REGIONS } from "./physics.js";
 // faster than the ROV can swim (its top speed is about 0.84 m/s). Turn all of it up or down with U0 and K together.
 export const U0 = 1.0;                    // m/s at the nozzle
 export const K = 0.5;                     // axial speed = K / s beyond s = K / U0 (0.5 m)
-export const R0 = 0.04, SPREAD = 0.40;    // half-width b(s) = R0 + SPREAD * s
+export const R0 = 0.04, SPREAD = 0.20;    // half-width b(s) = R0 + SPREAD * s
 
 /** The two outlets. They are ALWAYS in the wall (the page draws them whether the water is running or not); `on` says whether water comes out. */
 export class Jets {

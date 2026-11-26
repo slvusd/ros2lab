@@ -9,7 +9,7 @@ export const name = "local sim";
 export const config = parseConfig(typeof location !== "undefined" ? location.search : "");   // ?rings= ?fish= ?poollength= ?poolwidth= ?camera= (see config.js)
 export const defaultTool = "nose";               // scout ROVs mostly use a nose (hook); T switches to the claw
 export const configurable = { controls: true, camera: true, fish: true, rings: true, pool: true, speed: true, crabs: true, current: true };   // what the ?config panel may change here
-setPool(config.poollength, config.poolwidth);    // the pool first: rings and fish stand on its floor
+setPool(config.poollength, config.poolwidth, config.pooldepth);    // the pool first: rings and fish stand on its floor
 const rov = new Rov({ tool: defaultTool, thrusters: config.thrusters });
 rov.speed_mult = Math.max(0.25, Math.min(4, config.speed));   // ?speed= : the red / green thrusters' power (1 = normal)
 let ringsMod = null;
@@ -53,8 +53,8 @@ export function setThrusters(n) {
 export function setSpeed(v) { rov.speed_mult = Math.max(0.25, Math.min(4, Number(v) || 1)); }
 /** The Config dialog's pool size: resize the main pool (length 1-2 times 6 m, width 1-3 times 3 m) while the sim runs. Everything that stands in the pool (the ROV,
  *  the rings, the fish, the crabs, the water outlets) is put back in the new pool, like Reset. */
-export function setPoolSize(length, width) {
-  setPool(length, width);
+export function setPoolSize(length, width, depth) {
+  setPool(length, width, depth);
   world.reset();
 }
 /** The Config dialog's Current box: make the water run, or stop it. (The outlets stay in the wall either way.) */

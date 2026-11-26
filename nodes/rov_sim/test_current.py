@@ -169,7 +169,7 @@ def test_the_current_tilts_the_rov():
     assert pitch_behind > 0.03, f"push from behind: peak pitch {math.degrees(pitch_behind):.1f} deg should be nose DOWN (positive)"
     # a jet that hits only the upper part of the frame tilts it more than the same push on the middle (the shear term)
     high = make()
-    place(high, JET_X, 0.5, jets_of(high).outlets[0]["depth"] + 0.25, yaw=math.pi / 2)      # the jet axis is level with the top of the frame
+    place(high, JET_X, 0.5, jets_of(high).outlets[0]["depth"] + 0.12, yaw=math.pi / 2)      # the jet axis is a little above the middle of the frame (the jet is narrow, so it hits the upper part harder)
     pitch_high, _, _ = run_peak(high, 1.5, "pitch")
     assert pitch_high < pitch_head, f"the shear should add to the pitch: {math.degrees(pitch_high):.1f} vs {math.degrees(pitch_head):.1f} deg"
 

@@ -4,7 +4,7 @@
 //               (app.js gives this file a `live` object that does the work).
 //   RESTART     the controls mode, the fish, rings, crabs and the camera are built when the page starts: they apply when you press Restart,
 //               which reloads the page with the new address.
-import { DEFAULTS, LIMITS, CONFIG_KEYS, FLOW_LOOKS, THRUSTER_MODES, POOL_PRESETS, toQuery, poolSizeText } from "./config.js";
+import { DEFAULTS, LIMITS, CONFIG_KEYS, FLOW_LOOKS, THRUSTER_MODES, POOL_DEPTHS, POOL_PRESETS, toQuery, poolSizeText } from "./config.js";
 
 const CSS = `
 #configui { position: fixed; inset: 0; z-index: 50; background: rgba(4, 16, 26, .3); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
@@ -46,7 +46,7 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
   if (live.flow) cur.flow = live.flow.get();
   if (live.speed) cur.speed = live.speed.get();
   if (live.thrusters) cur.thrusters = live.thrusters.get();
-  if (live.pool) [cur.poollength, cur.poolwidth] = live.pool.get();
+  if (live.pool) [cur.poollength, cur.poolwidth, cur.pooldepth] = live.pool.get();
   let tool = live.tool ? live.tool.get() : "nose";
   const style = document.createElement("style"); style.textContent = CSS; document.head.appendChild(style);
   const el = document.createElement("div"); el.id = "configui"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Configure the pool");
@@ -66,6 +66,7 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
         <label><input type="radio" name="cfg-tool" value="nose"${tool === "nose" ? " checked" : ""}${dis(live.tool)}> Nose</label>
         <label><input type="radio" name="cfg-tool" value="claw"${tool === "claw" ? " checked" : ""}${dis(live.tool)}> Claw</label></span></div>
       <div class="row ${off(live.pool)}"><label for="cfg-pool">Main pool size</label><select id="cfg-pool"${dis(live.pool)}>${presets.join("")}</select></div>
+      <div class="row ${off(live.pool)}"><label for="cfg-depth">Main pool depth</label><select id="cfg-depth"${dis(live.pool)}>${POOL_DEPTHS.map((d) => opt(d, `${d} m${d === 2 ? " (normal)" : ""}`, cur.pooldepth === d)).join("")}</select></div>
       <div class="row ${off(live.current)}"><label><input type="checkbox" id="cfg-current"${cur.current ? " checked" : ""}${dis(live.current)}><span>Run the water<br><small>from the two outlets in the side wall, as if filling the pool: it pushes and tilts the ROV (the outlets are always there)</small></span></label></div>
       <div class="row ${off(live.flow)}"><label for="cfg-flow">How the water is drawn <small>(J does this too)</small></label><select id="cfg-flow"${dis(live.flow)}>${FLOW_LOOKS.map((v) => `<option value="${v}"${cur.flow === v ? " selected" : ""}>${{ bubbles: "bubbles", streaks: "streaks (tracer lines)", rings: "ripple rings", mix: "rings and bubbles" }[v]}</option>`).join("")}</select></div>
       <div class="row ${off(live.speed)}"><label for="cfg-speed">Red and green thruster power <small>(1&times; = normal)</small></label>
@@ -94,7 +95,7 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
 
   const url = () => { const u = new URL(location.href); u.search = toQuery(cur, location.search); u.hash = ""; return u; };
   const refresh = () => {
-    $("cfg-size").textContent = `Main pool: ${poolSizeText(cur.poollength, cur.poolwidth)}, 2 m deep, plus the shallow end.`;
+    $("cfg-size").textContent = `Main pool: ${poolSizeText(cur.poollength, cur.poolwidth)}, ${cur.pooldepth} m deep, plus the shallow end.`;
     $("cfg-link").value = url().href;
     $("cfg-speedv").textContent = `${Number(cur.speed.toFixed(2))}×`;
   };
@@ -112,12 +113,12 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
     cur.speed = Math.max(LIMITS.speed[0], Math.min(LIMITS.speed[1], Number($("cfg-speed").value) || DEFAULTS.speed));
     cur.thrusters = Number($("cfg-thrusters").value) || DEFAULTS.thrusters;
     const [L, W] = $("cfg-pool").value.split("x").map(Number);
-    cur.poollength = L; cur.poolwidth = W;
+    cur.poollength = L; cur.poolwidth = W; cur.pooldepth = Number($("cfg-depth").value) || DEFAULTS.pooldepth;
     if (which === "cfg-current" && live.current) live.current.set(cur.current);
     if (which === "cfg-flow" && live.flow) live.flow.set(cur.flow);
     if (which === "cfg-speed" && live.speed) live.speed.set(cur.speed);
     if (which === "cfg-thrusters" && live.thrusters && cur.thrusters !== was.thrusters) live.thrusters.set(cur.thrusters);
-    if (which === "cfg-pool" && live.pool && (L !== was.poollength || W !== was.poolwidth)) live.pool.set(L, W);
+    if ((which === "cfg-pool" || which === "cfg-depth") && live.pool && (L !== was.poollength || W !== was.poolwidth || cur.pooldepth !== was.pooldepth)) live.pool.set(L, W, cur.pooldepth);
     if (which && which.startsWith("cfg-tool") && live.tool) { tool = el.querySelector('input[name="cfg-tool"]:checked').value; live.tool.set(tool); }
     if (which && live.changed) live.changed(cur);
     refresh();
@@ -128,8 +129,8 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
     Object.assign(cur, DEFAULTS);
     el.querySelectorAll('input[name="cfg-controls"]').forEach((r) => { r.checked = r.value === cur.controls; });
     $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-crabs").value = cur.crabs; $("cfg-camera").checked = cur.camera;
-    $("cfg-current").checked = cur.current; $("cfg-flow").value = cur.flow; $("cfg-speed").value = cur.speed; $("cfg-thrusters").value = cur.thrusters; $("cfg-pool").value = `${cur.poollength}x${cur.poolwidth}`;
-    for (const id of ["cfg-current", "cfg-flow", "cfg-speed", "cfg-thrusters", "cfg-pool"]) read(id);
+    $("cfg-current").checked = cur.current; $("cfg-flow").value = cur.flow; $("cfg-speed").value = cur.speed; $("cfg-thrusters").value = cur.thrusters; $("cfg-pool").value = `${cur.poollength}x${cur.poolwidth}`; $("cfg-depth").value = cur.pooldepth;
+    for (const id of ["cfg-current", "cfg-flow", "cfg-speed", "cfg-thrusters", "cfg-pool", "cfg-depth"]) read(id);
   });
   $("cfg-go").addEventListener("click", () => { location.href = url().href; });
   const close = () => {

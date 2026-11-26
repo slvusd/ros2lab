@@ -154,3 +154,21 @@ test("the outlets stay in the middle of the shelf-side wall at a third and two t
     for (let i = 0; i < 60 * 40; i++) { r.step(DT); assert.ok(inside(r.x, r.y), `${L}x${W}: the current pushed the ROV out of the pool`); }
   }
 });
+
+test("the main pool can be 2, 3, 4 or 6 m deep; the shallow end and the stairs stay as they were", async () => {
+  const { POOL_DEPTHS, POOL_WATER, POOL_REGIONS: ALL, setPool: sp } = await import("../physics.js");
+  const jets = await import("../current.js");
+  assert.deepEqual(POOL_DEPTHS, [2, 3, 4, 6]);
+  for (const d of POOL_DEPTHS) {
+    sp(1, 1, d);
+    assert.equal(POOL_WATER[0][4], d); assert.equal(POOL_WATER[1][4], 1.0, "the shallow end stays 1 m");
+    assert.equal(ALL.length, 5, "and the stairs are still there");
+    const rov = new (await import("../physics.js")).Rov({ tool: "nose" });
+    jets.addTo(rov, false);
+    const j = rov.props.find((p) => p.type === "jets");
+    assert.ok(Math.abs(j.outlets[0].depth - d / 3) < 1e-9 && Math.abs(j.outlets[1].depth - 2 * d / 3) < 1e-9, "the outlets stay at a third and two thirds of the depth");
+  }
+  sp(1, 1, 5); assert.ok([4, 6].includes(POOL_WATER[0][4]), "anything else becomes the nearest allowed depth");
+  sp(1, 1, 2); assert.equal(POOL_WATER[0][4], 2);
+  sp(1, 1);    assert.equal(POOL_WATER[0][4], 2, "no depth given: the normal 2 m");
+});

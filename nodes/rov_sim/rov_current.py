@@ -24,7 +24,7 @@ from rov_physics import POOL_REGIONS
 # faster than the ROV can swim (its top speed is about 0.84 m/s). Turn all of it up or down with U0 and K together.
 U0 = 1.0          # m/s at the nozzle
 K = 0.5           # axial speed = K / s beyond s = K / U0 (0.5 m)
-R0, SPREAD = 0.04, 0.40    # half-width b(s) = R0 + SPREAD * s
+R0, SPREAD = 0.04, 0.20    # half-width b(s) = R0 + SPREAD * s
 
 
 class Jets:

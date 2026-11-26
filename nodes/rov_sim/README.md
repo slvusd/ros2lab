@@ -79,7 +79,7 @@ and stays inside its rectangle); the crab only adds the walking. A rock or a lob
 
 **Settings (`?config`):** add `?config` to the page address (or use *Set up the pool* in the Help page) for a panel that sets the options and gives you a link to share;
 each setting is also a plain address option: `controls=all|h|h-hidden` (all keys / H-circuit only, locked / H-circuit only with every other control hidden),
-`fish=on|off`, `rings=0..5` (3), `speed=0.25..4` (1: the red and green thrusters' power), `thrusters=3|4|6|8` (4), `poollength=1|2` (x 6 m), `poolwidth=1|2|3` (x 3 m), `camera=on|off`. They live in `web/config.js` (parsing and limits, tested) and
+`fish=on|off`, `rings=0..5` (3), `speed=0.25..4` (1: the red and green thrusters' power), `thrusters=3|4|6|8` (4), `poollength=1|2` (x 6 m), `poolwidth=1|2|3` (x 3 m), `pooldepth=2|3|4|6` (m; browser only, the Python pool stays 2 m), `camera=on|off`. They live in `web/config.js` (parsing and limits, tested) and
 `web/configui.js` (the panel); `physics.js` `setPool()` resizes the main pool. The pool size is a browser-version feature for now: Python's pool is still the fixed
 6 x 3 m plus shelf (`POOL_REGIONS` in `rov_physics.py`), and with the Python server only `controls` and `camera` apply (use `--rings` / `--fish` there).
 
