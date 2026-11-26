@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { World, DT } from "../world.js";
-import { Rov, POOL_REGIONS, floorAt } from "../physics.js";
+import { Rov, POOL_REGIONS, POOL_WATER, floorAt } from "../physics.js";
 import * as eelMod from "../eel.js";
 import { Eel } from "../eel.js";
 import * as currentMod from "../current.js";
@@ -83,7 +83,7 @@ test("the eel stays inside the water and its body keeps together", () => {
 
 test("a ROV in the shallow end: the eel goes round the corner to get it, and round the corner again to get home", () => {
   const { rov, world, eel } = make();
-  const shallow = POOL_REGIONS.reduce((a, b) => (b[4] < a[4] ? b : a));
+  const shallow = POOL_WATER.reduce((a, b) => (b[4] < a[4] ? b : a));
   rov.x = (shallow[0] + shallow[1]) / 2; rov.y = (shallow[2] + shallow[3]) / 2; rov.depth = Math.max(0.3, shallow[4] - 0.5);
   eelMod.summon(rov);
   let t = 0;
@@ -112,7 +112,7 @@ test("it swims INTO the hole: the body follows the head through the wall, it doe
 });
 
 test("wherever the ROV was caught, the eel only ever goes through the wall at the hole itself", () => {
-  const shallow = POOL_REGIONS.reduce((a, b) => (b[4] < a[4] ? b : a)), deep = POOL_REGIONS.reduce((a, b) => (b[4] > a[4] ? b : a));
+  const shallow = POOL_WATER.reduce((a, b) => (b[4] < a[4] ? b : a)), deep = POOL_WATER.reduce((a, b) => (b[4] > a[4] ? b : a));
   const spots = [
     [(shallow[0] + shallow[1]) / 2, (shallow[2] + shallow[3]) / 2, 0.3], [shallow[1] - 0.4, shallow[3] - 0.4, 0.4], [shallow[0] + 0.4, shallow[2] + 0.4, 0.5],
     [deep[0] + 0.5, deep[2] + 0.5, 1.0], [deep[1] - 0.5, deep[3] - 0.4, 0.3], [deep[0] + 0.5, deep[3] - 0.5, 1.5], [0.0, 0.0, 0.2],

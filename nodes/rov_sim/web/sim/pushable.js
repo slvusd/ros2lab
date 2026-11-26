@@ -3,7 +3,7 @@
 // rectangle of the pool. Each step: think() (its own motion; the base class does none), move (plus the speed a push gave it, which dies away in the
 // water), every solid part of the ROV (shape.js capsules) that overlaps it pushes it out ALONG THE FLOOR (an off-centre push turns it a little), and it
 // is kept inside its rectangle. Game-style physics like the rings. Python is the reference; keep the two in step.
-import { POOL_REGIONS, clamp, nearestIn } from "./physics.js";
+import { POOL_WATER, clamp, nearestIn } from "./physics.js";
 import { capsules, segSeg } from "./shape.js";
 
 export class Pushable {
@@ -23,7 +23,7 @@ export class Pushable {
 
   // ---- what a subclass provides
   /** The rectangle [x0, x1, y0, y1, floor depth] it lives in: by default the shallowest part of the pool. */
-  home() { return POOL_REGIONS.reduce((a, b) => (b[4] < a[4] ? b : a)); }
+  home() { return POOL_WATER.reduce((a, b) => (b[4] < a[4] ? b : a)); }
   /** Its own motion this step as [vx, vy] in m/s along the floor. */
   think() { return [0.0, 0.0]; }
 

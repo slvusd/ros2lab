@@ -15,12 +15,34 @@ export function poolRegions(lengthMul = 1, widthMul = 1) {
     [x1 - SHELF, x1, half, half + SHELF, 1.0],          // the shallow end: a 1 m deep shelf
   ];
 }
-export const POOL_REGIONS = poolRegions(1, 1);           // (the same array object is edited in place by setPool, so every importer sees the change)
+// STAIRS: three steps cut into the shallow end's outer wall (a notch STAIR_WIDTH wide, each step STAIR_TREAD deep), at STAIR_DEPTHS of the shelf's depth (so a ring, 0.3 m high,
+// lies under the water even on the top step, and the ROV can drive onto the first). Ordinary regions for the ROV and the rings; the crab and the fish stay in POOL_WATER (the pool proper).
+// (The same code is in rov_physics.py.)
+export const STAIR_WIDTH = 1.5, STAIR_TREAD = 0.6, STAIR_DEPTHS = [0.8, 0.6, 0.4];
+export function makeStairs(water) {
+  const sh = water.reduce((a, b) => (b[4] < a[4] ? b : a));
+  const xMax = Math.max(...water.map((r) => r[1])), yMax = Math.max(...water.map((r) => r[3])), xMin = Math.min(...water.map((r) => r[0])), yMin = Math.min(...water.map((r) => r[2]));
+  const side = sh[1] >= xMax - 1e-9 ? "x1" : sh[3] >= yMax - 1e-9 ? "y1" : sh[0] <= xMin + 1e-9 ? "x0" : sh[2] <= yMin + 1e-9 ? "y0" : null;
+  if (!side) return [];
+  const alongX = side[0] === "y", lo = alongX ? sh[0] : sh[2], hi = alongX ? sh[1] : sh[3], half = Math.min(STAIR_WIDTH, hi - lo - 0.2) / 2;
+  if (half < 0.3) return [];
+  const mid = (lo + hi) / 2;
+  return STAIR_DEPTHS.map((f, i) => {
+    const a = i * STAIR_TREAD, b = (i + 1) * STAIR_TREAD, d = sh[4] * f;
+    if (side === "x1") return [sh[1] + a, sh[1] + b, mid - half, mid + half, d];
+    if (side === "x0") return [sh[0] - b, sh[0] - a, mid - half, mid + half, d];
+    if (side === "y1") return [mid - half, mid + half, sh[3] + a, sh[3] + b, d];
+    return [mid - half, mid + half, sh[2] - b, sh[2] - a, d];
+  });
+}
+export const POOL_WATER = poolRegions(1, 1);              // the pool proper (the same array object is edited in place by setPool, so every importer sees the change)
+export const POOL_REGIONS = [...POOL_WATER, ...makeStairs(POOL_WATER)];   // everything the ROV and the rings can be over
 export let POOL_MAX_DEPTH = Math.max(...POOL_REGIONS.map((r) => r[4]));
 /** Resize the main pool (whole numbers: length 1..2 times 6 m, width 1..3 times 3 m). Call it BEFORE creating the ROV, rings and fish. */
 export function setPool(lengthMul = 1, widthMul = 1) {
   const L = Math.max(1, Math.min(2, Math.round(lengthMul))), W = Math.max(1, Math.min(3, Math.round(widthMul)));
-  POOL_REGIONS.splice(0, POOL_REGIONS.length, ...poolRegions(L, W));
+  POOL_WATER.splice(0, POOL_WATER.length, ...poolRegions(L, W));
+  POOL_REGIONS.splice(0, POOL_REGIONS.length, ...POOL_WATER, ...makeStairs(POOL_WATER));
   POOL_MAX_DEPTH = Math.max(...POOL_REGIONS.map((r) => r[4]));
 }
 export const ROV_HALF = 0.25, ROV_BOTTOM = 0.28;

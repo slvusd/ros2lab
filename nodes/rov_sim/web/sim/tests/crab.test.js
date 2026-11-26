@@ -2,7 +2,7 @@
 // Run: node --test nodes/rov_sim/web/sim/tests/
 import test from "node:test";
 import assert from "node:assert/strict";
-import { Rov, POOL_REGIONS } from "../physics.js";
+import { Rov, POOL_REGIONS, POOL_WATER } from "../physics.js";
 import { distanceToRov } from "../shape.js";
 import { Pushable } from "../pushable.js";
 import { Crab, addTo as addCrabs } from "../crab.js";
@@ -10,7 +10,7 @@ import { addTo as addRings } from "../rings.js";
 import { addTo as addFish } from "../fishbrain.js";
 
 const DT = 1 / 60;
-const SHELF = POOL_REGIONS.reduce((a, b) => (b[4] < a[4] ? b : a)), FLOOR = SHELF[4];
+const SHELF = POOL_WATER.reduce((a, b) => (b[4] < a[4] ? b : a)), FLOOR = SHELF[4];
 
 function make(crabs = 1, opts = {}) {
   const r = new Rov({ buoyancy: 0.0, tool: "nose", ...opts });

@@ -30,7 +30,7 @@ import math
 import random
 
 import rov_shape
-from rov_physics import POOL_MAX_DEPTH, POOL_REGIONS, clamp, nearest_in
+from rov_physics import POOL_MAX_DEPTH, POOL_WATER, clamp, nearest_in      # (POOL_WATER: the pool proper; the fish keeps out of the stairs)
 
 
 def wrap_pi(a):
@@ -71,7 +71,7 @@ class Fish:
     # ------------------------------------------------------------------ setup
     def reset(self):
         self.rng = random.Random(self.seed)
-        deep = max(POOL_REGIONS, key=lambda r: r[4])
+        deep = max(POOL_WATER, key=lambda r: r[4])
         # start in the far half of the deep end, away from the ROV's starting corner
         self.x = self.rng.uniform(deep[0] + 0.6 * (deep[1] - deep[0]), deep[1] - 0.8)
         self.y = self.rng.uniform(deep[2] + 0.6, deep[3] - 0.6)
@@ -102,8 +102,8 @@ class Fish:
     # ------------------------------------------------------------------ helpers
     def _open_regions(self, depth):
         """Regions a fish at this depth may be over (the shelf is closed to a fish that is too deep)."""
-        regs = [r for r in POOL_REGIONS if r[4] - self.dm >= depth]
-        return regs or [max(POOL_REGIONS, key=lambda r: r[4])]
+        regs = [r for r in POOL_WATER if r[4] - self.dm >= depth]
+        return regs or [max(POOL_WATER, key=lambda r: r[4])]
 
     def _floor_here(self, x, y, regions=None):
         ds = [r[4] for r in (regions or self._open_regions(self.depth)) if r[0] <= x <= r[1] and r[2] <= y <= r[3]]
@@ -119,7 +119,7 @@ class Fish:
         return (x, y, z)
 
     def _random_spot(self):
-        regs = [r for r in POOL_REGIONS if r[1] - r[0] > 2 * self.WANDER_MARGIN and r[3] - r[2] > 2 * self.WANDER_MARGIN and r[4] > 0.9]
+        regs = [r for r in POOL_WATER if r[1] - r[0] > 2 * self.WANDER_MARGIN and r[3] - r[2] > 2 * self.WANDER_MARGIN and r[4] > 0.9]
         weights = [(r[1] - r[0]) * (r[3] - r[2]) for r in regs]
         r = self.rng.choices(regs, weights)[0]
         return (self.rng.uniform(r[0] + self.WANDER_MARGIN, r[1] - self.WANDER_MARGIN),

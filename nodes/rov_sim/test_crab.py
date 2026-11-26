@@ -17,10 +17,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import rov_crab
 import rov_pushable
 import rov_shape
-from rov_physics import POOL_REGIONS, Rov
+from rov_physics import POOL_REGIONS, POOL_WATER, Rov
 
 DT = 1 / 60
-SHELF = min(POOL_REGIONS, key=lambda r: r[4])
+SHELF = min(POOL_WATER, key=lambda r: r[4])
 FLOOR = SHELF[4]
 
 

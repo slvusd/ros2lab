@@ -43,10 +43,52 @@ WEB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web")
 #       |      deep end (2 m)  |      <- the original pool: 6 m x 3 m
 #  -1.5 +----------------------+
 #      -3.0         0.5       3.0   x
-POOL_REGIONS = [
+POOL_WATER = [
     (-3.0, 3.0, -1.5, 1.5, 2.0),     # x0, x1, y0, y1, floor depth: the deep end
     (0.5, 3.0, 1.5, 4.0, 1.0),       # the shallow end: a 1 m deep shelf, joined to the deep end along y = 1.5
 ]
+
+
+# STAIRS: three steps cut into the shallow end's outer wall (a notch in the wall, STAIR_WIDTH wide, each step STAIR_TREAD deep), at STAIR_DEPTHS of the shelf's depth
+# (so a ring, 0.3 m high, lies under the water even on the top step, and the ROV can drive onto the first). They are ordinary regions of the pool for the ROV and the rings; the crab and the
+# fish stay in POOL_WATER (the pool proper) and keep out of them. (The same code is in web/sim/physics.js.)
+STAIR_WIDTH, STAIR_TREAD, STAIR_DEPTHS = 1.5, 0.6, (0.8, 0.6, 0.4)
+
+
+def make_stairs(water):
+    sh = min(water, key=lambda r: r[4])
+    x_max, y_max, x_min, y_min = max(r[1] for r in water), max(r[3] for r in water), min(r[0] for r in water), min(r[2] for r in water)
+    if sh[1] >= x_max - 1e-9:
+        side = "x1"
+    elif sh[3] >= y_max - 1e-9:
+        side = "y1"
+    elif sh[0] <= x_min + 1e-9:
+        side = "x0"
+    elif sh[2] <= y_min + 1e-9:
+        side = "y0"
+    else:
+        return []
+    along_x = side[0] == "y"
+    lo, hi = (sh[0], sh[1]) if along_x else (sh[2], sh[3])
+    half = min(STAIR_WIDTH, hi - lo - 0.2) / 2
+    if half < 0.3:
+        return []
+    mid, out = (lo + hi) / 2, []
+    for i, f in enumerate(STAIR_DEPTHS):
+        a, b, d = i * STAIR_TREAD, (i + 1) * STAIR_TREAD, sh[4] * f
+        if side == "x1":
+            out.append((sh[1] + a, sh[1] + b, mid - half, mid + half, d))
+        elif side == "x0":
+            out.append((sh[0] - b, sh[0] - a, mid - half, mid + half, d))
+        elif side == "y1":
+            out.append((mid - half, mid + half, sh[3] + a, sh[3] + b, d))
+        else:
+            out.append((mid - half, mid + half, sh[2] - b, sh[2] - a, d))
+    return out
+
+
+POOL_STAIRS = make_stairs(POOL_WATER)
+POOL_REGIONS = POOL_WATER + POOL_STAIRS                     # everything the ROV and the rings can be over
 POOL_MAX_DEPTH = max(r[4] for r in POOL_REGIONS)
 ROV_HALF = 0.25                       # ROV is ~0.5 m on a side (to the middle of the frame pipes)
 ROV_BOTTOM = 0.28                     # lowest point below the centre: the bottom pipes (radius 1.4 cm) and the tool/thruster

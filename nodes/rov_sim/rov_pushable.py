@@ -16,7 +16,7 @@
 import math
 
 import rov_shape
-from rov_physics import POOL_REGIONS, clamp, nearest_in
+from rov_physics import POOL_REGIONS, POOL_WATER, clamp, nearest_in
 from rov_shape import seg_seg
 
 
@@ -35,8 +35,8 @@ class Pushable:
 
     # ------------------------------------------------------------------ what a subclass provides
     def home(self):
-        """The rectangle (x0, x1, y0, y1, floor depth) it lives in: by default the shallowest part of the pool."""
-        return min(POOL_REGIONS, key=lambda r: r[4])
+        """The rectangle (x0, x1, y0, y1, floor depth) it lives in: by default the shallowest part of the pool proper (not the stairs)."""
+        return min(POOL_WATER, key=lambda r: r[4])                 # (the shallow end itself, not the stairs)
 
     def think(self, rov, dt):
         """Its own motion this step as (vx, vy) in m/s along the floor. A thing that never moves by itself returns (0, 0)."""

@@ -53,28 +53,8 @@ scene.add(sun);
 let regions = [{ x0: -3, x1: 3, z0: -1.5, z1: 1.5, d: 2 }];        // until the sim tells us (the original pool)
 let regionsKey = "";
 let bbox = { x0: -3, x1: 3, z0: -1.5, z1: 1.5 }, maxDepth = 2;
-// STAIRS: three steps cut into the shallow end's outer wall (a 1.2 m wide notch, one step 0.3 m deep each), drawn as three more little "regions" with shallower floors, so the
-// pool-drawing code makes their floors, riser walls, water and the cut in the deck by itself. They are only a drawing: the physics does not know them (the ROV stops
-// at the wall in front of the stairs).
-const STAIR_WIDTH = 1.2, STAIR_TREAD = 0.3;
-function withStairs(list) {
-  const sh = list.reduce((a, b) => (b.d < a.d ? b : a)), xMax = Math.max(...list.map((r) => r.x1)), zMax = Math.max(...list.map((r) => r.z1)), xMin = Math.min(...list.map((r) => r.x0)), zMin = Math.min(...list.map((r) => r.z0));
-  const n = Math.max(2, Math.round(sh.d / 0.3)), rise = sh.d / (n + 1), out = [];
-  const side = sh.x1 >= xMax - EPS ? "x1" : sh.z1 >= zMax - EPS ? "z1" : sh.x0 <= xMin + EPS ? "x0" : sh.z0 <= zMin + EPS ? "z0" : null;
-  if (!side) return list;
-  const alongX = side[0] === "z", lo = alongX ? sh.x0 : sh.z0, hi = alongX ? sh.x1 : sh.z1, mid = (lo + hi) / 2, half = Math.min(STAIR_WIDTH, hi - lo - 0.2) / 2;
-  if (half < 0.3) return list;
-  for (let i = 0; i < n; i++) {
-    const a = i * STAIR_TREAD, b = a + STAIR_TREAD, d = sh.d - rise * (i + 1);
-    if (side === "x1") out.push({ x0: sh.x1 + a, x1: sh.x1 + b, z0: mid - half, z1: mid + half, d });
-    else if (side === "x0") out.push({ x0: sh.x0 - b, x1: sh.x0 - a, z0: mid - half, z1: mid + half, d });
-    else if (side === "z1") out.push({ x0: mid - half, x1: mid + half, z0: sh.z1 + a, z1: sh.z1 + b, d });
-    else out.push({ x0: mid - half, x1: mid + half, z0: sh.z0 - b, z1: sh.z0 - a, d });
-  }
-  return [...list, ...out];
-}
 function setRegions(list) {
-  regions = withStairs(list.map(([x0, x1, y0, y1, d]) => ({ x0, x1, z0: -y1, z1: -y0, d })));
+  regions = list.map(([x0, x1, y0, y1, d]) => ({ x0, x1, z0: -y1, z1: -y0, d }));       // (the sim's list includes the stairs: they are two more little regions with shallower floors)
   bbox = { x0: Math.min(...regions.map((r) => r.x0)), x1: Math.max(...regions.map((r) => r.x1)),
            z0: Math.min(...regions.map((r) => r.z0)), z1: Math.max(...regions.map((r) => r.z1)) };
   maxDepth = Math.max(...regions.map((r) => r.d));
