@@ -97,7 +97,7 @@ then `node --test web/sim/tests/`. `python3 tools/export_golden.py --check` fail
 
 ## The 2026 SCOUT mission (browser only, optional)
 
-`?mission=scout2026` (`web/config.js`: the `mission` option and `MISSION_DEFAULTS`: 6 x 6 m, 2 m deep, no rings, crabs or fish, no camera) puts the competition props in the pool with a score board and a 10 minute clock (it goes on below zero: overtime).
+`?mission=scout2026` (`web/config.js`: the `mission` option and `MISSION_DEFAULTS`: 6 x 6 m, 2 m deep, no rings, no camera; the fish and the crab stay) puts the competition props in the pool with a score board and a 10 minute clock (it goes on below zero: overtime).
 It is an **add-on in `web/missions/`**, loaded by a dynamic `import()` from `backend-local.js` and `app.js` only when the option is set; delete the folder and the `mission` lines and nothing else changes (the Python/ROS sim has no mission mode).
 Written so a second mission can sit beside it:
 - `missions/common/` (nothing 2026-specific): `carry.js` the carry engine (catch points; NOSE hook then hang, put down and back out; CLAW hold; the crew's hand-over), `clock.js`, `board.js` (score board model), `cable.js`

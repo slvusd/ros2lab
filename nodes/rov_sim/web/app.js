@@ -1160,7 +1160,8 @@ function frame(now) {
     const rx = rov.position.x, rz = rov.position.z, sides = [rx - bbox.x0, bbox.x1 - rx, rz - bbox.z0, bbox.z1 - rz];      // distance to the west, east, north, south edge
     let best = 0; for (let i = 1; i < 4; i++) if (sides[i] < sides[best]) best = i;
     if (deck.side === null || sides[best] < sides[deck.side] - 1.0) deck.side = best;                              // (stay on a side until another is clearly nearer)
-    const E = 1.2, H = 1.8;                                                                                         // 1.2 m outside the wall, 1.8 m above the water: eyes of a standing person
+    const lean = Math.max(0, Math.min(1, (rov.position.y * -1 - 0.3) / 0.9));                                       // 0 while the ROV is near the surface, 1 once it is 1.2 m down
+    const E = 1.2 - 1.8 * lean, H = 1.8 - 0.4 * lean;     // standing 1.2 m outside the wall; as the ROV goes under they lean out over the water (0.6 m past the edge) and bend down
     const along = (a, lo, hi) => Math.max(lo + 0.3, Math.min(hi - 0.3, a));
     const eye = deck.side === 0 ? [bbox.x0 - E, H, along(rz, bbox.z0, bbox.z1)] : deck.side === 1 ? [bbox.x1 + E, H, along(rz, bbox.z0, bbox.z1)]
       : deck.side === 2 ? [along(rx, bbox.x0, bbox.x1), H, bbox.z0 - E] : [along(rx, bbox.x0, bbox.x1), H, bbox.z1 + E];

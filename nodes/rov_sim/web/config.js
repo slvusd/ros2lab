@@ -35,7 +35,7 @@ const decimal = (v, [lo, hi]) => {                                      // any n
 /** What a mission changes in the start-up settings (the address can still override each of them). */
 export const MISSION_DEFAULTS = {
   none: {},
-  scout2026: { rings: 0, crabs: 0, fish: false, poollength: 1, poolwidth: 2, pooldepth: 2, camera: false },
+  scout2026: { rings: 0, poollength: 1, poolwidth: 2, pooldepth: 2, camera: false },        // (the fish and the green crab stay)
 };
 const whole = (v, [lo, hi]) => {
   if (v === null || v.trim() === "" || !Number.isFinite(Number(v))) return undefined;
