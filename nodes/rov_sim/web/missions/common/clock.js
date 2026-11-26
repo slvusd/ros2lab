@@ -1,5 +1,5 @@
 // clock.js — the countdown clock of a timed mission run. No DOM, no three.js (it runs in Node tests).
-//   ready   waiting for the first move (the clock shows the full time)     running   counting down     over   time is up (the run is finished until Reset)
+//   ready   waiting for the first move (the clock shows the full time)     running   counting down; at zero it does NOT stop: it keeps counting, now in NEGATIVE numbers (overtime)
 export class RunClock {
   constructor(total = 600) {
     this.total = total;
@@ -11,11 +11,14 @@ export class RunClock {
   step(dt) {
     if (this.state !== "running") return;
     this.elapsed += dt;
-    this.remaining = Math.max(0.0, this.total - this.elapsed);
-    if (this.remaining <= 0.0) this.state = "over";
+    this.remaining = this.total - this.elapsed;                     // goes below zero in overtime
   }
-  get over() { return this.state === "over"; }
-  /** "m:ss" for the page (rounded up, so 0:00 is only shown when it is really over). */
-  text() { const s = Math.ceil(this.remaining - 1e-9); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; }
-  data() { return { state: this.state, remaining: this.remaining, elapsed: this.elapsed, total: this.total, text: this.text() }; }
+  /** Time is up (the clock is in overtime). The run is not stopped: the clock just counts on, below zero. */
+  get over() { return this.state === "running" && this.remaining <= 0.0; }
+  /** "m:ss" for the page, "-m:ss" in overtime (rounded up, so 0:00 shows only at the zero itself). */
+  text() {
+    const neg = this.remaining < 0, s = Math.ceil((neg ? -this.remaining : this.remaining) - 1e-9);
+    return `${neg ? "-" : ""}${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }
+  data() { return { state: this.state, remaining: this.remaining, elapsed: this.elapsed, total: this.total, text: this.text(), over: this.over }; }
 }

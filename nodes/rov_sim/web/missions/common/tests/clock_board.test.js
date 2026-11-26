@@ -3,16 +3,21 @@ import assert from "node:assert/strict";
 import { RunClock } from "../clock.js";
 import { ScoreBoard } from "../board.js";
 
-test("the clock waits for the start, counts down, and stops at zero", () => {
+test("the clock waits for the start, counts down, and goes on below zero", () => {
   const c = new RunClock(600);
   assert.equal(c.state, "ready"); assert.equal(c.text(), "10:00");
   c.step(5); assert.equal(c.remaining, 600, "it does not run before the start");
   c.start();
   for (let i = 0; i < 60 * 61; i++) c.step(1 / 60);
   assert.equal(c.state, "running"); assert.equal(c.text(), "8:59"); assert.ok(Math.abs(c.elapsed - 61) < 1e-6);
-  c.step(1000);
-  assert.equal(c.state, "over"); assert.equal(c.remaining, 0); assert.equal(c.text(), "0:00"); assert.equal(c.over, true);
-  c.start(); assert.equal(c.state, "over", "start does not restart a finished run");
+  c.step(538.9);
+  assert.equal(c.text(), "0:01"); assert.equal(c.over, false);
+  c.step(0.6);
+  assert.equal(c.over, true, "past zero it is in overtime but still running"); assert.equal(c.state, "running"); assert.equal(c.text(), "-0:01");
+  c.step(12);
+  assert.equal(c.text(), "-0:13", "and it counts on in negative numbers"); assert.ok(c.remaining < 0);
+  c.step(120);
+  assert.equal(c.text(), "-2:13"); assert.equal(c.state, "running");
   c.reset(); assert.equal(c.state, "ready"); assert.equal(c.text(), "10:00");
 });
 

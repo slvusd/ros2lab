@@ -35,7 +35,7 @@ test("the mission's start-up is the 6 x 6 m, 2 m deep pool; the ROV starts at th
   assert.equal(x, POOL_WATER[0][1], "u = 0 is the wall");
 });
 
-test("the clock waits for the first move, then counts down; at zero everything stops until Reset", () => {
+test("the clock waits for the first move, then counts down; at zero it carries on in negative numbers and nothing stops", () => {
   const { rov, m } = make();
   run(rov, 5);
   assert.equal(m.clock.state, "ready"); assert.equal(m.clock.text(), "10:00");
@@ -44,11 +44,14 @@ test("the clock waits for the first move, then counts down; at zero everything s
   assert.equal(m.clock.state, "running");
   m.clock.elapsed = 598; m.clock.remaining = 2;
   run(rov, 3);
-  assert.equal(m.clock.state, "over"); assert.equal(m.locked, true);
-  rov.set_cmd("t1", 1.0); rov.set_cmd("t2", 1.0); rov.claw_target = 1.0;
-  run(rov, 0.1);
-  for (const k of Object.keys(rov.cmd)) assert.equal(rov.cmd[k], 0, `${k} is off`);
-  assert.equal(m.state().locked, true); assert.equal(m.state().clock.text, "0:00");
+  assert.equal(m.clock.over, true); assert.equal(m.locked, false); assert.match(m.clock.text(), /^-0:0/);
+  assert.match(m.msg.text, /Time!/);
+  rov.set_cmd("t1", 1.0);
+  run(rov, 0.5);
+  assert.equal(rov.cmd.t1, 1.0, "the ROV still answers in overtime");
+  m.score("star1", true);
+  assert.equal(m.board.total, 5, "and it still scores");
+  assert.equal(m.state().clock.over, true);
   rov.reset();
   assert.equal(m.clock.state, "ready"); assert.equal(m.locked, false); assert.equal(m.clock.text(), "10:00");
 });

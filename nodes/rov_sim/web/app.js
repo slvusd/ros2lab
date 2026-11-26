@@ -40,6 +40,8 @@ controls.enableDamping = true;
 controls.maxPolarAngle = Math.PI * 0.98;
 controls.minDistance = 0.8;
 controls.maxDistance = 16;
+controls.zoomToCursor = true;                  // the wheel zooms towards the mouse pointer: easy to dive into a detail and to back out again
+controls.zoomSpeed = 1.6;
 controls.screenSpacePanning = true;
 
 scene.add(new THREE.HemisphereLight(0xffffff, 0x4a88aa, 1.4));
@@ -1006,22 +1008,27 @@ let userMoved = false;                     // once you orbit yourself, we stop a
 // Where the camera looks by default: the middle of the pool, backed off in proportion to its size (1 for the original 6 x 3 m pool).
 const poolCenter = () => new THREE.Vector3((bbox.x0 + bbox.x1) / 2, -0.4 * maxDepth, (bbox.z0 + bbox.z1) / 2);
 const poolScale = () => Math.sqrt((bbox.x1 - bbox.x0) * (bbox.z1 - bbox.z0) / 18);
+function overviewCamera() {                  // the whole pool in view, from a corner
+  controls.target.copy(poolCenter());
+  camera.position.set(-2.6, 2.4, 3.0).multiplyScalar(fitFactor() * poolScale()).add(controls.target);
+  controls.maxDistance = Math.max(16, 12 * fitFactor() * poolScale());        // (a big pool needs more room to back out)
+  controls.update();
+}
 function resetView() {
   setView("orbit");
   userMoved = false;
-  controls.target.copy(poolCenter());
-  camera.position.set(-2.6, 2.4, 3.0).multiplyScalar(fitFactor() * poolScale()).add(controls.target);
-  controls.update();
+  overviewCamera();
 }
 renderer.domElement.addEventListener("dblclick", resetView);
 let view = "orbit";
 function setView(v) {
+  const was = view;
   view = v;
   controls.enabled = v === "orbit";
   document.querySelectorAll("[data-view]").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
   const pc = poolCenter();
   if (v === "top") { camera.position.set(pc.x, 7.5 * fitFactor() * poolScale(), pc.z + 0.01); camera.lookAt(pc.x, 0, pc.z); }
-  if (v === "orbit") { controls.target.copy(pc); }
+  if (v === "orbit") { controls.target.copy(pc); if (was !== "orbit" && typeof overviewCamera === "function") { overviewCamera(); userMoved = false; } }       // coming back from Follow or Top: the whole pool again, not wherever the chase camera was
 }
 document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
 let fxUser = fx;                      // what the Water FX button says; a low quality tier can switch it off without changing this

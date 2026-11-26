@@ -44,8 +44,8 @@ export function setupMissionHud({ backend, toast }) {
     }
     const c = st.clock;
     $("mclock").textContent = c.text;
-    $("mclock").className = "clock" + (c.state === "over" ? " over" : c.state === "running" && c.remaining <= 30 ? " red" : c.state === "running" && c.remaining <= 120 ? " amber" : "");
-    $("mstate").textContent = c.state === "ready" ? "Ready: the clock starts when the ROV moves" : c.state === "over" ? "TIME IS UP. Press Reset to try again." : st.carrying ? `Carrying: ${st.carrying}  (G lets go)` : "";
+    $("mclock").className = "clock" + (c.over ? " over" : c.state === "running" && c.remaining <= 30 ? " red" : c.state === "running" && c.remaining <= 120 ? " amber" : "");
+    $("mstate").textContent = c.state === "ready" ? "Ready: the clock starts when the ROV moves" : c.over ? "OVERTIME: the clock keeps counting. Reset starts over." : st.carrying ? `Carrying: ${st.carrying}  (G lets go)` : "";
   };
 
   const drawInv = () => {

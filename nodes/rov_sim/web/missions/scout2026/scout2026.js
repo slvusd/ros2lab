@@ -35,7 +35,7 @@ export class Mission {
     this.items = [];                                           // the carryable props (also in rov.props, so the sim steps them)
     this.judges = [];                                          // functions (mission, rov) that set the board each step: one per task, added by the props
     this.resetters = [];                                       // functions that put the judges' own memory back on Reset
-    this.locked = false; this.done = false;
+    this.locked = false; this.done = false; this.overtime_said = false;
     this.msg = { n: 0, text: "" };
     this.rov = rov;
   }
@@ -43,7 +43,7 @@ export class Mission {
     this.rov.mission_carry = null;
     this.clock.reset(); this.board.reset();
     for (const f of this.resetters || []) f();
-    this.locked = false; this.done = false;
+    this.locked = false; this.done = false; this.overtime_said = false;
     this.msg = { n: this.msg.n + 1, text: "" };
   }
   say(text) { this.msg = { n: this.msg.n + 1, text }; }
@@ -51,14 +51,10 @@ export class Mission {
   step(rov, dt) {
     if (this.clock.state === "ready" && (Object.values(rov.cmd).some((v) => v !== 0) || rov.claw_target !== rov.claw)) this.clock.start();
     this.clock.step(dt);
-    if (!this.locked && this.clock.over) { this.locked = true; this.say(`Time is up! Score ${this.board.total} of ${this.board.max}`); }
-    if (this.locked) {                                         // the run is over: nothing answers until Reset
-      for (const k of Object.keys(rov.cmd)) rov.cmd[k] = 0.0;
-      rov.claw_target = rov.claw;
-    }
+    if (!this.overtime_said && this.clock.over) { this.overtime_said = true; this.say(`Time! The clock keeps counting, below zero. Score ${this.board.total} of ${this.board.max}`); }
     for (const j of this.judges) j(this, rov);
     this._busyHint(rov, dt);
-    if (!this.done && this.board.total === this.board.max) { this.done = true; this.say(`All tasks done! ${this.board.total} points, ${this.clock.text()} left on the clock`); }
+    if (!this.done && this.board.total === this.board.max) { this.done = true; this.say(`All tasks done! ${this.board.total} points, clock at ${this.clock.text()}`); }
   }
 
   /** The nose is right in something's catch point while it is already carrying another thing: tell the student how to let go. */

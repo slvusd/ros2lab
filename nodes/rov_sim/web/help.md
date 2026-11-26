@@ -61,7 +61,7 @@ Buttons: **Orbit** (drag to turn the view, scroll to zoom), **Follow** (a chase 
 
 Add **`?mission=scout2026`** to the address (or ask for a mission link) and the pool holds the props of the 2026 SCOUT competition instead of the rings. The pool is 6 × 6 m and 2 m deep (the SCOUT class is done in a 2 m pool), the ROV starts at the surface
 beside the stairs, and a **10 minute clock** starts with the ROV's first move. A **score board** on the right lists every task with its points and ticks them off (and takes the points back if something
-is lost again). When the time is up the ROV stops, and the final score shows until **Reset**. Only the physical tasks are in the simulator (125 points): the paper questions and the float are not.
+is lost again). When the time is up the clock **does not stop**: it keeps counting, now in negative numbers (overtime), and everything still works. Only the physical tasks are in the simulator (125 points): the paper questions and the float are not.
 
 | Task | What to do | Points |
 |---|---|---|
