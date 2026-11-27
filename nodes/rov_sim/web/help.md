@@ -147,8 +147,20 @@ Values above 1 or below -1 are clamped. A thruster keeps its last value until yo
 
 ### A first program {#first-program}
 
-The micro:bit prints lines; the pool does the rest. Button A drives forward, button B reverses.
-(These examples are written to match the protocol but have **not been tried on real hardware yet**: tell us what you find.)
+The micro:bit writes lines; the pool does the rest. This **MakeCode** program (in the Python view, <https://makecode.microbit.org>) was tried on a real micro:bit:
+button A makes thruster 1 (the red one) run at full power.
+
+```python
+def on_button_pressed_a():
+    serial.write_line("p:t1,1")
+input.on_button_pressed(Button.A, on_button_pressed_a)
+```
+
+`serial.write_line("p:t1,1")` is the whole trick: one line per command. Add more buttons the same way (`p:t1,-1` is full reverse, `p:t1,0` stops).
+Close MakeCode's serial window before you connect the pool page, because only one program can have the USB port.
+
+The same idea in **MicroPython** (<https://python.microbit.org> or Mu), where `print()` is the line.
+(This one has **not been tried on real hardware yet**: tell us what you find.) Button A drives forward, button B reverses.
 
 ```python
 from microbit import button_a, button_b, sleep
