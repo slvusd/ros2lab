@@ -108,3 +108,18 @@ test("3 thrusters: one vertical thruster (t3) takes R/F, there is no t4 and no t
   const sw = computeCommand(new Set(["ArrowUp"]), [0, 0, 0], 0, { thrusters: 3, hOnly: true });
   assert.equal(sw.t3, 1); assert.equal("t4" in sw, false);
 });
+
+test("the on-screen switches show the commands the sim has: forward, stop or reverse (never half way), whoever sent them", async () => {
+  const { switchPositions } = await import("../../controls.js");
+  assert.deepEqual(switchPositions({ t1: 0, t2: 0, t3: 0, t4: 0 }, 4), [0, 0, 0]);
+  assert.deepEqual(switchPositions({ t1: 1, t2: 1, t3: 0, t4: 0 }, 4), [1, 1, 0]);
+  assert.deepEqual(switchPositions({ t1: -1, t2: 1, t3: 1, t4: 1 }, 4), [-1, 1, 1], "red reverse, green forward, up");
+  assert.deepEqual(switchPositions({ t1: 0.3, t2: -0.02, t3: -0.7, t4: -0.7 }, 4), [1, 0, -1], "a partial command shows its direction; almost nothing is stop");
+  assert.deepEqual(switchPositions({ t1: 1, t3: 1, t2: -1, t4: -1, t5: 0, t6: 0 }, 6), [1, -1, 0], "6 thrusters: red is t1 and t3");
+  assert.deepEqual(switchPositions({ t3: 1, t4: 0 }, 3), [0, 0, 1], "3 thrusters: one vertical");
+  const ahead = Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8].map((i) => ["t" + i, [1, 1, -1, -1, 1, 1, -1, -1][i - 1]]));   // the 8 corner thrusters, all pushing the ROV forward
+  assert.deepEqual(switchPositions(ahead, 8), [1, 1, 0], "8 corners: forward = red and green forward, no up/down");
+  const up = Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8].map((i) => ["t" + i, i <= 4 ? 1 : -1]));
+  assert.deepEqual(switchPositions(up, 8), [0, 0, 1], "8 corners: up");
+  assert.deepEqual(switchPositions({}, 4), [0, 0, 0]);
+});

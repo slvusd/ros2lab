@@ -2,7 +2,7 @@
 // Coordinates: sim x = forward, y = left, depth = down  ->  three.js (x, -depth, -y).
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
-import { GAME_KEYS, SWITCHES, computeCommand, switchValues } from "./controls.js";
+import { GAME_KEYS, SWITCHES, computeCommand, switchPositions, switchValues } from "./controls.js";
 import { MAX_RINGS, parseConfig, toQuery, poolSizeText } from "./config.js";
 import { layoutFor } from "./sim/physics.js";
 import { deckEye, nearestSide } from "./deckcam.js";                      // (the thruster layouts: the same table the server uses; the state carries its own)
@@ -970,8 +970,9 @@ swEls.forEach((el, i) => {
 $("hmode").addEventListener("click", () => { if (!hLocked) setHOnly(!hOnly); });
 if (hLocked) $("hmode").style.cursor = "default";                   // (set by the page address; no tooltip, it would cover the pool)
 setHOnly(hOnly, false);
-function drawSwitches() {
-  switchValues(held, pointerSw).forEach((v, i) => {
+function drawSwitches() {                                       // the levers show the commands the sim really has (from the page, ROS or a micro:bit): forward, stop or reverse, never half way
+  const real = switchPositions(state, state.thrusters || 4);
+  real.map((v, i) => pointerSw[i] || v).forEach((v, i) => {
     const lever = swEls[i].querySelector(".swlever");
     lever.style.transform = SWITCHES[i].orient === "h" ? `translateX(${v * 26}px)` : `translateY(${-v * 22}px)`;
     lever.classList.toggle("on", v !== 0);

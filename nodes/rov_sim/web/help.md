@@ -11,7 +11,7 @@ and say hello to the fish. It runs entirely in your browser. You can also drive 
 
 ## Driving {#driving}
 
-The **switch box** (top right) imitates the controller most scout ROVs use: three momentary switches that each give full reverse, off, or full forward.
+The **switch box** (top right) imitates the controller most scout ROVs use: three momentary switches that each give full reverse, off, or full forward. The levers **follow the commands the sim really has**, whoever sent them (the page, ROS, or a micro:bit over USB): forward, stop or reverse, never half way (a partial command shows the direction it pushes).
 Let go and a switch springs back to off, just like the real thing.
 
 | Switch | Drives | Keys | With the mouse |
