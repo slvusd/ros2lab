@@ -26,6 +26,10 @@ test("the eyes follow the ROV along the wall and keep inside the wall's length; 
   assert.ok(deckEye(rect, 2, { x: 1, y: -1.5, z: -2.8 }).eye[2] < rect.z0 + 1, "north edge");
   assert.ok(deckEye(rect, 3, { x: 1, y: -1.5, z: 2.8 }).eye[2] > rect.z1 - 1, "south edge");
 });
+test("a favourite (home) side wins unless the ROV is much nearer another", () => {
+  assert.equal(nearestSide(rect, { x: 2.0, z: 2.5 }, null, 1.0, 1), 1, "east is 1.0 away, south 0.5: home still wins");
+  assert.equal(nearestSide(rect, { x: 0.0, z: 2.9 }, null, 1.0, 1), 3, "but not when south is far nearer");
+});
 test("nearestSide sticks to the current side until another is clearly nearer", () => {
   assert.equal(nearestSide(rect, { x: 2.9, z: 0 }), 1);
   assert.equal(nearestSide(rect, { x: 2.3, z: 2.0 }, 1), 1, "stays");

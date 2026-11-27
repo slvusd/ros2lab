@@ -1,7 +1,7 @@
 // props3d.js — draws the 2026 SCOUT props from their state (the page loads it only for ?mission=scout2026; delete web/missions/ to remove). three.js axes: x ahead, y up, z = -sim y.
 // Items are built once (a group whose origin is the middle of the prop's BASE) and moved with the state. Sizes follow the prop building instructions.
 import { PVC_R, pipe, standard } from "../common/view3d.js";
-import { PLAQUES } from "./plaques.js";
+import { PLAQUES, PLAQUE_ACROSS, PLAQUE_ALONG, snapPlaque } from "./plaques.js";
 import { at } from "./layout.js";
 
 export class MissionView {
@@ -205,7 +205,7 @@ export class MissionView {
     return g;
   }
 
-  // ---- the plaques on the pool floor (key P): task number, the prop, what to do, and the real-world thing; they turn to face whoever is looking
+  // ---- the plaques on the pool floor (key P): task number, the prop, what to do, and the real-world thing; two floor tiles each, fixed in place
   makePlaque(p) {
     const T = this.T, c = document.createElement("canvas"); c.width = 768; c.height = 384;
     const g = c.getContext("2d");
@@ -221,22 +221,17 @@ export class MissionView {
     let y = wrap(p.text, 32, 164, 704, 42, "36px system-ui, sans-serif", "#e8f6ff");
     wrap(p.real, 32, y + 8, 704, 36, "italic 30px system-ui, sans-serif", "#a9d6e8");
     const tex = new T.CanvasTexture(c); tex.anisotropy = 4;
-    const m = new T.Mesh(new T.PlaneGeometry(1.0, 0.5).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.94, side: T.DoubleSide }));
-    m.rotation.order = "YXZ";
+    const m = new T.Mesh(new T.PlaneGeometry(PLAQUE_ALONG, PLAQUE_ACROSS).rotateX(-Math.PI / 2), new T.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.96, side: T.DoubleSide }));
+    m.rotation.y = Math.PI / 2;                                  // fixed: text running along the pool's width, its top pointing away from the wall
     return m;
   }
   setLabels(on, floorAt = () => 3) {
     this.labelsOn = on;
     if (on && !this.plaques) {
-      this.plaques = PLAQUES.map((p) => { const mesh = this.makePlaque(p), [x, y] = at(...p.spot); mesh.position.set(x, -floorAt(x, -y) + 0.02, -y); this.scene.add(mesh); return mesh; });
+      this.plaques = PLAQUES.map((p) => { const mesh = this.makePlaque(p), [x, y] = snapPlaque(...at(...p.spot)); mesh.position.set(x, -floorAt(x, -y) + 0.02, -y); this.scene.add(mesh); return mesh; });
     }
     for (const m of this.plaques || []) m.visible = on;
   }
-  orientPlaques(camera) {
-    if (!this.labelsOn || !this.plaques) return;
-    for (const m of this.plaques) m.rotation.y = Math.atan2(-(m.position.x - camera.position.x), -(m.position.z - camera.position.z));          // the top of the text points away from the viewer
-  }
-
   update(list, dt, t, floorAt = () => 3) {
     const m = (list || []).find((p) => p.type === "mission");
     if (m && m.deck && !this.deck) this.deck = this.buildDeck(m);

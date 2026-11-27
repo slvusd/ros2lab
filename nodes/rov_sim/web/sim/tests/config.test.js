@@ -7,7 +7,7 @@ const plain = (c) => Object.fromEntries(CONFIG_KEYS.map((k) => [k, c[k]]));
 
 test("no parameters: the defaults (3 rings, a fish, a camera, all keys, the normal pool)", () => {
   assert.deepEqual(plain(parseConfig("")), DEFAULTS);
-  assert.deepEqual(DEFAULTS, { mission: "none", controls: "h", fish: true, rings: 3, poollength: 1, poolwidth: 1, pooldepth: 2, camera: false, speed: 1, crabs: 1, current: false, flow: "mix", thrusters: 4 });
+  assert.deepEqual(DEFAULTS, { mission: "none", labels: false, controls: "h", fish: true, rings: 3, poollength: 1, poolwidth: 1, pooldepth: 2, camera: false, speed: 1, crabs: 1, current: false, flow: "mix", thrusters: 4 });
   assert.equal(parseConfig("").explicit.size, 0);
   assert.equal(parseConfig("").open, false);
 });
@@ -59,7 +59,7 @@ test("toQuery: only non-default values, other parameters are kept, config is dro
 test("a link made by toQuery reads back as the same settings", () => {
   for (const controls of ["all", "h", "h-hidden"]) for (const fish of [true, false]) for (const rings of [0, 3, 5])
     for (const poollength of [1, 2]) for (const poolwidth of [1, 2, 3]) for (const camera of [true, false]) for (const speed of [0.25, 0.5, 1, 1.75, 4]) for (const crabs of [0, 1, 5]) for (const current of [false, true]) for (const flow of ["bubbles", "streaks", "rings", "mix"]) for (const thrusters of [3, 4, 8]) for (const pooldepth of [2, 4, 6]) {
-      const cfg = { mission: "none", controls, fish, rings, poollength, poolwidth, pooldepth, camera, speed, crabs, current, flow, thrusters };
+      const cfg = { mission: "none", labels: thrusters === 3, controls, fish, rings, poollength, poolwidth, pooldepth, camera, speed, crabs, current, flow, thrusters };
       assert.deepEqual(plain(parseConfig(toQuery(cfg))), cfg, JSON.stringify(cfg));
     }
 });
@@ -152,4 +152,11 @@ test("mission: none or scout2026; a mission sets its own start-up, the address s
   const o = parseConfig("?mission=scout2026&rings=2&pooldepth=4");
   assert.equal(o.rings, 2); assert.equal(o.pooldepth, 4); assert.equal(o.explicit.has("rings"), true);
   assert.equal(toQuery({ ...DEFAULTS, mission: "scout2026" }), "mission=scout2026");
+});
+
+test("labels: on or off, default off", () => {
+  assert.equal(parseConfig("").labels, false);
+  assert.equal(parseConfig("?labels=on").labels, true); assert.equal(parseConfig("?labels=off").labels, false);
+  assert.equal(parseConfig("?labels=on").explicit.has("labels"), true);
+  assert.equal(toQuery({ ...DEFAULTS, labels: true }), "labels=on"); assert.equal(toQuery({ ...DEFAULTS, labels: false }), "");
 });

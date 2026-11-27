@@ -698,8 +698,8 @@ import("./fish.js").then((m) => { fish = new m.Fish(scene, THREE); }).catch(() =
 let missionHud = null;                // a mission (?mission=): the score board, the clock and the crew's inventory (missions/common/hud.js); nothing is loaded without one
 if (backend.features.mission) import("./missions/common/hud.js").then((m) => { missionHud = m.setupMissionHud({ backend, toast }); }).catch((e) => console.warn("mission panel failed:", e));
 let missionView = null;               // the mission's props, drawn (missions/<name>/props3d.js)
-if (backend.features.mission) import(`./missions/${cfg.mission}/props3d.js`).then((m) => { missionView = new m.MissionView(scene, THREE); if (new URLSearchParams(location.search).get("labels") === "on") toggleLabels(); }).catch((e) => console.warn("mission props failed:", e));
-function toggleLabels() { if (!missionView) return; missionView.setLabels(!missionView.labelsOn, floorAt); $("labels").classList.toggle("on", missionView.labelsOn); toast(missionView.labelsOn ? "Labels on (P turns them off)" : "Labels off"); }
+if (backend.features.mission) import(`./missions/${cfg.mission}/props3d.js`).then((m) => { missionView = new m.MissionView(scene, THREE); if (cfg.labels) toggleLabels(); }).catch((e) => console.warn("mission props failed:", e));
+function toggleLabels() { if (!missionView) return; missionView.setLabels(!missionView.labelsOn, floorAt); $("labels").classList.toggle("on", missionView.labelsOn); liveCfg.labels = missionView.labelsOn; syncAddress(); toast(missionView.labelsOn ? "Labels on (P turns them off)" : "Labels off"); }
 if (backend.features.mission) { $("labels").style.display = ""; $("labels").addEventListener("click", toggleLabels); }
 let eels = null;                      // optional joke add-on: eel.js draws the electric eel, the sparks and the smoke (delete that file to remove them)
 import("./eel.js").then((m) => { eels = new m.Eels(scene, THREE); }).catch(() => { /* no eel */ });
@@ -1185,7 +1185,7 @@ function frame(now) {
   if (crabs) crabs.update(state.props, dt, t);
   if (eels) eels.update(state.props, dt, t, rov);
   if (missionHud) missionHud.update(state);
-  if (missionView) { missionView.update(state.props, dt, t, floorAt); missionView.orientPlaques(camera); }
+  if (missionView) { missionView.update(state.props, dt, t, floorAt); }
   { const eel = eelProp(); if (eel && eel.zap) wobble = Math.max(wobble, 0.9); }        
   if (jets) jets.update(state.props, dt);
   for (const m of solids) {                          // x-ray: fade what is between us and the pool
@@ -1196,7 +1196,7 @@ function frame(now) {
 
   if (view === "deck") {                                  // a person on the deck at the pool's edge, looking down at the ROV and at what its nose is working on
     const rect = deckRegion(rov.position.x, rov.position.z);                                                       // the water's edges where the ROV is (not the stairs sticking out of the wall)
-    deck.side = nearestSide(rect, { x: rov.position.x, z: rov.position.z }, deck.side);
+    deck.side = nearestSide(rect, { x: rov.position.x, z: rov.position.z }, deck.side, 1.0, cfg.mission !== "none" ? 1 : null);       // (a mission: the east wall, with the stairs, is where the crew stands)
     const eye = deckEye(rect, deck.side, rov.position).eye;                                                       // standing outside the wall, leaning out over the water as far as it takes to see the ROV
     const ahead = new THREE.Vector3(0.35, -0.12, 0).applyAxisAngle(ey, shown.yaw).add(deck.pan);                                 // look a little ahead of the ROV: that is where the nose works
     deck.focus.lerp(want.copy(rov.position).add(ahead), 1 - Math.exp(-dt * 4));

@@ -81,7 +81,7 @@ open it around the loop or pipe and close it.
 **`Tab`** opens the **inventory**: everything on the deck, including the things that start there (the two survey markers, the new sensor and the eDNA connector). Choose with the arrow keys and **Enter** (or the mouse) and
 the crew hangs it on the ROV's nose (or puts it in the open claw). Only at the stairs; **Esc** closes it.
 
-To make it a little easier to see and steer in a simulation, the props are about **1.5 times more forgiving** than the real ones (the catch zones, the targets and the waypoint are a bit bigger). **`P`** (or the **Labels** button) puts a **plaque on the pool floor beside each prop**: the task number, what to do, and the real-world thing it stands for. Simplifications: the ROV passes through the frames and the platform (only the pot's handle can be pushed), the wires are drawn lines (the 2 m and 4 m wires are not enforced), and what has stuck (markers, connectors) stays stuck.
+To make it a little easier to see and steer in a simulation, the props are about **1.5 times more forgiving** than the real ones (the catch zones, the targets and the waypoint are a bit bigger). **`P`** (or the **Labels** button) puts a **plaque on the pool floor beside each prop** (two floor tiles each, fixed in place, readable from the deck looking out over the pool): the task number, what to do, and the real-world thing it stands for. They start off unless the address has **`labels=on`**. Simplifications: the ROV passes through the frames and the platform (only the pot's handle can be pushed), the wires are drawn lines (the 2 m and 4 m wires are not enforced), and what has stuck (markers, connectors) stays stuck.
 
 ## Micro:bit and Pico {#microcontrollers}
 
@@ -213,6 +213,7 @@ for anyone you send it to. Every setting is also a plain option you can add to t
 | `rings=0` to `5` | how many pick-up rings (normally 3) |
 | `poollength=1` or `2` | the main pool is 6 m times this long (normally 1, so 6 m; 2 is 12 m) |
 | `mission=scout2026` | a **mission** instead of free driving: the 2026 SCOUT competition props are in the pool, with a score board and a 10 minute clock (browser version only; it also starts the pool at 6 × 6 m, 2 m deep, with no rings (the fish and the crab stay) unless the address says otherwise) |
+| `labels=on` or `off` | with a mission: put plaques on the pool floor beside each prop (normally off; **`P`** and the **Labels** button switch them while the page runs) |
 | `pooldepth=2`, `3`, `4` or `6` | how deep the main pool is, in metres (normally 2; the shallow end stays 1 m). Also in **Config** |
 | `poolwidth=1`, `2` or `3` | the main pool is 3 m times this wide (normally 1, so 3 m; 3 is 9 m) |
 | `speed=0.25` to `4` | the power of the red and green thrusters (normally 1). **1 is the normal speed, half of what these thrusters used to give**; 2 is the old strength. The up/down thrusters do not change |
