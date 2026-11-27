@@ -13,7 +13,7 @@ mkdir -p "$DEST"
 if [ -n "$(ls -A "$DEST")" ] && [ ! -f "$DEST/$MARK" ]; then
   echo "refusing: $DEST is not empty and was not made by this script (no $MARK inside)" >&2; exit 1
 fi
-rsync -a --delete --exclude 'sim/tests/' --exclude '.DS_Store' --exclude "$MARK" "$SRC/" "$DEST/"
+rsync -a --delete --exclude 'tests/' --exclude '.DS_Store' --exclude "$MARK" "$SRC/" "$DEST/"
 REV="$(git -C "$HERE" rev-parse --short HEAD)"
 DIRTY=""; [ -n "$(git -C "$HERE" status --porcelain -- "$SRC")" ] && DIRTY=" (+ uncommitted changes)"
 printf 'copied from nodes/rov_sim/web of the ros2lab repo at commit %s%s on %s\nedit it there, then run tools/publish_web.sh again: changes made here are overwritten\n' "$REV" "$DIRTY" "$(date -u +%Y-%m-%dT%H:%MZ)" > "$DEST/$MARK"
