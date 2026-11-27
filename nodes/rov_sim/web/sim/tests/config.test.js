@@ -1,7 +1,7 @@
 // The page settings read from the address. Run: node --test nodes/rov_sim/web/sim/tests/
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULTS, LIMITS, CONFIG_KEYS, POOL_PRESETS, parseConfig, toQuery, poolSizeText } from "../../config.js";
+import { startView, DEFAULTS, LIMITS, CONFIG_KEYS, POOL_PRESETS, parseConfig, toQuery, poolSizeText } from "../../config.js";
 
 const plain = (c) => Object.fromEntries(CONFIG_KEYS.map((k) => [k, c[k]]));
 
@@ -159,4 +159,12 @@ test("labels: on or off, default off", () => {
   assert.equal(parseConfig("?labels=on").labels, true); assert.equal(parseConfig("?labels=off").labels, false);
   assert.equal(parseConfig("?labels=on").explicit.has("labels"), true);
   assert.equal(toQuery({ ...DEFAULTS, labels: true }), "labels=on"); assert.equal(toQuery({ ...DEFAULTS, labels: false }), "");
+});
+
+test("view: orbit, deck, follow or top (any case); anything else gives the normal start (Orbit, or Deck in a mission)", () => {
+  for (const v of ["orbit", "deck", "follow", "top"]) assert.equal(startView(`?view=${v}`), v);
+  assert.equal(startView("?view=TOP"), "top"); assert.equal(startView("?view=%20Deck%20"), "deck");
+  assert.equal(startView(""), "orbit"); assert.equal(startView("?view=sideways"), "orbit");
+  assert.equal(startView("", "scout2026"), "deck", "a mission starts on the deck"); assert.equal(startView("?view=orbit", "scout2026"), "orbit", "unless the address says otherwise");
+  assert.equal(startView("?view=nope", "scout2026"), "deck");
 });

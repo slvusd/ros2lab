@@ -86,3 +86,10 @@ export const POOL_PRESETS = [[1, 1, "Standard"], [2, 1, "Long"], [1, 2, "Wide"],
 
 /** Short human text for the pool size, e.g. "12 m x 6 m". */
 export const poolSizeText = (length, width) => `${6 * length} m × ${3 * width} m`;
+
+/** The camera view the page starts in: ?view=orbit|deck|follow|top (any case), else Deck for a mission and Orbit for free driving. (An address-only option, not part of the Config dialog.) */
+export const VIEWS = ["orbit", "deck", "follow", "top"];
+export function startView(search = "", mission = "none") {
+  const v = (new URLSearchParams(search).get("view") || "").trim().toLowerCase();
+  return VIEWS.includes(v) ? v : mission !== "none" ? "deck" : "orbit";
+}

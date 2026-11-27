@@ -248,7 +248,7 @@ Other options:
 | `tool=nose` or `tool=claw` | start with this tool (the web version starts with the nose) |
 | `buoyancy=positive`, `neutral` or `negative` | start floating, hovering, or sinking |
 | `quality=high`, `low`, `lowest` or `auto` | graphics level; **Auto** lowers it by itself if the page runs slowly, and `lowest` hides the ROV camera window |
-| `view=orbit`, `follow` or `top` | starting camera |
+| `view=orbit`, `deck`, `follow` or `top` | the camera view the page starts in (normally `orbit`; with a mission `deck`). The buttons change it while the page runs |
 | `mode=local` or `mode=server` | force the built-in simulation, or the Python server |
 | `selftest` | the page drives itself for a few seconds and writes PASS or FAIL in its title |
 

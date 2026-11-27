@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/OrbitControls.js";
 import { GAME_KEYS, SWITCHES, computeCommand, switchPositions, switchValues } from "./controls.js";
-import { MAX_RINGS, parseConfig, toQuery, poolSizeText } from "./config.js";
+import { MAX_RINGS, parseConfig, toQuery, poolSizeText, startView } from "./config.js";
 import { layoutFor } from "./sim/physics.js";
 import { deckEye, nearestSide } from "./deckcam.js";                      // (the thruster layouts: the same table the server uses; the state carries its own)
 
@@ -1138,7 +1138,7 @@ $("reset").addEventListener("click", () => {
   backend.reset();
   held.clear(); clawCmd = 0; sendCommand();
 });
-setView(new URLSearchParams(location.search).get("view") || (cfg.mission !== "none" ? "deck" : "orbit"));   // e.g. /?view=follow (a mission starts on the deck)
+setView(startView(location.search, cfg.mission));                 // /?view=orbit|deck|follow|top (a mission starts on the deck)
 { const c = new URLSearchParams(location.search).get("cam");               // e.g. /?cam=6,-1,0
   const tg = new URLSearchParams(location.search).get("target");            // e.g. /?cam=..&target=-1,-1,0
   if (tg) controls.target.set(...tg.split(",").map(Number));
