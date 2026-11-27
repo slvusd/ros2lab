@@ -698,7 +698,9 @@ import("./fish.js").then((m) => { fish = new m.Fish(scene, THREE); }).catch(() =
 let missionHud = null;                // a mission (?mission=): the score board, the clock and the crew's inventory (missions/common/hud.js); nothing is loaded without one
 if (backend.features.mission) import("./missions/common/hud.js").then((m) => { missionHud = m.setupMissionHud({ backend, toast }); }).catch((e) => console.warn("mission panel failed:", e));
 let missionView = null;               // the mission's props, drawn (missions/<name>/props3d.js)
-if (backend.features.mission) import(`./missions/${cfg.mission}/props3d.js`).then((m) => { missionView = new m.MissionView(scene, THREE); }).catch((e) => console.warn("mission props failed:", e));
+if (backend.features.mission) import(`./missions/${cfg.mission}/props3d.js`).then((m) => { missionView = new m.MissionView(scene, THREE); if (new URLSearchParams(location.search).get("labels") === "on") toggleLabels(); }).catch((e) => console.warn("mission props failed:", e));
+function toggleLabels() { if (!missionView) return; missionView.setLabels(!missionView.labelsOn, floorAt); $("labels").classList.toggle("on", missionView.labelsOn); toast(missionView.labelsOn ? "Labels on (P turns them off)" : "Labels off"); }
+if (backend.features.mission) { $("labels").style.display = ""; $("labels").addEventListener("click", toggleLabels); }
 let eels = null;                      // optional joke add-on: eel.js draws the electric eel, the sparks and the smoke (delete that file to remove them)
 import("./eel.js").then((m) => { eels = new m.Eels(scene, THREE); }).catch(() => { /* no eel */ });
 let crabs = null;                     // optional add-on: crab.js draws the green crabs (delete that file to remove them)
@@ -860,6 +862,7 @@ window.addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.code === "KeyV" && !e.repeat) { resetView(); return; }
   if (eelDead()) { e.preventDefault(); return; }
+  if (e.code === "KeyP" && !e.repeat && missionView) { toggleLabels(); return; }                      // plaques on the floor beside each prop
   if (backend.features.mission && !e.repeat) {                                // the mission's crew keys
     if (e.code === "KeyG") { backend.missionDeliver(); return; }
     if (e.code === "Tab" && missionHud) { e.preventDefault(); missionHud.toggleInventory(); return; }
@@ -1021,7 +1024,7 @@ function resetView() {
   userMoved = false;
   overviewCamera();
 }
-renderer.domElement.addEventListener("dblclick", resetView);
+renderer.domElement.addEventListener("dblclick", () => { if (view === "deck") { deck.pan.set(0, 0, 0); deck.zoom = 1.0; } else resetView(); });
 let view = "orbit";
 /** The rectangle of the pool region the ROV is over (or the nearest one): the edges the Deck view's person stands at. */
 function deckRegion(x, z) {
@@ -1030,8 +1033,35 @@ function deckRegion(x, z) {
   const dist = (r) => Math.hypot(Math.max(r.x0 - x, 0, x - r.x1), Math.max(r.z0 - z, 0, z - r.z1));
   return regions.reduce((a, b) => (dist(b) < dist(a) ? b : a));
 }
-const deck = { side: null, eye: new THREE.Vector3(), focus: new THREE.Vector3(), zoom: 1.0 };       // the Deck view: where the person stands and what they look at
-renderer.domElement.addEventListener("wheel", (e) => { if (view !== "deck") return; e.preventDefault(); deck.zoom = Math.max(0.35, Math.min(2.5, deck.zoom * (e.deltaY > 0 ? 1.12 : 1 / 1.12))); }, { passive: false });
+const deck = { side: null, eye: new THREE.Vector3(), focus: new THREE.Vector3(), zoom: 1.0, pan: new THREE.Vector3() };       // the Deck view: where the person stands and what they look at
+renderer.domElement.addEventListener("wheel", (e) => { if (view !== "deck") return; e.preventDefault(); zoomBy(e.deltaY > 0 ? 1 / 1.12 : 1.12); }, { passive: false });
+/** The toolbar's + and - (also used by the wheel in the Deck view): zoom whatever the current view is. f > 1 zooms in. */
+function zoomBy(f) {
+  if (view === "deck") deck.zoom = Math.max(0.35, Math.min(2.5, deck.zoom / f));
+  else if (view === "orbit") {
+    const v = camera.position.clone().sub(controls.target), len = Math.max(controls.minDistance, Math.min(controls.maxDistance, v.length() / f));
+    camera.position.copy(controls.target).add(v.setLength(len)); userMoved = true; controls.update();
+  } else if (view === "follow") followK = Math.max(0.4, Math.min(3, followK / f));
+  else if (view === "top") topK = Math.max(0.3, Math.min(2.5, topK / f));
+}
+let followK = 1.0, topK = 1.0;                 // how far the Follow and Top cameras stand back (the + and - buttons)
+$("zoomin").addEventListener("click", () => zoomBy(1.25));
+$("zoomout").addEventListener("click", () => zoomBy(1 / 1.25));
+// the Deck view: drag with the mouse to look around a little (the view still follows the ROV); double-click puts it back
+{
+  let drag = null;
+  renderer.domElement.addEventListener("pointerdown", (e) => { if (view === "deck" && e.button === 0) { drag = { x: e.clientX, y: e.clientY }; renderer.domElement.setPointerCapture(e.pointerId); } });
+  renderer.domElement.addEventListener("pointermove", (e) => {
+    if (!drag || view !== "deck") return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
+    const f = deck.focus.clone().sub(deck.eye); f.y = 0; if (f.lengthSq() < 1e-6) return; f.normalize();
+    const right = new THREE.Vector3().crossVectors(f, new THREE.Vector3(0, 1, 0)), k = 0.0035 * camera.position.distanceTo(deck.focus);
+    deck.pan.addScaledVector(right, -dx * k).addScaledVector(f, dy * k);                       // grab the water and move it
+    if (deck.pan.length() > 2.5) deck.pan.setLength(2.5);
+  });
+  const end = (e) => { drag = null; try { renderer.domElement.releasePointerCapture(e.pointerId); } catch (err) { /* not captured */ } };
+  renderer.domElement.addEventListener("pointerup", end); renderer.domElement.addEventListener("pointercancel", end);
+}
 function setView(v) {
   const was = view;
   view = v;
@@ -1039,8 +1069,8 @@ function setView(v) {
   if (v !== "deck" && camera.fov !== FOV0) { camera.fov = FOV0; camera.updateProjectionMatrix(); }
   document.querySelectorAll("[data-view]").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
   const pc = poolCenter();
-  if (v === "deck") { deck.side = null; deck.eye.set(rov.position.x, 1.8, rov.position.z + 4); deck.focus.copy(rov.position); }        // (start where the ROV is: it then slides to the edge)
-  if (v === "top") { camera.position.set(pc.x, 7.5 * fitFactor() * poolScale(), pc.z + 0.01); camera.lookAt(pc.x, 0, pc.z); }
+  if (v === "deck") { deck.pan.set(0, 0, 0); deck.side = null; deck.eye.set(rov.position.x, 1.8, rov.position.z + 4); deck.focus.copy(rov.position); }        // (start where the ROV is: it then slides to the edge)
+  if (v === "top") { camera.position.set(pc.x, 7.5 * topK * fitFactor() * poolScale(), pc.z + 0.01); camera.lookAt(pc.x, 0, pc.z); }
   if (v === "orbit") { controls.target.copy(pc); if (was !== "orbit" && typeof overviewCamera === "function") { overviewCamera(); userMoved = false; } }       // coming back from Follow or Top: the whole pool again, not wherever the chase camera was
 }
 document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
@@ -1155,7 +1185,7 @@ function frame(now) {
   if (crabs) crabs.update(state.props, dt, t);
   if (eels) eels.update(state.props, dt, t, rov);
   if (missionHud) missionHud.update(state);
-  if (missionView) missionView.update(state.props, dt, t, floorAt);
+  if (missionView) { missionView.update(state.props, dt, t, floorAt); missionView.orientPlaques(camera); }
   { const eel = eelProp(); if (eel && eel.zap) wobble = Math.max(wobble, 0.9); }        
   if (jets) jets.update(state.props, dt);
   for (const m of solids) {                          // x-ray: fade what is between us and the pool
@@ -1168,7 +1198,7 @@ function frame(now) {
     const rect = deckRegion(rov.position.x, rov.position.z);                                                       // the water's edges where the ROV is (not the stairs sticking out of the wall)
     deck.side = nearestSide(rect, { x: rov.position.x, z: rov.position.z }, deck.side);
     const eye = deckEye(rect, deck.side, rov.position).eye;                                                       // standing outside the wall, leaning out over the water as far as it takes to see the ROV
-    const ahead = new THREE.Vector3(0.35, -0.12, 0).applyAxisAngle(ey, shown.yaw);                                 // look a little ahead of the ROV: that is where the nose works
+    const ahead = new THREE.Vector3(0.35, -0.12, 0).applyAxisAngle(ey, shown.yaw).add(deck.pan);                                 // look a little ahead of the ROV: that is where the nose works
     deck.focus.lerp(want.copy(rov.position).add(ahead), 1 - Math.exp(-dt * 4));
     deck.eye.lerp(want.set(...eye), 1 - Math.exp(-dt * 2.5));
     camera.position.copy(deck.eye);
@@ -1176,7 +1206,7 @@ function frame(now) {
     const d = camera.position.distanceTo(deck.focus), fov = Math.max(14, Math.min(50, 2 * Math.atan(1.3 * deck.zoom / d) * 180 / Math.PI));   // about 2.6 m across at the ROV, whatever the distance
     if (Math.abs(fov - camera.fov) > 0.1) { camera.fov = fov; camera.updateProjectionMatrix(); }
   } else if (view === "follow") {
-    off.set(-1.25, 0.55, 0).applyAxisAngle(ey, shown.yaw);
+    off.set(-1.25 * followK, 0.55 * (0.6 + 0.4 * followK), 0).applyAxisAngle(ey, shown.yaw);
     want.copy(rov.position).add(off);
     camera.position.lerp(want, 1 - Math.exp(-dt * 4));
     camera.lookAt(rov.position);
