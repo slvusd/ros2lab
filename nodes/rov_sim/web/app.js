@@ -42,6 +42,8 @@ controls.enableDamping = true;
 controls.maxPolarAngle = Math.PI * 0.98;
 controls.minDistance = 0.8;
 controls.maxDistance = 16;
+controls.screenSpacePanning = false;           // Ctrl (or Shift, or the right button) + drag moves the view along the water: left / right / north / south, not up and down
+controls.panSpeed = 1.3;
 controls.zoomToCursor = true;                  // the wheel zooms towards the mouse pointer: easy to dive into a detail and to back out again
 controls.zoomSpeed = 1.6;
 controls.screenSpacePanning = true;
@@ -270,6 +272,33 @@ function buildPool() {
     deck.position.y = 0.01;
     pool.add(deck);
     solid(deck, (c) => c.y < 0.01);
+  }
+
+  // a compass rose on the deck, beside the stairs wall: the headings on the screen (0 to 360 degrees) are measured from the +x direction, counter-clockwise seen from above
+  {
+    const cv = document.createElement("canvas"); cv.width = cv.height = 512;
+    const g = cv.getContext("2d"), c0 = 256;
+    g.clearRect(0, 0, 512, 512);
+    g.fillStyle = "rgba(250, 247, 238, 0.92)"; g.beginPath(); g.arc(c0, c0, 244, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = "#0d3b4f"; g.lineWidth = 6; g.beginPath(); g.arc(c0, c0, 236, 0, Math.PI * 2); g.stroke(); g.lineWidth = 2; g.beginPath(); g.arc(c0, c0, 150, 0, Math.PI * 2); g.stroke();
+    for (let a = 0; a < 360; a += 15) {                                                  // ticks every 15 degrees
+      const r1 = a % 45 === 0 ? 150 : 205, r2 = 236, rad = a * Math.PI / 180;
+      g.lineWidth = a % 45 === 0 ? 4 : 2; g.beginPath(); g.moveTo(c0 + r1 * Math.cos(rad), c0 - r1 * Math.sin(rad)); g.lineTo(c0 + r2 * Math.cos(rad), c0 - r2 * Math.sin(rad)); g.stroke();
+    }
+    for (const [a, big] of [[0, 1], [45, 0], [90, 1], [135, 0], [180, 1], [225, 0], [270, 1], [315, 0]]) {            // the points of the rose
+      const rad = a * Math.PI / 180, w = big ? 26 : 14, len = big ? 140 : 100;
+      g.fillStyle = big ? (a === 0 ? "#d62d2d" : "#0d3b4f") : "#5f8fa3";
+      g.beginPath(); g.moveTo(c0 + len * Math.cos(rad), c0 - len * Math.sin(rad));
+      g.lineTo(c0 + w * Math.cos(rad + Math.PI / 2), c0 - w * Math.sin(rad + Math.PI / 2)); g.lineTo(c0 + w * Math.cos(rad - Math.PI / 2), c0 - w * Math.sin(rad - Math.PI / 2)); g.closePath(); g.fill();
+    }
+    g.fillStyle = "#0d3b4f"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = "bold 40px system-ui, sans-serif";
+    for (const a of [0, 90, 180, 270]) { const rad = a * Math.PI / 180; g.fillText(a + "\u00b0", c0 + 188 * Math.cos(rad) * 0.9 + (a === 0 ? -6 : a === 180 ? 6 : 0), c0 - 188 * Math.sin(rad) * 0.9); }
+    g.font = "bold 26px system-ui, sans-serif"; g.fillText("HEADING", c0, c0 + 4); g.font = "20px system-ui, sans-serif"; g.fillText("0\u00b0 = toward the stairs wall", c0, c0 + 32);
+    const tex = new THREE.CanvasTexture(cv); tex.anisotropy = 4;
+    const main = regions.reduce((a, b) => (b.d > a.d ? b : a));
+    const rose = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.0).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: tex, transparent: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    rose.position.set(main.x1 + 1.5, 0.02, (main.z0 + main.z1) / 2 + 1.5);                // on the deck beside the main pool's stairs wall (the canvas's right = +x = 0 degrees, its top = +y = 90 degrees)
+    pool.add(rose);
   }
 
   // one lane line down the middle of each 3 m lane on the deep floor (a wide pool has several), with a "T" at each end like a real pool, and short 1 m ruler ticks
@@ -1035,6 +1064,27 @@ function deckRegion(x, z) {
 }
 const deck = { side: null, eye: new THREE.Vector3(), focus: new THREE.Vector3(), zoom: 1.0, pan: new THREE.Vector3() };       // the Deck view: where the person stands and what they look at
 renderer.domElement.addEventListener("wheel", (e) => { if (view !== "deck") return; e.preventDefault(); zoomBy(e.deltaY > 0 ? 1 / 1.12 : 1.12); }, { passive: false });
+// Orbit view: Ctrl (or Shift, or the right button) + drag slides the whole view along the water (left / right / north / south) instead of tilting it; the height never changes.
+{
+  let pan = null;
+  window.addEventListener("pointerdown", (e) => {
+    if (view !== "orbit" || e.target !== renderer.domElement || !(e.ctrlKey || e.shiftKey || e.button === 2) || document.getElementById("configui")) return;
+    e.stopImmediatePropagation(); e.preventDefault();                                        // (OrbitControls does not get this drag)
+    pan = { x: e.clientX, y: e.clientY }; userMoved = true;
+    try { renderer.domElement.setPointerCapture(e.pointerId); } catch (err) { /* not capturable */ }
+  }, true);
+  window.addEventListener("pointermove", (e) => {
+    if (!pan || view !== "orbit") return;
+    const dx = e.clientX - pan.x, dy = e.clientY - pan.y; pan.x = e.clientX; pan.y = e.clientY;
+    const f = controls.target.clone().sub(camera.position); f.y = 0; if (f.lengthSq() < 1e-8) return; f.normalize();
+    const right = new THREE.Vector3().crossVectors(f, new THREE.Vector3(0, 1, 0)), k = 0.0022 * camera.position.distanceTo(controls.target);
+    const d = right.multiplyScalar(-dx * k).addScaledVector(f, dy * k);                      // grab the water and move it with the mouse
+    controls.target.add(d); camera.position.add(d); controls.update();
+  }, true);
+  const stop = (e) => { if (!pan) return; pan = null; try { renderer.domElement.releasePointerCapture(e.pointerId); } catch (err) { /* ignore */ } };
+  window.addEventListener("pointerup", stop, true); window.addEventListener("pointercancel", stop, true);
+  renderer.domElement.addEventListener("contextmenu", (e) => e.preventDefault());
+}
 /** The toolbar's + and - (also used by the wheel in the Deck view): zoom whatever the current view is. f > 1 zooms in. */
 function zoomBy(f) {
   if (view === "deck") deck.zoom = Math.max(0.35, Math.min(2.5, deck.zoom / f));
@@ -1117,6 +1167,11 @@ function resize() {
   camera.updateProjectionMatrix();
 }
 controls.addEventListener("start", () => { userMoved = true; });
+controls.addEventListener("change", () => {                  // do not let the view be panned away from the pool altogether
+  const lo = new THREE.Vector3(bbox.x0 - 3, -maxDepth, bbox.z0 - 3), hi = new THREE.Vector3(bbox.x1 + 3, 1.5, bbox.z1 + 3);
+  const t = controls.target, c = t.clone().clamp(lo, hi);
+  if (!c.equals(t)) { const d = c.sub(t); controls.target.add(d); camera.position.add(d); }
+});
 let refit = 0;
 function onResize() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPR));   // zoom changes devicePixelRatio
