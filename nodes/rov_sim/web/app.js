@@ -215,6 +215,8 @@ function wallSegments() {
   return segs;
 }
 
+let sceneryMod = null, scenery = null, deckBox = null;      // quiet scenery far away (scenery.js, optional); the pool is built again once it has loaded
+if (cfg.scenery) import("./scenery.js").then((m) => { sceneryMod = m; buildPool(); }).catch(() => { /* no scenery */ });
 function buildPool() {
   pool.clear();
   solids.length = 0;
@@ -258,6 +260,7 @@ function buildPool() {
     const xs = new Set([bbox.x0 - 7 * grow, bbox.x1 + 7 * grow]), zs = new Set([bbox.z0 - 6 * grow, bbox.z1 + 6 * grow]);
     for (const r of regions) { xs.add(r.x0); xs.add(r.x1); zs.add(r.z0); zs.add(r.z1); }
     const X = [...xs].sort((a, b) => a - b), Z = [...zs].sort((a, b) => a - b), pos = [], idx = [];
+    deckBox = { x0: X[0], x1: X[X.length - 1], z0: Z[0], z1: Z[Z.length - 1] };
     for (let i = 0; i < X.length - 1; i++) for (let j = 0; j < Z.length - 1; j++) {
       if (insidePool((X[i] + X[i + 1]) / 2, (Z[j] + Z[j + 1]) / 2, -EPS)) continue;      // that cell is water
       const k = pos.length / 3;
@@ -273,6 +276,9 @@ function buildPool() {
     pool.add(deck);
     solid(deck, (c) => c.y < 0.01);
   }
+
+  scenery = null;
+  if (cfg.scenery && sceneryMod && deckBox) { scenery = sceneryMod.buildScenery(THREE, deckBox, cx); pool.add(scenery.group); }       // grass beyond the deck, and the koi pond
 
   // a compass rose on the deck, beside the stairs wall: the headings on the screen (0 to 360 degrees) are measured from the +x direction, counter-clockwise seen from above
   {
@@ -1243,6 +1249,7 @@ function frame(now) {
   if (eels) eels.update(state.props, dt, t, rov);
   if (missionHud) missionHud.update(state);
   if (missionView) { missionView.update(state.props, dt, t, floorAt); }
+  if (scenery) scenery.update(t);
   { const eel = eelProp(); if (eel && eel.zap) wobble = Math.max(wobble, 0.9); }        
   if (jets) jets.update(state.props, dt);
   for (const m of solids) {                          // x-ray: fade what is between us and the pool

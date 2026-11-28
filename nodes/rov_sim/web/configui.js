@@ -87,6 +87,7 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
       <div class="row ${off(can("fish"))}"><label><input type="checkbox" id="cfg-fish"${cur.fish ? " checked" : ""}${dis(can("fish"))}> Fish</label></div>
       <div class="row ${off(can("rings"))}"><label for="cfg-rings">Pool rings (0&ndash;${LIMITS.rings[1]}, usually ${DEFAULTS.rings})</label><input type="number" id="cfg-rings" min="${LIMITS.rings[0]}" max="${LIMITS.rings[1]}" step="1" value="${cur.rings}"${dis(can("rings"))}></div>
       <div class="row ${off(can("crabs"))}"><label for="cfg-crabs">Green crabs (0&ndash;${LIMITS.crabs[1]}, usually ${DEFAULTS.crabs})</label><input type="number" id="cfg-crabs" min="${LIMITS.crabs[0]}" max="${LIMITS.crabs[1]}" step="1" value="${cur.crabs}"${dis(can("crabs"))}></div>
+      <div class="row"><label><input type="checkbox" id="cfg-scenery"${cur.scenery ? " checked" : ""}> Scenery <small>grass beyond the deck and a koi pond</small></label></div>
       <div class="row"><label><input type="checkbox" id="cfg-camera"${cur.camera ? " checked" : ""}> Camera <small>its housing on the ROV, the camera window, and the fish coming to look at it</small></label></div>
       ${can("fish") ? "" : '<div class="note">Fish, crabs and rings are set by the Python server (--fish, --crabs, --rings).</div>'}
     </fieldset>
@@ -113,6 +114,7 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
     cur.rings = clampInt($("cfg-rings").value, LIMITS.rings, DEFAULTS.rings);
     cur.crabs = clampInt($("cfg-crabs").value, LIMITS.crabs, DEFAULTS.crabs);
     cur.camera = $("cfg-camera").checked;
+    cur.scenery = $("cfg-scenery").checked;
     const was = { ...cur };
     cur.current = $("cfg-current").checked;
     cur.flow = $("cfg-flow").value;
@@ -135,7 +137,7 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
   $("cfg-defaults").addEventListener("click", () => {                          // back to the normal setup: the "right now" ones are applied at once
     Object.assign(cur, DEFAULTS);
     el.querySelectorAll('input[name="cfg-controls"]').forEach((r) => { r.checked = r.value === cur.controls; });
-    $("cfg-mission").value = cur.mission; $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-crabs").value = cur.crabs; $("cfg-camera").checked = cur.camera;
+    $("cfg-mission").value = cur.mission; $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-crabs").value = cur.crabs; $("cfg-camera").checked = cur.camera; $("cfg-scenery").checked = cur.scenery;
     $("cfg-current").checked = cur.current; $("cfg-flow").value = cur.flow; $("cfg-speed").value = cur.speed; $("cfg-thrusters").value = cur.thrusters; $("cfg-pool").value = `${cur.poollength}x${cur.poolwidth}`; $("cfg-depth").value = cur.pooldepth; $("cfg-buoy").value = "neutral";
     for (const id of ["cfg-current", "cfg-flow", "cfg-speed", "cfg-thrusters", "cfg-pool", "cfg-depth", "cfg-buoy"]) read(id);
   });
