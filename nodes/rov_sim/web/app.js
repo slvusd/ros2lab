@@ -721,6 +721,7 @@ rov.rotation.order = "YXZ";           // yaw first, then roll about the ROV's ow
 
 // ---------- optional add-on: props.js draws the pick-up ring (delete that file to remove it) ----------
 let props = null;
+import("./music.js").then((m) => m.initMusic()).catch(() => { /* no music */ });
 import("./props.js").then((m) => { props = new m.Props(scene, THREE); }).catch(() => { /* no props */ });
 let fish = null;                      // optional add-on: fish.js draws the coy fish (delete that file to remove it)
 import("./fish.js").then((m) => { fish = new m.Fish(scene, THREE); }).catch(() => { /* no fish */ });

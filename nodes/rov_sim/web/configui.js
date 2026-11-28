@@ -74,6 +74,8 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
       <div class="row ${off(live.speed)}"><label for="cfg-speed">Red and green thruster power <small>(1&times; = normal)</small></label>
         <span class="speed"><input type="range" id="cfg-speed" min="${LIMITS.speed[0]}" max="${LIMITS.speed[1]}" step="0.25" value="${cur.speed}"${dis(live.speed)}> <b id="cfg-speedv"></b></span></div>
       <div class="row ${off(live.thrusters)}"><label for="cfg-thrusters">Thrusters <small>(the ROV starts over)</small></label><select id="cfg-thrusters"${dis(live.thrusters)}>${THRUSTER_MODES.map((n) => `<option value="${n}"${cur.thrusters === n ? " selected" : ""}>${{ 3: "3: red, green, one up/down", 4: "4: red, green, front and rear up/down", 6: "6: four on the posts, two up/down", 8: "8: one at each of the 8 corners" }[n]}</option>`).join("")}</select></div>
+      <div class="row inline"><label><input type="checkbox" id="cfg-music"> <span>Music <small id="cfg-musicnote"></small></span></label>
+        <span class="speed"><input type="range" id="cfg-musicvol" min="0" max="1" step="0.05" aria-label="Music volume"> <input type="file" id="cfg-musicfile" accept="audio/*" hidden><button class="quiet" id="cfg-musicpick" title="Play an audio file from this computer">Choose&hellip;</button></span></div>
       <div class="note" id="cfg-size"></div>
       ${live.pool && live.current ? "" : '<div class="note">With the Python server the pool size, the water and the thruster power are set when it starts (--current, --speed, its pool).</div>'}
     </fieldset>
@@ -149,6 +151,16 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
     setTimeout(() => { $("cfg-copy").textContent = "Copy link"; }, 1500);
   });
   window.addEventListener("keydown", (e) => { if (e.code === "Escape" && document.getElementById("configui")) close(); });
+  import("./music.js").then(async (m) => {                                      // music is this browser's own setting: not in the link, not a restart option
+    const st = m.musicState(), has = await m.musicAvailable();
+    $("cfg-music").checked = st.on && has; $("cfg-musicvol").value = st.volume;
+    const note = () => { $("cfg-musicnote").textContent = has ? "" : "(add web/music/background.mp3, or choose a file)"; };
+    note();
+    $("cfg-music").addEventListener("change", async (e) => { e.stopPropagation(); if (!(await m.setMusicOn($("cfg-music").checked)) && $("cfg-music").checked && !(await m.musicAvailable())) { $("cfg-music").checked = false; $("cfg-musicnote").textContent = "(no music file yet: choose one)"; } });
+    $("cfg-musicvol").addEventListener("input", (e) => { e.stopPropagation(); m.setMusicVolume($("cfg-musicvol").value); });
+    $("cfg-musicpick").addEventListener("click", () => $("cfg-musicfile").click());
+    $("cfg-musicfile").addEventListener("change", async (e) => { e.stopPropagation(); const f = $("cfg-musicfile").files[0]; if (!f) return; await m.useMusicFile(f); $("cfg-music").checked = await m.setMusicOn(true); $("cfg-musicnote").textContent = `(${f.name})`; });
+  }).catch(() => { /* no music module */ });
   refresh();
   $("cfg-close").focus();
 }

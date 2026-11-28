@@ -263,4 +263,8 @@ The **Quality** choice and (when no `controls` option is given) the **H-bridge o
 - To give students a fixed setup (for example H-circuit only, 2 rings, no fish), open **Set up the pool**, choose, and send them the link it makes.
 - The page uses no outside web sites (everything is bundled), so a school web filter does not break it.
 
+## Music
+
+The note (&#9835;) in the title bar turns all the sound on and off (the music, and the eel's zap and bang); Config sets the volume (half by default) or plays a file of your own. The track is "WHEN THE SKY TURNS BLUE" by BOCrew, from [ccMixter](https://ccmixter.org/files/BOCrew/31685), licensed [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
+
 [Back to the pool](index.html)
