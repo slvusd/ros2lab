@@ -2,6 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+globalThis.location = { search: "?mission=none" }; globalThis.document = globalThis.document ?? { addEventListener() {} };   // free driving: the pool can be resized (a mission has its own pool)
 const b = await import("../../backend-local.js");
 
 test("the browser version reports the IMU (the panel), the claw, rings, crabs and the current as available, and no joysticks", () => {

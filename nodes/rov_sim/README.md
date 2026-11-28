@@ -102,6 +102,7 @@ It is an **add-on in `web/missions/`**, loaded by a dynamic `import()` from `bac
 Written so a second mission can sit beside it:
 - `missions/common/` (nothing 2026-specific): `carry.js` the carry engine (catch points; NOSE hook then hang, put down and back out; CLAW hold; the crew's hand-over), `clock.js`, `board.js` (score board model), `cable.js`
   (a drawn cable: trail, retract, drape on the floor), `hud.js` (clock, score board and inventory panels, plain DOM), `view3d.js` (drawing helpers).
+- `missions/rings2026/`: the little ring game (`?mission=rings2026`): `rings2026.js` is one `mission` prop, a 5 minute clock, 5 points for each ring let go of (G) in the stairs, and the ring is dropped again at a random spot; the rings are the ordinary rings.
 - `missions/scout2026/`: `scout2026.js` (the `Mission` prop: clock, board, deck, inventory, the judges of the 17 scored items, 125 points), `layout.js` (every position, wall-relative: edit it to move things),
   `items.js` (the carryable props and the static ones: transect, iceberg, eDNA square, observatory, stand, waypoint, oil port), `pot.js` (the lobster pot), `props3d.js` (drawing from the prop building instructions' sizes).
 - Tests: `node --test nodes/rov_sim/web/missions/`, including a scripted nose-only run that earns all 125 points (`fullrun.test.js`). Core hooks outside the folder: `rov.start_pose` (physics.js), `eelDead()` generalised to any prop

@@ -174,7 +174,7 @@ test("the main pool can be 2, 3, 4 or 6 m deep; the shallow end and the stairs s
 });
 
 test("growing the pool (the , . / keys) keeps the ROV where it is; the shallow end, crab and outlets follow the far wall", async () => {
-  globalThis.location = { search: "" }; globalThis.document = { addEventListener() {} };
+  globalThis.location = { search: "?mission=none" }; globalThis.document = { addEventListener() {} };
   const bl = await import("../../backend-local.js");
   const { POOL_WATER } = await import("../physics.js");
   bl.setPoolSize(1, 1, 2);

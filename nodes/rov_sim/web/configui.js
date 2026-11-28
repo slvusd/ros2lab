@@ -4,7 +4,7 @@
 //               (app.js gives this file a `live` object that does the work).
 //   RESTART     the controls mode, the fish, rings, crabs and the camera are built when the page starts: they apply when you press Restart,
 //               which reloads the page with the new address.
-import { DEFAULTS, LIMITS, CONFIG_KEYS, FLOW_LOOKS, THRUSTER_MODES, POOL_DEPTHS, POOL_PRESETS, toQuery, poolSizeText } from "./config.js";
+import { DEFAULTS, LIMITS, CONFIG_KEYS, FLOW_LOOKS, THRUSTER_MODES, POOL_DEPTHS, POOL_PRESETS, MISSIONS, MISSION_NAMES, toQuery, poolSizeText } from "./config.js";
 
 const CSS = `
 #configui { position: fixed; inset: 0; z-index: 50; background: rgba(4, 16, 26, .3); display: flex; align-items: center; justify-content: center; padding: 16px; box-sizing: border-box; }
@@ -80,6 +80,7 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
       ${live.pool && live.current ? "" : '<div class="note">With the Python server the pool size, the water and the thruster power are set when it starts (--current, --speed, its pool).</div>'}
     </fieldset>
     <fieldset><legend>Needs a restart</legend>
+      <div class="row ${off(can("mission"))}"><label for="cfg-mission">Mission</label><select id="cfg-mission"${dis(can("mission"))}>${MISSIONS.map((v) => opt(v, MISSION_NAMES[v], cur.mission === v)).join("")}</select></div>
       ${radio("all", "All keys", "the three switches and the extra keys. H switches modes.")}
       ${radio("h", "H-circuit only", "just the three switches, like the real controller. Locked: H does nothing.")}
       ${radio("h-hidden", "H-circuit only, everything else hidden", "only the switch box (and the camera view) on the page.")}
@@ -107,6 +108,7 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
   /** Read the form into `cur`, and do what a changed "right now" field means. `which` is the id of the field that changed (or null for all). */
   const read = (which = null) => {
     cur.controls = el.querySelector('input[name="cfg-controls"]:checked').value;
+    cur.mission = $("cfg-mission").value;
     cur.fish = $("cfg-fish").checked;
     cur.rings = clampInt($("cfg-rings").value, LIMITS.rings, DEFAULTS.rings);
     cur.crabs = clampInt($("cfg-crabs").value, LIMITS.crabs, DEFAULTS.crabs);
@@ -133,7 +135,7 @@ export function showConfig({ cfg, configurable = {}, live = {} }) {
   $("cfg-defaults").addEventListener("click", () => {                          // back to the normal setup: the "right now" ones are applied at once
     Object.assign(cur, DEFAULTS);
     el.querySelectorAll('input[name="cfg-controls"]').forEach((r) => { r.checked = r.value === cur.controls; });
-    $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-crabs").value = cur.crabs; $("cfg-camera").checked = cur.camera;
+    $("cfg-mission").value = cur.mission; $("cfg-fish").checked = cur.fish; $("cfg-rings").value = cur.rings; $("cfg-crabs").value = cur.crabs; $("cfg-camera").checked = cur.camera;
     $("cfg-current").checked = cur.current; $("cfg-flow").value = cur.flow; $("cfg-speed").value = cur.speed; $("cfg-thrusters").value = cur.thrusters; $("cfg-pool").value = `${cur.poollength}x${cur.poolwidth}`; $("cfg-depth").value = cur.pooldepth; $("cfg-buoy").value = "neutral";
     for (const id of ["cfg-current", "cfg-flow", "cfg-speed", "cfg-thrusters", "cfg-pool", "cfg-depth", "cfg-buoy"]) read(id);
   });

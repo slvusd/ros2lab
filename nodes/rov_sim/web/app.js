@@ -728,8 +728,8 @@ import("./fish.js").then((m) => { fish = new m.Fish(scene, THREE); }).catch(() =
 let missionHud = null;                // a mission (?mission=): the score board, the clock and the crew's inventory (missions/common/hud.js); nothing is loaded without one
 if (backend.features.mission) import("./missions/common/hud.js").then((m) => { missionHud = m.setupMissionHud({ backend, toast }); }).catch((e) => console.warn("mission panel failed:", e));
 let missionView = null;               // the mission's props, drawn (missions/<name>/props3d.js)
-if (backend.features.mission) import(`./missions/${cfg.mission}/props3d.js`).then((m) => { missionView = new m.MissionView(scene, THREE); if (cfg.labels) toggleLabels(); }).catch((e) => console.warn("mission props failed:", e));
-function toggleLabels() { if (!missionView) return; missionView.setLabels(!missionView.labelsOn, floorAt); $("labels").classList.toggle("on", missionView.labelsOn); liveCfg.labels = missionView.labelsOn; syncAddress(); toast(missionView.labelsOn ? "Labels on (P turns them off)" : "Labels off"); }
+if (backend.features.mission) import(`./missions/${cfg.mission}/props3d.js`).then((m) => { missionView = new m.MissionView(scene, THREE); if (missionView.hasLabels === false) $("labels").style.display = "none"; else if (cfg.labels) toggleLabels(); }).catch((e) => console.warn("mission props failed:", e));
+function toggleLabels() { if (!missionView || missionView.hasLabels === false) return; missionView.setLabels(!missionView.labelsOn, floorAt); $("labels").classList.toggle("on", missionView.labelsOn); liveCfg.labels = missionView.labelsOn; syncAddress(); toast(missionView.labelsOn ? "Labels on (P turns them off)" : "Labels off"); }
 if (backend.features.mission) { $("labels").style.display = ""; $("labels").addEventListener("click", toggleLabels); }
 let eels = null;                      // optional joke add-on: eel.js draws the electric eel, the sparks and the smoke (delete that file to remove them)
 import("./eel.js").then((m) => { eels = new m.Eels(scene, THREE); }).catch(() => { /* no eel */ });
@@ -892,7 +892,7 @@ window.addEventListener("keydown", (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.code === "KeyV" && !e.repeat) { resetView(); return; }
   if (eelDead()) { e.preventDefault(); return; }
-  if (e.code === "KeyP" && !e.repeat && missionView) { toggleLabels(); return; }                      // plaques on the floor beside each prop
+  if (e.code === "KeyP" && !e.repeat && missionView && missionView.hasLabels !== false) { toggleLabels(); return; }                      // plaques on the floor beside each prop
   if (backend.features.mission && !e.repeat) {                                // the mission's crew keys
     if (e.code === "KeyG") { backend.missionDeliver(); return; }
     if (e.code === "Tab" && missionHud) { e.preventDefault(); missionHud.toggleInventory(); return; }
@@ -1476,7 +1476,7 @@ if (new URLSearchParams(location.search).has("selftest")) {
       for (let k = 0; k < 200 && eelDead(); k++) await wait(100);
       if (eelDead()) return fail("the ROV never woke up again");
     }
-    if (backend.features.mission) {                                    // a mission: its panel, the props drawn, the board
+    if (backend.features.mission && cfg.mission === "scout2026") {      // the Scout mission: its panel, the props drawn, the board
       for (let k = 0; k < 60 && !(missionView && missionHud && missionView.items.size >= 8); k++) await wait(100);
       const mp = (state.props || []).find((p) => p.type === "mission");
       if (!document.getElementById("mission") || !mp || mp.board.items.length < 10) return fail("the mission panel or its state is missing");

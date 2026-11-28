@@ -7,7 +7,7 @@ const plain = (c) => Object.fromEntries(CONFIG_KEYS.map((k) => [k, c[k]]));
 
 test("no parameters: the defaults (3 rings, a fish, a camera, all keys, the normal pool)", () => {
   assert.deepEqual(plain(parseConfig("")), DEFAULTS);
-  assert.deepEqual(DEFAULTS, { mission: "none", labels: false, controls: "h", fish: true, rings: 3, poollength: 1, poolwidth: 1, pooldepth: 2, camera: false, speed: 1, crabs: 1, current: false, flow: "mix", thrusters: 4 });
+  assert.deepEqual(DEFAULTS, { mission: "rings2026", labels: false, controls: "h", fish: true, rings: 3, poollength: 1, poolwidth: 1, pooldepth: 2, camera: false, speed: 1, crabs: 1, current: false, flow: "mix", thrusters: 4 });
   assert.equal(parseConfig("").explicit.size, 0);
   assert.equal(parseConfig("").open, false);
 });
@@ -143,15 +143,18 @@ test("pooldepth: 2, 3, 4 or 6 metres, default 2; anything else is ignored", () =
   assert.equal(toQuery({ ...DEFAULTS, pooldepth: 4 }), "pooldepth=4");
 });
 
-test("mission: none or scout2026; a mission sets its own start-up, the address still wins", () => {
-  assert.equal(parseConfig("").mission, "none");
+test("mission: rings2026 by default, scout2026, or none; a mission sets its own start-up, the address still wins", () => {
+  assert.equal(parseConfig("").mission, "rings2026");
+  assert.equal(parseConfig("?mission=none").mission, "none"); assert.equal(parseConfig("?mission=none").explicit.has("mission"), true);
   assert.equal(parseConfig("?mission=SCOUT2026").mission, "scout2026");
-  assert.equal(parseConfig("?mission=banana").mission, "none"); assert.equal(parseConfig("?mission=banana").explicit.has("mission"), false);
+  assert.equal(parseConfig("?mission=banana").mission, "rings2026"); assert.equal(parseConfig("?mission=banana").explicit.has("mission"), false);
   const m = parseConfig("?mission=scout2026");
   assert.deepEqual([m.rings, m.crabs, m.fish, m.poollength, m.poolwidth, m.pooldepth, m.camera], [0, 1, true, 1, 2, 2, false], "no rings, but the fish and the crab stay");
   const o = parseConfig("?mission=scout2026&rings=2&pooldepth=4");
   assert.equal(o.rings, 2); assert.equal(o.pooldepth, 4); assert.equal(o.explicit.has("rings"), true);
   assert.equal(toQuery({ ...DEFAULTS, mission: "scout2026" }), "mission=scout2026");
+  assert.equal(toQuery({ ...DEFAULTS, mission: "none" }), "mission=none", "none has to be in the address, since it is not the default");
+  assert.equal(toQuery({ ...DEFAULTS }), "");
 });
 
 test("labels: on or off, default off", () => {
@@ -165,6 +168,6 @@ test("view: orbit, deck, follow or top (any case); anything else gives the norma
   for (const v of ["orbit", "deck", "follow", "top"]) assert.equal(startView(`?view=${v}`), v);
   assert.equal(startView("?view=TOP"), "top"); assert.equal(startView("?view=%20Deck%20"), "deck");
   assert.equal(startView(""), "orbit"); assert.equal(startView("?view=sideways"), "orbit");
-  assert.equal(startView("", "scout2026"), "deck", "a mission starts on the deck"); assert.equal(startView("?view=orbit", "scout2026"), "orbit", "unless the address says otherwise");
+  assert.equal(startView("", "scout2026"), "deck", "the Scout mission starts on the deck"); assert.equal(startView("", "rings2026"), "orbit", "the rings game and free driving start in orbit"); assert.equal(startView("", "none"), "orbit"); assert.equal(startView("?view=orbit", "scout2026"), "orbit", "unless the address says otherwise");
   assert.equal(startView("?view=nope", "scout2026"), "deck");
 });
